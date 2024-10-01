@@ -9,9 +9,14 @@ import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
 
 import static org.mockito.ArgumentMatchers.any;
+
 
 @WebMvcTest(CompanyController.class)
 public class CompanyControllerTest {
@@ -30,5 +35,12 @@ public class CompanyControllerTest {
         // Arrange
         Company company = Company.builder().name("AHAB").id(1L).build();
         Mockito.when(companyService.createCompany(any(Company.class))).thenReturn(company);
+
+        // Act & Assert
+        mockMvc.perform(post("/companies")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(company)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("AHAB"));
     }
 }

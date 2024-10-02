@@ -33,7 +33,7 @@ public class CompanyControllerTest {
     @Test
     void createCompany_ShouldReturnCompany_WhenRequestIsValid() throws Exception {
         // Arrange
-        Company company = Company.builder().name("AHAB").id(1L).build();
+        Company company = Company.builder().name("AHAB").build();
         Mockito.when(companyService.createCompany(any(Company.class))).thenReturn(company);
 
         // Act & Assert

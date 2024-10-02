@@ -19,5 +19,4 @@ public class Company {
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "company_id_seq")
     private Long id;
     private String name;
-    public static int total;
 }

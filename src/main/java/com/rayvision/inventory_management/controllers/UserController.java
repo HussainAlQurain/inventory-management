@@ -20,4 +20,9 @@ public class UserController {
     public Users createUser(@RequestBody Users user) {
         return userService.createUser(user);
     }
+
+    @PostMapping("login")
+    public String login(@RequestBody Users user) {
+        return "Success";
+    }
 }

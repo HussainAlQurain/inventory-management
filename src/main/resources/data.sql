@@ -1,0 +1,2 @@
+--password is admin
+INSERT INTO users (active, id, email, password, roles, username) VALUES (TRUE, 0, 'hussain', '$2a$14$C2HvKTOQmGVMKZGQ0xa1NO8UUcRHoYgjESdZlEj51bZcSKye43Qdm', 'USER, ADMIN', 'admin');

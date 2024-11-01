@@ -33,20 +33,20 @@ public class SecurityConfig {
                 .authorizeHttpRequests(request -> request.anyRequest().authenticated())
                 .formLogin(Customizer.withDefaults())
                 .httpBasic(Customizer.withDefaults())
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+//                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .build();
     }
 
     @Bean
     public AuthenticationProvider authenticationProvider() {
         DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
-        provider.setPasswordEncoder(NoOpPasswordEncoder.getInstance());
+        provider.setPasswordEncoder(bCryptPasswordEncoder());
         provider.setUserDetailsService(userDetailsService);
         return provider;
     }
 
     @Bean
     BCryptPasswordEncoder bCryptPasswordEncoder() {
-        return new BCryptPasswordEncoder()
+        return new BCryptPasswordEncoder(14);
     }
 }

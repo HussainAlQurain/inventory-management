@@ -2,12 +2,9 @@ package com.rayvision.inventory_management.controllers;
 
 import com.rayvision.inventory_management.model.Users;
 import com.rayvision.inventory_management.service.UserService;
-import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.web.csrf.CsrfToken;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.security.Principal;
 
 @RestController
 @RequestMapping("/users")
@@ -22,7 +19,8 @@ public class UserController {
     }
 
     @PostMapping("login")
-    public String login(@RequestBody Users user) {
-        return "Success";
+    public ResponseEntity<String> login(@RequestBody Users user) {
+        String authenticatedUser = userService.verify(user);
+        return ResponseEntity.ok(authenticatedUser);
     }
 }

@@ -1,7 +1,7 @@
 package com.rayvision.inventory_management.config;
 
 import com.rayvision.inventory_management.model.Users;
-import com.rayvision.inventory_management.model.dto.CreateUserDTO;
+import com.rayvision.inventory_management.model.dto.UserDto;
 import org.modelmapper.ModelMapper;
 import org.modelmapper.PropertyMap;
 import org.modelmapper.convention.MatchingStrategies;
@@ -16,7 +16,7 @@ public class MapperConfig {
         modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.LOOSE);
 
         // Custom mapping configuration for CreateUserDTO to Users
-        modelMapper.addMappings(new PropertyMap<CreateUserDTO, Users>() {
+        modelMapper.addMappings(new PropertyMap<UserDto, Users>() {
             @Override
             protected void configure() {
                 // Map fields from DTO to entity

@@ -19,4 +19,18 @@ public class Company {
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "company_id_seq")
     private Long id;
     private String name;
+    private String tax_id;
+    private String phone;
+    private String mobile;
+    private String email;
+    private String state;
+    private String city;
+    private String address;
+    private String zip;
+
+    private boolean addPurchasedItemsToFavorites;
+    private String logo;
+    private Double allowedInvoiceDeviation;
+    private String accountingSoftware;
+    private boolean exportDeliveryNotesAsBills;
 }

@@ -43,4 +43,8 @@ public class Users {
             inverseJoinColumns = @JoinColumn(name = "location_id")
     )
     private Set<Location> locations;
+
+    public void setActive(boolean active) {
+        this.status = "active";
+    }
 }

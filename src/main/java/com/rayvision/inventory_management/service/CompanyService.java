@@ -1,23 +1,14 @@
 package com.rayvision.inventory_management.service;
 
-
 import com.rayvision.inventory_management.model.Company;
-import com.rayvision.inventory_management.repository.CompanyRepository;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
 
-@Service
-public class CompanyService {
+import java.util.List;
+import java.util.Optional;
 
-    private final CompanyRepository companyRepository;
-
-    CompanyService(CompanyRepository companyRepository)
-    {
-        this.companyRepository = companyRepository;
-    }
-
-    public Company createCompany(Company company)
-    {
-        return companyRepository.save(company);
-    }
+public interface CompanyService {
+    Company save(Company company);
+    List<Company> findAll();
+    Optional<Company> findOne(Long id);
+    Company partialUpdate(Long id, Company company);
+    boolean isExists(Long id);
 }

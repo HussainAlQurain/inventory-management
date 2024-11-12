@@ -2,7 +2,7 @@ package com.rayvision.inventory_management;
 
 import com.rayvision.inventory_management.model.Company;
 import com.rayvision.inventory_management.repository.CompanyRepository;
-import com.rayvision.inventory_management.service.CompanyService;
+import com.rayvision.inventory_management.service.impl.CompanyServiceImpl;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -19,7 +19,7 @@ public class CompanyServiceTest {
     private CompanyRepository companyRepository;
 
     @InjectMocks
-    private CompanyService companyService;
+    private CompanyServiceImpl companyService;
 
     public CompanyServiceTest()
     {

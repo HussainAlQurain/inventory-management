@@ -3,7 +3,7 @@ package com.rayvision.inventory_management.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rayvision.inventory_management.controllers.CompanyController;
 import com.rayvision.inventory_management.model.Company;
-import com.rayvision.inventory_management.service.CompanyService;
+import com.rayvision.inventory_management.service.impl.CompanyServiceImpl;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,7 +25,7 @@ public class CompanyControllerTest {
     private MockMvc mockMvc;
 
     @MockBean
-    private CompanyService companyService;
+    private CompanyServiceImpl companyService;
 
     @Autowired
     private ObjectMapper objectMapper;

@@ -2,6 +2,7 @@ package com.rayvision.inventory_management.controllers;
 
 import com.rayvision.inventory_management.model.Company;
 import com.rayvision.inventory_management.service.CompanyService;
+import com.rayvision.inventory_management.service.impl.CompanyServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -28,7 +29,7 @@ public class CompanyController {
     @PostMapping
     public Company createCompany(@RequestBody Company company)
     {
-        return companyService.createCompany(company);
+        return companyService.save(company);
     }
 
     @GetMapping

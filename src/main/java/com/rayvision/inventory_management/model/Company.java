@@ -28,9 +28,9 @@ public class Company {
     private String address;
     private String zip;
 
-    private boolean addPurchasedItemsToFavorites;
+    private Boolean addPurchasedItemsToFavorites;
     private String logo;
     private Double allowedInvoiceDeviation;
     private String accountingSoftware;
-    private boolean exportDeliveryNotesAsBills;
+    private Boolean exportDeliveryNotesAsBills;
 }

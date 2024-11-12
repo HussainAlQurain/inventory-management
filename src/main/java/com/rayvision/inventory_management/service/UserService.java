@@ -6,6 +6,7 @@ import com.rayvision.inventory_management.model.Users;
 import com.rayvision.inventory_management.repository.RoleRepository;
 import com.rayvision.inventory_management.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -100,7 +101,7 @@ public class UserService {
         try {
             authentication = authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(user.getUsername(), user.getPassword()));
         } catch (BadCredentialsException e) {
-            throw new RuntimeException("Invalid Username or password");
+            throw new BadCredentialsException("Invalid Username or password");
         }
 
 

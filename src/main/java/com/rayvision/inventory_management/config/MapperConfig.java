@@ -23,8 +23,12 @@ public class MapperConfig {
                 map().setUsername(source.getUsername());
                 map().setPassword(source.getPassword());
                 map().setEmail(source.getEmail());
-                // Set the default value for active to true if not explicitly set
-                map().setActive(source.isActive());
+                map().setStatus(source.getStatus());
+                map().setFirstName(source.getFirstName());
+                map().setLastName(source.getLastName());
+                map().setPhone(source.getPhone());
+                skip(destination.getCompanies());
+                skip(destination.getRoles());
             }
         });
 

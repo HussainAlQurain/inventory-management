@@ -27,7 +27,12 @@ public class Users {
     private String phone;
 
     @ManyToMany
-    private Company company;
+    @JoinTable(
+            name = "user_companies",
+            joinColumns = @JoinColumn(name = "user_id"),
+            inverseJoinColumns = @JoinColumn(name = "company_id")
+    )
+    private Set<Company> companies = new HashSet<>();
 
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(

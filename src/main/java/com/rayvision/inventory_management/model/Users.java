@@ -18,10 +18,17 @@ public class Users {
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "user_id_seq")
     private long id;
-    private  String username;
+    private String username;
     private String password;
     private String email;
-    private boolean active;
+    private String status = "active";
+    private String firstName;
+    private String lastName;
+    private String phone;
+
+    @ManyToMany
+    private Company company;
+
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
             name = "user_roles",

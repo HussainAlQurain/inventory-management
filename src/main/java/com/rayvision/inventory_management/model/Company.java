@@ -16,7 +16,7 @@ import java.util.Set;
 @Entity
 public class Company {
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "company_id_seq")
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     private String name;
     private String tax_id;

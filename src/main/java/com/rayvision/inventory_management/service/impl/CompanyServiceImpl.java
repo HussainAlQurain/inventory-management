@@ -2,10 +2,15 @@ package com.rayvision.inventory_management.service.impl;
 
 
 import com.rayvision.inventory_management.model.Company;
+import com.rayvision.inventory_management.model.Users;
 import com.rayvision.inventory_management.repository.CompanyRepository;
+import com.rayvision.inventory_management.repository.UserRepository;
 import com.rayvision.inventory_management.service.CompanyService;
+import com.rayvision.inventory_management.service.UserService;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -16,9 +21,12 @@ public class CompanyServiceImpl implements CompanyService {
 
     private final CompanyRepository companyRepository;
 
-    CompanyServiceImpl(CompanyRepository companyRepository)
+    private final UserService userService;
+
+    CompanyServiceImpl(CompanyRepository companyRepository, UserService userService)
     {
         this.companyRepository = companyRepository;
+        this.userService = userService;
     }
 
     @Override
@@ -61,5 +69,10 @@ public class CompanyServiceImpl implements CompanyService {
     @Override
     public boolean isExists(Long id) {
         return companyRepository.existsById(id);
+    }
+
+    @Override
+    public List<Company> findByUserId(Long userId) {
+        return companyRepository.findCompaniesByUserId(userId);
     }
 }

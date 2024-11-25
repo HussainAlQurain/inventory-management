@@ -39,4 +39,13 @@ public class CompanyController {
             return new ResponseEntity<>(company, HttpStatus.OK);
         }).orElse(new ResponseEntity<>(HttpStatus.NOT_FOUND));
     }
+
+    @GetMapping("/user/{userId}")
+    public ResponseEntity<List<Company>> getCompaniesByUserId(@PathVariable Long userId) {
+        List<Company> companies = companyService.findByUserId(userId);
+        if(companies.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(companies);
+    }
 }

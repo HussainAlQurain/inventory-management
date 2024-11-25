@@ -16,7 +16,7 @@ import java.util.Set;
 @Entity
 public class Users {
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "user_id_seq")
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long id;
     private String username;
     private String password;
@@ -26,7 +26,7 @@ public class Users {
     private String lastName;
     private String phone;
 
-    @ManyToMany
+    @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
             name = "user_companies",
             joinColumns = @JoinColumn(name = "user_id"),

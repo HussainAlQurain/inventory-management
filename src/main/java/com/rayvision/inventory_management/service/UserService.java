@@ -15,6 +15,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.HashSet;
+import java.util.Optional;
 import java.util.Set;
 
 @Service
@@ -109,5 +110,14 @@ public class UserService {
             return jwtService.generateToken(user);
         }
         throw new RuntimeException("Authentication failed");
+    }
+
+    public Optional<Users> findOne(Long id) {
+        Optional<Users> user = userRepository.findById(id);
+        if(user.isPresent()){
+            user.get().setPassword("");
+            return user;
+        }
+        return user;
     }
 }

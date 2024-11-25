@@ -11,4 +11,6 @@ public interface CompanyService {
     Optional<Company> findOne(Long id);
     Company partialUpdate(Long id, Company company);
     boolean isExists(Long id);
+
+    List<Company> findByUserId(Long userId);
 }

@@ -21,12 +21,10 @@ public class CompanyServiceImpl implements CompanyService {
 
     private final CompanyRepository companyRepository;
 
-    private final UserService userService;
 
-    CompanyServiceImpl(CompanyRepository companyRepository, UserService userService)
+    CompanyServiceImpl(CompanyRepository companyRepository)
     {
         this.companyRepository = companyRepository;
-        this.userService = userService;
     }
 
     @Override
@@ -74,5 +72,10 @@ public class CompanyServiceImpl implements CompanyService {
     @Override
     public List<Company> findByUserId(Long userId) {
         return companyRepository.findCompaniesByUserId(userId);
+    }
+
+    @Override
+    public List<Long> getCompanyIdsByUserId(Long userId) {
+        return companyRepository.findCompaniesIdsByUserId(userId);
     }
 }

@@ -2,6 +2,7 @@ package com.rayvision.inventory_management.service;
 
 import com.rayvision.inventory_management.enums.userRoles;
 import com.rayvision.inventory_management.model.Role;
+import com.rayvision.inventory_management.model.UserPrincipal;
 import com.rayvision.inventory_management.model.Users;
 import com.rayvision.inventory_management.repository.RoleRepository;
 import com.rayvision.inventory_management.repository.UserRepository;
@@ -14,9 +15,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import java.util.HashSet;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 
 @Service
 public class UserService {
@@ -34,6 +33,9 @@ public class UserService {
 
     @Autowired
     private BCryptPasswordEncoder bCryptPasswordEncoder;
+
+    @Autowired
+    private CompanyService companyService;
 
     public Users createUser(Users user) {
         user.setPassword(bCryptPasswordEncoder.encode(user.getPassword()));
@@ -107,7 +109,22 @@ public class UserService {
 
 
         if(authentication.isAuthenticated()) {
-            return jwtService.generateToken(user);
+            UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
+            Users fullUser = userPrincipal.getUser();
+            List<Long> companyIds = companyService.getCompanyIdsByUserId(fullUser.getId());
+
+
+            // Prepare claims
+            Map<String, Object> claims = new HashMap<>();
+            claims.put("userId", fullUser.getId());
+            claims.put("roles", fullUser.getRoles());
+            claims.put("email", fullUser.getEmail());
+            claims.put("firstName", fullUser.getFirstName());
+            claims.put("lastName", fullUser.getLastName());
+            claims.put("companyIds", companyIds); // Add company IDs here
+
+            // Pass claims to generateToken
+            return jwtService.generateToken(fullUser, claims);
         }
         throw new RuntimeException("Authentication failed");
     }

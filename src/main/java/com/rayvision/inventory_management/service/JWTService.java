@@ -34,8 +34,12 @@ public class JWTService {
     }
 
 
-    public String generateToken(Users user) {
-        Map<String, Object> claims = new HashMap<>();
+    public String generateToken(Users user, Map<String, Object> claims) {
+        claims.put("userId", user.getId());
+        claims.put("roles", user.getRoles());
+        claims.put("email", user.getEmail());
+        claims.put("firstName", user.getFirstName());
+        claims.put("lastName", user.getLastName());
         return Jwts.builder()
                 .claims()
                 .add(claims)

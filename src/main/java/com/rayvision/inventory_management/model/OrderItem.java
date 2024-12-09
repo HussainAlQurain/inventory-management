@@ -24,9 +24,7 @@ public class OrderItem {
     @JoinColumn(name = "inventory_item_id", nullable = false)
     private InventoryItem inventoryItem;
 
-    private String unitOfOrdering;
-
-    private String productCode;
+    private UnitOfMeasure unitOfOrdering;
 
     private Double quantity;
 

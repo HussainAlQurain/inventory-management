@@ -1,41 +1,33 @@
 package com.rayvision.inventory_management.model;
 
+import com.rayvision.inventory_management.enums.OrderStatus;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
+
 @AllArgsConstructor
 @Data
 @NoArgsConstructor
 @Builder
 @Entity
-public class OrderItem {
+public class OrderHistory {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Id
-    private Long id;
+    private long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "order_id", nullable = false)
     private Order order;
 
-    @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "inventory_item_id", nullable = false)
-    private InventoryItem inventoryItem;
+    @Enumerated(EnumType.STRING)
+    private OrderStatus status;
 
-    private String unitOfOrdering;
+    private LocalDateTime timestamp;
 
-    private String productCode;
-
-    private Double quantity;
-
-    private Double extendedQuantity; // Calculated as unit * quantity
-
-    private Double price;
-
-    private Double total;
-
-
+    private String comments;
 
 }

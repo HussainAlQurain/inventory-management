@@ -6,36 +6,27 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDate;
+
 @AllArgsConstructor
 @Data
 @NoArgsConstructor
 @Builder
 @Entity
-public class OrderItem {
+public class InventoryCount {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Id
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "order_id", nullable = false)
-    private Order order;
-
-    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "inventory_item_id", nullable = false)
     private InventoryItem inventoryItem;
 
-    private String unitOfOrdering;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "location_id", nullable = false)
+    private Location location;
 
-    private String productCode;
+    private LocalDate countDate;
 
     private Double quantity;
-
-    private Double extendedQuantity; // Calculated as unit * quantity
-
-    private Double price;
-
-    private Double total;
-
-
-
 }

@@ -1,6 +1,7 @@
 package com.rayvision.inventory_management.model;
 
 
+import com.rayvision.inventory_management.enums.OrderStatus;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -20,7 +21,7 @@ public class Order {
 
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Id
-    private long id;
+    private Long id;
     private String orderNumber;
     private LocalDateTime creationDate;
     private LocalDate sentDate;
@@ -45,7 +46,7 @@ public class Order {
 
     @ManyToOne
     @JoinColumn(name = "created_by_user_id", nullable = false)
-    private User createdByUser; // The user who created the order
+    private Users createdByUser; // The user who created the order
 
     private String comments;
 

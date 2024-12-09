@@ -11,31 +11,23 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @Builder
 @Entity
-public class OrderItem {
+public class MenuItemInventoryItem {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Id
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "order_id", nullable = false)
-    private Order order;
+    @JoinColumn(name = "menu_item_id", nullable = false)
+    private MenuItem menuItem;
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "inventory_item_id", nullable = false)
     private InventoryItem inventoryItem;
 
-    private String unitOfOrdering;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "unit_of_measure_id", nullable = false)
+    private UnitOfMeasure unitOfMeasure;
 
-    private String productCode;
-
-    private Double quantity;
-
-    private Double extendedQuantity; // Calculated as unit * quantity
-
-    private Double price;
-
-    private Double total;
-
-
-
+    @Column(nullable = false)
+    private Double quantity; // Quantity of the inventory item in this menu item
 }

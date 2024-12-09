@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 @AllArgsConstructor
@@ -40,4 +41,19 @@ public class Users {
             joinColumns = @JoinColumn(name = "user_id"),
             inverseJoinColumns = @JoinColumn(name = "role_id"))
     private Set<Role> roles = new HashSet<>();  // Initialize the set here to avoid errors
+
+    @ManyToMany
+    @JoinTable(
+            name = "user_location",
+            joinColumns = @JoinColumn(name = "user_id"),
+            inverseJoinColumns = @JoinColumn(name = "location_id")
+    )
+    private Set<Location> locations;
+
+    @OneToMany(mappedBy = "createdByUser", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Order> ordersCreated;
+
+    @OneToMany(mappedBy = "sentByLocation", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Order> ordersSent;
+
 }

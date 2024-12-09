@@ -7,6 +7,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.HashSet;
 import java.util.Set;
 
 @AllArgsConstructor
@@ -38,11 +39,11 @@ public class Location {
     private Company company;
 
     @ManyToMany(mappedBy = "authorizedBuyers")
-    private Set<Supplier> authorizedSuppliers;
+    private Set<Supplier> authorizedSuppliers = new HashSet<>();
 
     @ManyToMany(mappedBy = "locations")
-    private Set<Users> users;
+    private Set<Users> users = new HashSet<>();
 
     @ManyToMany(mappedBy = "locations")
-    private Set<Assortment> assortments;
+    private Set<Assortment> assortments = new HashSet<>();
 }

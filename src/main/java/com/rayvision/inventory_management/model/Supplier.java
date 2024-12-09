@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.HashSet;
 import java.util.Set;
 
 @AllArgsConstructor
@@ -51,11 +52,11 @@ public class Supplier {
 
     // Order Emails
     @OneToMany(mappedBy = "supplier", cascade = CascadeType.ALL, orphanRemoval = true)
-    private Set<SupplierEmail> orderEmails;
+    private Set<SupplierEmail> orderEmails = new HashSet<>();
 
     // Order Phones
     @OneToMany(mappedBy = "supplier", cascade = CascadeType.ALL, orphanRemoval = true)
-    private Set<SupplierPhone> orderPhones;
+    private Set<SupplierPhone> orderPhones = new HashSet<>();
 
     // Authorized Buyers (Locations)
     @ManyToMany
@@ -64,6 +65,6 @@ public class Supplier {
             joinColumns = @JoinColumn(name = "supplier_id"),
             inverseJoinColumns = @JoinColumn(name = "location_id")
     )
-    private Set<Location> authorizedBuyers;
+    private Set<Location> authorizedBuyers = new HashSet<>();
 
 }

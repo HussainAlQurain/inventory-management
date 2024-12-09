@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.HashSet;
 import java.util.Set;
 
 @AllArgsConstructor
@@ -56,4 +57,11 @@ public class InventoryItem {
     @ManyToMany(mappedBy = "inventoryItems")
     private Set<MenuItem> menuItems;
 
+    @ManyToMany
+    @JoinTable(
+            name = "inventory_item_allergens",
+            joinColumns = @JoinColumn(name = "inventory_item_id"),
+            inverseJoinColumns = @JoinColumn(name = "allergen_id")
+    )
+    private Set<Allergen> allergens = new HashSet<>();
 }

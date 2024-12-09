@@ -58,4 +58,7 @@ public class Order {
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OrderHistory> orderHistory;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "sent_by_user_id")
+    private Users sentByUser;
 }

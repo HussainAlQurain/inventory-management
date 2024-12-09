@@ -20,7 +20,7 @@ public class Product {
     private Long id;
 
     private String name;
-    private String unitOfMeasure; // e.g., "10 L", "kg"
+    private UnitOfMeasure unitOfMeasure; // e.g., "10 L", "kg"
     private String productCode;
     private Double currentStock; // Current quantity in stock
     private Double threshold; // Minimum stock level to trigger an order

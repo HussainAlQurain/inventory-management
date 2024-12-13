@@ -51,4 +51,5 @@ public class MenuItem {
     // MenuItemSubRecipes
     @OneToMany(mappedBy = "menuItem", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<MenuItemSubRecipe> menuItemSubRecipes;
+
 }

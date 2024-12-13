@@ -44,6 +44,6 @@ public class Location {
     @ManyToMany(mappedBy = "locations")
     private Set<Users> users = new HashSet<>();
 
-    @ManyToMany(mappedBy = "locations")
+    @ManyToMany(mappedBy = "authorizedBuyers")
     private Set<Assortment> assortments = new HashSet<>();
 }

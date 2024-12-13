@@ -24,6 +24,8 @@ public class OrderItem {
     @JoinColumn(name = "inventory_item_id", nullable = false)
     private InventoryItem inventoryItem;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "unit_of_measure_id", nullable = false)
     private UnitOfMeasure unitOfOrdering;
 
     private Double quantity;

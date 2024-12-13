@@ -42,9 +42,6 @@ public class InventoryItem {
     @ManyToMany(mappedBy = "inventoryItems")
     private Set<Assortment> assortments;
 
-    @ManyToMany(mappedBy = "inventoryItems")
-    private Set<SubRecipe> subRecipes;
-
     @OneToMany(mappedBy = "inventoryItem", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<SubRecipeItem> subRecipeItems;
 
@@ -53,9 +50,6 @@ public class InventoryItem {
 
     @OneToMany(mappedBy = "inventoryItem", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<InventoryCount> inventoryCounts;
-
-    @ManyToMany(mappedBy = "inventoryItems")
-    private Set<MenuItem> menuItems;
 
     @ManyToMany
     @JoinTable(

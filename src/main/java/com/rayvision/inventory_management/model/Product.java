@@ -1,9 +1,6 @@
 package com.rayvision.inventory_management.model;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -20,7 +17,11 @@ public class Product {
     private Long id;
 
     private String name;
-    private UnitOfMeasure unitOfMeasure; // e.g., "10 L", "kg"
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "unit_of_measure_id", nullable = false)
+    private UnitOfMeasure unitOfMeasure;
+
     private String productCode;
     private Double currentStock; // Current quantity in stock
     private Double threshold; // Minimum stock level to trigger an order

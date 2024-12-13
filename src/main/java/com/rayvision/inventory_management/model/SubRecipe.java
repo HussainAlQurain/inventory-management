@@ -53,19 +53,11 @@ public class SubRecipe {
     private Double onHand;
 
     // Assortments
-    @ManyToMany
-    @JoinTable(
-            name = "sub_recipe_assortments",
-            joinColumns = @JoinColumn(name = "sub_recipe_id"),
-            inverseJoinColumns = @JoinColumn(name = "assortment_id")
-    )
+    @ManyToMany(mappedBy = "subRecipes")
     private Set<Assortment> assortments;
 
     // SubRecipeItems
     @OneToMany(mappedBy = "subRecipe", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<SubRecipeItem> subRecipeItems;
 
-    // MenuItems
-    @ManyToMany(mappedBy = "subRecipes")
-    private Set<MenuItem> menuItems;
 }

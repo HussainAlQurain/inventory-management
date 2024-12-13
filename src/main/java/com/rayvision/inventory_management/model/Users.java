@@ -53,7 +53,7 @@ public class Users {
     @OneToMany(mappedBy = "createdByUser", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Order> ordersCreated;
 
-    @OneToMany(mappedBy = "sentByLocation", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "sentByUser", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Order> ordersSent;
 
 }

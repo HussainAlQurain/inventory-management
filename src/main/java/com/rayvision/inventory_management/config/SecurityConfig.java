@@ -49,7 +49,7 @@ public class SecurityConfig {
         return http
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(Customizer.withDefaults()) // Enables CORS configuration using a custom CorsConfigurationSource bean
-                .authorizeHttpRequests(request -> request.requestMatchers("/users/login","/swagger-ui/index.html", "/v3/api-docs").permitAll().anyRequest().authenticated())
+                .authorizeHttpRequests(request -> request.requestMatchers("/users/login","/swagger-ui/**", "/v3/api-docs/**", "/webjars/**").permitAll().anyRequest().authenticated())
                 .formLogin(Customizer.withDefaults())
                 .httpBasic(Customizer.withDefaults())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

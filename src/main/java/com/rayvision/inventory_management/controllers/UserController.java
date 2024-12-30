@@ -33,9 +33,6 @@ public class UserController {
         // Map UserDto to Users entity
         Users user = userMapper.mapFrom(userDto);
 
-        // Ensure no roles are set directly during user creation
-        user.setRoles(new HashSet<>());
-
         // Create user in service
         Users savedUser = userService.createUser(user);
 

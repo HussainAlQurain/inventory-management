@@ -1,7 +1,9 @@
 package com.rayvision.inventory_management.controllers;
 
+import com.rayvision.inventory_management.mappers.impl.UserLoginMapperImpl;
 import com.rayvision.inventory_management.mappers.impl.UserMapperImpl;
 import com.rayvision.inventory_management.model.Users;
+import com.rayvision.inventory_management.model.dto.LoginDTO;
 import com.rayvision.inventory_management.model.dto.UserDto;
 import com.rayvision.inventory_management.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,6 +23,9 @@ public class UserController {
 
     @Autowired
     private UserMapperImpl userMapper;
+
+    @Autowired
+    private UserLoginMapperImpl userLoginMapper;
 
 
     @PostMapping("create")
@@ -42,8 +47,9 @@ public class UserController {
     }
 
     @PostMapping("login")
-    public ResponseEntity<String> login(@RequestBody Users user) {
+    public ResponseEntity<String> login(@RequestBody LoginDTO loginDTO) {
         try {
+            Users user = userLoginMapper.mapFrom(loginDTO);
             String authenticatedUser = userService.verify(user);
             return ResponseEntity.ok(authenticatedUser);
         } catch (BadCredentialsException e) {

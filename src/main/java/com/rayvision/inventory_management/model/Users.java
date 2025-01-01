@@ -1,5 +1,6 @@
 package com.rayvision.inventory_management.model;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -33,6 +34,7 @@ public class Users {
             joinColumns = @JoinColumn(name = "user_id"),
             inverseJoinColumns = @JoinColumn(name = "company_id")
     )
+    @JsonBackReference
     private Set<Company> companies = new HashSet<>();
 
     @ManyToMany(fetch = FetchType.EAGER)
@@ -40,6 +42,7 @@ public class Users {
             name = "user_roles",
             joinColumns = @JoinColumn(name = "user_id"),
             inverseJoinColumns = @JoinColumn(name = "role_id"))
+    @JsonBackReference
     private Set<Role> roles = new HashSet<>();  // Initialize the set here to avoid errors
 
     @ManyToMany
@@ -48,11 +51,14 @@ public class Users {
             joinColumns = @JoinColumn(name = "user_id"),
             inverseJoinColumns = @JoinColumn(name = "location_id")
     )
+    @JsonBackReference
     private Set<Location> locations;
 
+    @JsonBackReference
     @OneToMany(mappedBy = "createdByUser", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Order> ordersCreated;
 
+    @JsonBackReference
     @OneToMany(mappedBy = "sentByUser", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Order> ordersSent;
 

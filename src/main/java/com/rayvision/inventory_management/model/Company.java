@@ -1,5 +1,7 @@
 package com.rayvision.inventory_management.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -34,6 +36,7 @@ public class Company {
     private String accountingSoftware;
     private Boolean exportDeliveryNotesAsBills;
 
+    @JsonManagedReference
     @ManyToMany(mappedBy = "companies")
     private Set<Users> users = new HashSet<>();
 

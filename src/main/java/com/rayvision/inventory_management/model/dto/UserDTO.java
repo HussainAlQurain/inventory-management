@@ -1,10 +1,9 @@
 package com.rayvision.inventory_management.model.dto;
 
-import com.rayvision.inventory_management.model.Company;
 import lombok.Data;
 
 @Data
-public class UserDto {
+public class UserDTO {
     private String username;
     private String password;
     private String email;

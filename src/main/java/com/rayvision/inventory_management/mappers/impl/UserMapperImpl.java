@@ -2,12 +2,12 @@ package com.rayvision.inventory_management.mappers.impl;
 
 import com.rayvision.inventory_management.mappers.Mapper;
 import com.rayvision.inventory_management.model.Users;
-import com.rayvision.inventory_management.model.dto.UserDto;
+import com.rayvision.inventory_management.model.dto.UserDTO;
 import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Component;
 
 @Component
-public class UserMapperImpl implements Mapper<Users, UserDto> {
+public class UserMapperImpl implements Mapper<Users, UserDTO> {
 
     private final ModelMapper modelMapper;
 
@@ -16,12 +16,12 @@ public class UserMapperImpl implements Mapper<Users, UserDto> {
     }
 
     @Override
-    public UserDto mapTo(Users userEntity) {
-        return modelMapper.map(userEntity, UserDto.class);
+    public UserDTO mapTo(Users userEntity) {
+        return modelMapper.map(userEntity, UserDTO.class);
     }
 
     @Override
-    public Users mapFrom(UserDto userDto) {
+    public Users mapFrom(UserDTO userDto) {
         return modelMapper.map(userDto, Users.class);
     }
 

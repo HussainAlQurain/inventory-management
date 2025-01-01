@@ -1,12 +1,16 @@
 package com.rayvision.inventory_management.service.impl;
 
 
+import com.rayvision.inventory_management.mappers.Mapper;
 import com.rayvision.inventory_management.model.Company;
 import com.rayvision.inventory_management.model.Users;
+import com.rayvision.inventory_management.model.dto.CompanyDTO;
 import com.rayvision.inventory_management.repository.CompanyRepository;
 import com.rayvision.inventory_management.repository.UserRepository;
 import com.rayvision.inventory_management.service.CompanyService;
 import com.rayvision.inventory_management.service.UserService;
+import org.hibernate.Hibernate;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -21,9 +25,11 @@ public class CompanyServiceImpl implements CompanyService {
 
     private final CompanyRepository companyRepository;
 
+    @Autowired
+    private Mapper<Company, CompanyDTO> companyMapper;
 
-    CompanyServiceImpl(CompanyRepository companyRepository)
-    {
+
+    CompanyServiceImpl(CompanyRepository companyRepository) {
         this.companyRepository = companyRepository;
     }
 
@@ -60,7 +66,7 @@ public class CompanyServiceImpl implements CompanyService {
             Optional.ofNullable(company.getAllowedInvoiceDeviation()).ifPresent(existingCompany::setAllowedInvoiceDeviation);
             Optional.ofNullable(company.getAccountingSoftware()).ifPresent(existingCompany::setAccountingSoftware);
             Optional.ofNullable(company.getExportDeliveryNotesAsBills()).ifPresent(existingCompany::setExportDeliveryNotesAsBills);
-            return  companyRepository.save(existingCompany);
+            return companyRepository.save(existingCompany);
         }).orElseThrow(() -> new RuntimeException("Company doesn't exist"));
     }
 
@@ -70,8 +76,10 @@ public class CompanyServiceImpl implements CompanyService {
     }
 
     @Override
-    public List<Company> findByUserId(Long userId) {
-        return companyRepository.findCompaniesByUserId(userId);
+    public List<CompanyDTO> findByUserId(Long userId) {
+        List<Company> companies = companyRepository.findCompaniesByUserId(userId);
+        companies.forEach(company -> Hibernate.initialize(company.getUsers()));
+        return companies.stream().map(companyMapper::mapTo).collect(Collectors.toList());
     }
 
     @Override

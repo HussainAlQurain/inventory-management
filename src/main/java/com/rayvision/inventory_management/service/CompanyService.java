@@ -1,6 +1,7 @@
 package com.rayvision.inventory_management.service;
 
 import com.rayvision.inventory_management.model.Company;
+import com.rayvision.inventory_management.model.dto.CompanyDTO;
 
 import java.util.List;
 import java.util.Optional;
@@ -13,5 +14,5 @@ public interface CompanyService {
     Company partialUpdate(Long id, Company company);
     boolean isExists(Long id);
 
-    List<Company> findByUserId(Long userId);
+    List<CompanyDTO> findByUserId(Long userId);
 }

@@ -17,7 +17,7 @@ import java.util.List;
 @NoArgsConstructor
 @Builder
 @Entity
-public class Order {
+public class Orders {
 
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Id
@@ -52,10 +52,10 @@ public class Order {
 
     private Double totalExcludingTax;
 
-    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "orders", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OrderItem> orderItems;
 
-    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "orders", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OrderHistory> orderHistory;
 
     @ManyToOne(fetch = FetchType.LAZY)

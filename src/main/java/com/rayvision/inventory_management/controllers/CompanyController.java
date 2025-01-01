@@ -1,6 +1,7 @@
 package com.rayvision.inventory_management.controllers;
 
 import com.rayvision.inventory_management.model.Company;
+import com.rayvision.inventory_management.model.dto.CompanyDTO;
 import com.rayvision.inventory_management.service.CompanyService;
 import com.rayvision.inventory_management.service.impl.CompanyServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -41,8 +42,8 @@ public class CompanyController {
     }
 
     @GetMapping("/user/{userId}")
-    public ResponseEntity<List<Company>> getCompaniesByUserId(@PathVariable Long userId) {
-        List<Company> companies = companyService.findByUserId(userId);
+    public ResponseEntity<List<CompanyDTO>> getCompaniesByUserId(@PathVariable Long userId) {
+        List<CompanyDTO> companies = companyService.findByUserId(userId);
         if(companies.isEmpty()) {
             return ResponseEntity.notFound().build();
         }

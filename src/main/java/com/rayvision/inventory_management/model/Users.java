@@ -56,10 +56,10 @@ public class Users {
 
     @JsonBackReference
     @OneToMany(mappedBy = "createdByUser", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<Order> ordersCreated;
+    private List<Orders> ordersCreated;
 
     @JsonBackReference
     @OneToMany(mappedBy = "sentByUser", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<Order> ordersSent;
+    private List<Orders> ordersSent;
 
 }

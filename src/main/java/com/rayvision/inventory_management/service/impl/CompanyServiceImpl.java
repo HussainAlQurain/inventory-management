@@ -58,7 +58,7 @@ public class CompanyServiceImpl implements CompanyService {
         company.setId(id);
         return companyRepository.findById(id).map(existingCompany -> {
             Optional.ofNullable(company.getName()).ifPresent(existingCompany::setName);
-            Optional.ofNullable(company.getTax_id()).ifPresent(existingCompany::setTax_id);
+            Optional.ofNullable(company.getTaxId()).ifPresent(existingCompany::setTaxId);
             Optional.ofNullable(company.getPhone()).ifPresent(existingCompany::setPhone);
             Optional.ofNullable(company.getMobile()).ifPresent(existingCompany::setMobile);
             Optional.ofNullable(company.getEmail()).ifPresent(existingCompany::setEmail);
@@ -84,11 +84,10 @@ public class CompanyServiceImpl implements CompanyService {
     @Override
     public List<CompanyDTO> findByUserId(Long userId) {
         List<Long> companyIds = companyUserRepository.findCompanyIdsByUserId(userId);
-        System.out.print("Company Ids : ");
-        System.out.println(companyIds);
         List<Company> companies = companyRepository.findAllById(companyIds);
-        System.out.println("Company List : ");
-        System.out.println(companies); // this doesnt get anything
-        return companies.stream().map(companyMapper::mapTo).collect(Collectors.toList());
+        return companies.stream()
+                .map(companyMapper::mapTo)
+                .collect(Collectors.toList());
     }
+
 }

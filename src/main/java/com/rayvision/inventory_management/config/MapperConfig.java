@@ -8,30 +8,18 @@ import org.modelmapper.convention.MatchingStrategies;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import static org.modelmapper.config.Configuration.AccessLevel.PRIVATE;
+
 @Configuration
 public class MapperConfig {
     @Bean
     public ModelMapper modelMapper() {
         ModelMapper modelMapper = new ModelMapper();
-        modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.LOOSE);
-
-        // Custom mapping configuration for CreateUserDTO to Users
-        modelMapper.addMappings(new PropertyMap<UserDTO, Users>() {
-            @Override
-            protected void configure() {
-                // Map fields from DTO to entity
-                map().setUsername(source.getUsername());
-                map().setPassword(source.getPassword());
-                map().setEmail(source.getEmail());
-                map().setStatus(source.getStatus());
-                map().setFirstName(source.getFirstName());
-                map().setLastName(source.getLastName());
-                map().setPhone(source.getPhone());
-                skip(destination.getCompanyUsers());
-                skip(destination.getRoles());
-            }
-        });
-
+        modelMapper.getConfiguration()
+                .setMatchingStrategy(MatchingStrategies.LOOSE)
+                .setSkipNullEnabled(true)
+                .setFieldMatchingEnabled(true)
+                .setFieldAccessLevel(PRIVATE);
         return modelMapper;
     }
 }

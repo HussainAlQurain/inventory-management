@@ -4,6 +4,7 @@ import com.rayvision.inventory_management.enums.userRoles;
 import com.rayvision.inventory_management.model.Role;
 import com.rayvision.inventory_management.model.UserPrincipal;
 import com.rayvision.inventory_management.model.Users;
+import com.rayvision.inventory_management.repository.CompanyUserRepository;
 import com.rayvision.inventory_management.repository.RoleRepository;
 import com.rayvision.inventory_management.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,7 +36,7 @@ public class UserService {
     private BCryptPasswordEncoder bCryptPasswordEncoder;
 
     @Autowired
-    private CompanyService companyService;
+    private CompanyUserRepository companyUserRepository;
 
     public Users createUser(Users user) {
         user.setPassword(bCryptPasswordEncoder.encode(user.getPassword()));
@@ -111,7 +112,7 @@ public class UserService {
         if(authentication.isAuthenticated()) {
             UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
             Users fullUser = userPrincipal.getUser();
-            List<Long> companyIds = companyService.getCompanyIdsByUserId(fullUser.getId());
+            List<Long> companyIds = companyUserRepository.findCompanyIdsByUserId(fullUser.getId());
 
 
             // Prepare claims

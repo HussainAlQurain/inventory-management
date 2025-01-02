@@ -36,8 +36,7 @@ public class Company {
     private String accountingSoftware;
     private Boolean exportDeliveryNotesAsBills;
 
-    @JsonManagedReference
-    @ManyToMany(mappedBy = "companies")
-    private Set<Users> users = new HashSet<>();
+    @OneToMany(mappedBy = "company", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<CompanyUser> companyUsers = new HashSet<>();
 
 }

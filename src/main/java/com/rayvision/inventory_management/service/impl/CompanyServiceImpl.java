@@ -3,15 +3,18 @@ package com.rayvision.inventory_management.service.impl;
 
 import com.rayvision.inventory_management.mappers.Mapper;
 import com.rayvision.inventory_management.model.Company;
+import com.rayvision.inventory_management.model.CompanyUser;
 import com.rayvision.inventory_management.model.Users;
 import com.rayvision.inventory_management.model.dto.CompanyDTO;
 import com.rayvision.inventory_management.repository.CompanyRepository;
+import com.rayvision.inventory_management.repository.CompanyUserRepository;
 import com.rayvision.inventory_management.repository.UserRepository;
 import com.rayvision.inventory_management.service.CompanyService;
 import com.rayvision.inventory_management.service.UserService;
 import org.hibernate.Hibernate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -25,12 +28,14 @@ public class CompanyServiceImpl implements CompanyService {
 
     private final CompanyRepository companyRepository;
 
-    @Autowired
     private Mapper<Company, CompanyDTO> companyMapper;
 
+    private CompanyUserRepository companyUserRepository;
 
-    CompanyServiceImpl(CompanyRepository companyRepository) {
+    public CompanyServiceImpl(CompanyRepository companyRepository, Mapper<Company, CompanyDTO> companyMapper, CompanyUserRepository companyUserRepository) {
         this.companyRepository = companyRepository;
+        this.companyMapper = companyMapper;
+        this.companyUserRepository = companyUserRepository;
     }
 
     @Override
@@ -75,15 +80,11 @@ public class CompanyServiceImpl implements CompanyService {
         return companyRepository.existsById(id);
     }
 
+    @Transactional(readOnly = true)
     @Override
     public List<CompanyDTO> findByUserId(Long userId) {
-        List<Company> companies = companyRepository.findCompaniesByUserId(userId);
-        companies.forEach(company -> Hibernate.initialize(company.getUsers()));
+        List<Long> companyIds = companyUserRepository.findCompanyIdsByUserId(userId);
+        List<Company> companies = companyRepository.findAllById(companyIds);
         return companies.stream().map(companyMapper::mapTo).collect(Collectors.toList());
-    }
-
-    @Override
-    public List<Long> getCompanyIdsByUserId(Long userId) {
-        return companyRepository.findCompaniesIdsByUserId(userId);
     }
 }

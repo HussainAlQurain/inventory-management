@@ -27,7 +27,7 @@ public class MapperConfig {
                 map().setFirstName(source.getFirstName());
                 map().setLastName(source.getLastName());
                 map().setPhone(source.getPhone());
-                skip(destination.getCompanies());
+                skip(destination.getCompanyUsers());
                 skip(destination.getRoles());
             }
         });

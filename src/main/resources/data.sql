@@ -8,4 +8,4 @@ VALUES ('Company A', '3000000000000', '+966013555555', '+966555555555', 'hussain
 INSERT INTO user_roles (user_id, role_id) VALUES (1, 1);
 INSERT INTO user_roles (user_id, role_id) VALUES (1, 2);
 INSERT INTO user_roles (user_id, role_id) VALUES (1, 3);
-INSERT INTO user_companies (company_id, user_id) VALUES (1,1);
+INSERT INTO company_user (id, company_id, users_id) VALUES (1, 1, 1)

@@ -84,7 +84,11 @@ public class CompanyServiceImpl implements CompanyService {
     @Override
     public List<CompanyDTO> findByUserId(Long userId) {
         List<Long> companyIds = companyUserRepository.findCompanyIdsByUserId(userId);
+        System.out.print("Company Ids : ");
+        System.out.println(companyIds);
         List<Company> companies = companyRepository.findAllById(companyIds);
+        System.out.println("Company List : ");
+        System.out.println(companies); // this doesnt get anything
         return companies.stream().map(companyMapper::mapTo).collect(Collectors.toList());
     }
 }

@@ -1,6 +1,8 @@
 package com.rayvision.inventory_management.model;
 
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -34,14 +36,18 @@ public class Location {
 
     @ManyToOne
     @JoinColumn(name = "company_id", nullable = false)
+    @JsonBackReference("company-location")
     private Company company;
 
     @ManyToMany(mappedBy = "authorizedBuyers")
+    @JsonIgnore
     private Set<Supplier> authorizedSuppliers = new HashSet<>();
 
     @ManyToMany(mappedBy = "locations")
+    @JsonIgnore
     private Set<Users> users = new HashSet<>();
 
     @ManyToMany(mappedBy = "authorizedBuyers")
+    @JsonIgnore
     private Set<Assortment> assortments = new HashSet<>();
 }

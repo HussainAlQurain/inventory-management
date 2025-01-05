@@ -1,6 +1,8 @@
 package com.rayvision.inventory_management.model;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -27,6 +29,7 @@ public class Users {
     private String phone;
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonManagedReference("user-companyuser")
     private Set<CompanyUser> companyUsers = new HashSet<>();
 
     @ManyToMany(fetch = FetchType.EAGER)
@@ -43,14 +46,14 @@ public class Users {
             joinColumns = @JoinColumn(name = "user_id"),
             inverseJoinColumns = @JoinColumn(name = "location_id")
     )
-    @JsonBackReference
+    @JsonIgnore
     private Set<Location> locations;
 
-    @JsonBackReference
+    @JsonIgnore
     @OneToMany(mappedBy = "createdByUser", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Orders> ordersCreated;
 
-    @JsonBackReference
+    @JsonIgnore
     @OneToMany(mappedBy = "sentByUser", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Orders> ordersSent;
 

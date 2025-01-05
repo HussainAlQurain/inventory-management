@@ -35,6 +35,11 @@ public class Company {
     private Boolean exportDeliveryNotesAsBills;
 
     @OneToMany(mappedBy = "company", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonManagedReference("company-companyuser")
     private Set<CompanyUser> companyUsers = new HashSet<>();
+
+    @OneToMany(mappedBy = "company", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonManagedReference("company-location")
+    private Set<Location> locations = new HashSet<>();
 
 }

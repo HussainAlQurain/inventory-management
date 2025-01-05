@@ -1,5 +1,6 @@
 package com.rayvision.inventory_management.model;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -18,10 +19,12 @@ public class CompanyUser {
 
     @ManyToOne
     @JoinColumn(name = "company_id", nullable = false)
+    @JsonBackReference("company-companyuser")
     Company company;
 
     @ManyToOne
     @JoinColumn(name = "users_id", nullable = false)
+    @JsonBackReference("user-companyuser")
     Users user;
 
 }

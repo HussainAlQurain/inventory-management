@@ -34,7 +34,7 @@ public class Location {
 
     private String phone;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "company_id", nullable = false)
     @JsonBackReference("company-location")
     private Company company;

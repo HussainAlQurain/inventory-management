@@ -5,6 +5,7 @@ import com.rayvision.inventory_management.repository.LocationRepository;
 import com.rayvision.inventory_management.service.LocationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
@@ -18,6 +19,7 @@ public class LocationServiceImpl implements LocationService {
         this.locationRepository = locationRepository;
     }
 
+    @Transactional
     @Override
     public Location save(Location location) {
         return locationRepository.save(location);

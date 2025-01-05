@@ -33,13 +33,8 @@ public class Assortment {
     private Set<InventoryItem> inventoryItems;
 
     // Many-to-Many relationship with Location (Authorized Buyers)
-    @ManyToMany
-    @JoinTable(
-            name = "assortment_authorized_buyers",
-            joinColumns = @JoinColumn(name = "assortment_id"),
-            inverseJoinColumns = @JoinColumn(name = "location_id")
-    )
-    private Set<Location> authorizedBuyers;
+    @OneToMany(mappedBy = "assortment")
+    private Set<AssortmentLocation> assortmentLocations;
 
     // Many-to-Many relationship with SubRecipe
     @ManyToMany

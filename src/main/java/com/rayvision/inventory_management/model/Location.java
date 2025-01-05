@@ -45,7 +45,6 @@ public class Location {
     @OneToMany(mappedBy = "location")
     private Set<LocationUser> locationUsers = new HashSet<>();
 
-    @ManyToMany(mappedBy = "authorizedBuyers")
-    @JsonIgnore
-    private Set<Assortment> assortments = new HashSet<>();
+    @OneToMany(mappedBy = "location")
+    private Set<AssortmentLocation> assortmentLocations = new HashSet<>();
 }

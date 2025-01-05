@@ -84,19 +84,12 @@ public class LocationServiceImpl implements LocationService {
 
     @Override
     public List<Location> findByUserId(Long userId) {
-        return locationRepository.findAll().stream()
-                .filter(location -> location.getUsers().stream()
-                        .anyMatch(user -> user.getId().equals(userId)))
-                .toList();
+        return null;
     }
 
     @Override
     public List<Location> findByCompanyIdAndUserId(Long companyId, Long userId) {
-        return locationRepository.findAll().stream()
-                .filter(location -> location.getCompany().getId().equals(companyId) &&
-                        location.getUsers().stream()
-                                .anyMatch(user -> user.getId().equals(userId)))
-                .toList();
+        return null;
     }
 
     @Override

@@ -40,14 +40,8 @@ public class Users {
     @JsonBackReference
     private Set<Role> roles = new HashSet<>();  // Initialize the set here to avoid errors
 
-    @ManyToMany
-    @JoinTable(
-            name = "user_location",
-            joinColumns = @JoinColumn(name = "user_id"),
-            inverseJoinColumns = @JoinColumn(name = "location_id")
-    )
-    @JsonIgnore
-    private Set<Location> locations;
+    @OneToMany(mappedBy = "user")
+    private Set<LocationUser> locationUsers;
 
     @JsonIgnore
     @OneToMany(mappedBy = "createdByUser", cascade = CascadeType.ALL, orphanRemoval = true)

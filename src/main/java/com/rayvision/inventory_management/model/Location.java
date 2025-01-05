@@ -39,9 +39,8 @@ public class Location {
     @JsonBackReference("company-location")
     private Company company;
 
-    @ManyToMany(mappedBy = "authorizedBuyers")
-    @JsonIgnore
-    private Set<Supplier> authorizedSuppliers = new HashSet<>();
+    @OneToMany(mappedBy = "location")
+    private Set<SupplierLocation> supplierLocations = new HashSet<>();
 
     @ManyToMany(mappedBy = "locations")
     @JsonIgnore

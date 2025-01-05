@@ -59,12 +59,7 @@ public class Supplier {
     private Set<SupplierPhone> orderPhones = new HashSet<>();
 
     // Authorized Buyers (Locations)
-    @ManyToMany
-    @JoinTable(
-            name = "supplier_authorized_buyers",
-            joinColumns = @JoinColumn(name = "supplier_id"),
-            inverseJoinColumns = @JoinColumn(name = "location_id")
-    )
-    private Set<Location> authorizedBuyers = new HashSet<>();
+    @OneToMany(mappedBy = "supplier")
+    private Set<SupplierLocation> authorizedBuyers = new HashSet<>();
 
 }

@@ -98,23 +98,45 @@ public class CompanyServiceImpl implements CompanyService {
     @Transactional
     @Override
     public List<Users> addUsersToCompany(Long companyId, List<Long> userIds) {
-        Company company = companyRepository.findById(companyId).orElseThrow(() -> new RuntimeException("Company doesn't exist. ID: " + companyId));
+        // Fetch the company
+        Company company = companyRepository.findById(companyId)
+                .orElseThrow(() -> new RuntimeException("Company doesn't exist. ID: " + companyId));
 
+        // Fetch users by IDs
         List<Users> users = userRepository.findAllById(userIds);
         if (users.isEmpty()) {
             throw new RuntimeException("No valid users found for the given IDs.");
         }
 
-        // Filter out exisiting users that are already associated with this company.
-        Set<Long> exisitingUsers = company.getCompanyUsers().stream().map(companyUser -> companyUser.getUser().getId()).collect(Collectors.toSet());
+        // Find invalid IDs (requested but not found in DB)
+        Set<Long> foundUserIds = users.stream().map(Users::getId).collect(Collectors.toSet());
+        List<Long> invalidIds = userIds.stream()
+                .filter(id -> !foundUserIds.contains(id))
+                .toList();
 
-        List<CompanyUser> newCompanyUsers = users.stream().filter(user -> !exisitingUsers.contains(user.getId())).map(user -> CompanyUser.builder().company(company).user(user).build()).toList();
-        // Save all companyUser associations in one go.
-        if (!newCompanyUsers.isEmpty()) {
-            companyUserRepository.saveAll(newCompanyUsers); // Save only new associations
+        if (!invalidIds.isEmpty()) {
+            throw new RuntimeException("The following user IDs are invalid: " + invalidIds);
         }
-        return company.getCompanyUsers().stream()
+
+        // Filter out users already associated with the company
+        Set<Long> existingUserIds = company.getCompanyUsers()
+                .stream()
+                .map(companyUser -> companyUser.getUser().getId())
+                .collect(Collectors.toSet());
+
+        List<CompanyUser> newCompanyUsers = users.stream()
+                .filter(user -> !existingUserIds.contains(user.getId())) // Skip existing users
+                .map(user -> CompanyUser.builder().company(company).user(user).build())
+                .toList();
+
+        // Save only new CompanyUser associations
+        if (!newCompanyUsers.isEmpty()) {
+            companyUserRepository.saveAll(newCompanyUsers);
+        }
+
+        // Fetch and return the newly added users
+        return newCompanyUsers.stream()
                 .map(CompanyUser::getUser)
-                .collect(Collectors.toList());
+                .toList();
     }
 }

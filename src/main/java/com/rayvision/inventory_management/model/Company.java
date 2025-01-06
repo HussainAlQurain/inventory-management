@@ -41,5 +41,5 @@ public class Company {
     @OneToMany(mappedBy = "company", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonManagedReference("company-location")
     private Set<Location> locations = new HashSet<>();
-
+    
 }

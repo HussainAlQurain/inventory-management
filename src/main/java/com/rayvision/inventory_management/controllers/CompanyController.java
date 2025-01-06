@@ -1,6 +1,7 @@
 package com.rayvision.inventory_management.controllers;
 
 import com.rayvision.inventory_management.model.Company;
+import com.rayvision.inventory_management.model.Users;
 import com.rayvision.inventory_management.model.dto.CompanyDTO;
 import com.rayvision.inventory_management.service.CompanyService;
 import com.rayvision.inventory_management.service.impl.CompanyServiceImpl;
@@ -48,5 +49,11 @@ public class CompanyController {
             return ResponseEntity.notFound().build();
         }
         return ResponseEntity.ok(companies);
+    }
+
+    @PostMapping("/{companyId}/users")
+    public ResponseEntity<List<Users>> addUsersToCompany(@PathVariable Long companyId, @RequestBody List<Long> userIds) {
+        List<Users> users = companyService.addUsersToCompany(companyId, userIds);
+        return ResponseEntity.ok(users);
     }
 }

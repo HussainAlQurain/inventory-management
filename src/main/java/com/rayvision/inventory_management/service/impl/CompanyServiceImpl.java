@@ -16,10 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
@@ -27,15 +24,17 @@ import java.util.stream.StreamSupport;
 public class CompanyServiceImpl implements CompanyService {
 
     private final CompanyRepository companyRepository;
+    private final UserRepository userRepository;
 
     private Mapper<Company, CompanyDTO> companyMapper;
 
     private CompanyUserRepository companyUserRepository;
 
-    public CompanyServiceImpl(CompanyRepository companyRepository, Mapper<Company, CompanyDTO> companyMapper, CompanyUserRepository companyUserRepository) {
+    public CompanyServiceImpl(CompanyRepository companyRepository, Mapper<Company, CompanyDTO> companyMapper, CompanyUserRepository companyUserRepository, UserRepository userRepository) {
         this.companyRepository = companyRepository;
         this.companyMapper = companyMapper;
         this.companyUserRepository = companyUserRepository;
+        this.userRepository = userRepository;
     }
 
     @Override
@@ -90,4 +89,32 @@ public class CompanyServiceImpl implements CompanyService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional
+    @Override
+    public void delete(Long id) {
+        companyRepository.deleteById(id);
+    }
+
+    @Transactional
+    @Override
+    public List<Users> addUsersToCompany(Long companyId, List<Long> userIds) {
+        Company company = companyRepository.findById(companyId).orElseThrow(() -> new RuntimeException("Company doesn't exist. ID: " + companyId));
+
+        List<Users> users = userRepository.findAllById(userIds);
+        if (users.isEmpty()) {
+            throw new RuntimeException("No valid users found for the given IDs.");
+        }
+
+        // Filter out exisiting users that are already associated with this company.
+        Set<Long> exisitingUsers = company.getCompanyUsers().stream().map(companyUser -> companyUser.getUser().getId()).collect(Collectors.toSet());
+
+        List<CompanyUser> newCompanyUsers = users.stream().filter(user -> !exisitingUsers.contains(user.getId())).map(user -> CompanyUser.builder().company(company).user(user).build()).toList();
+        // Save all companyUser associations in one go.
+        if (!newCompanyUsers.isEmpty()) {
+            companyUserRepository.saveAll(newCompanyUsers); // Save only new associations
+        }
+        return company.getCompanyUsers().stream()
+                .map(CompanyUser::getUser)
+                .collect(Collectors.toList());
+    }
 }

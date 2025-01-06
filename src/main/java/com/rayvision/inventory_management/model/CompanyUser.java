@@ -12,6 +12,10 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @Builder
 @Entity
+@Table(
+        name = "company_user",
+        uniqueConstraints = @UniqueConstraint(columnNames = {"company_id", "users_id"})
+)
 public class CompanyUser {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

@@ -9,7 +9,7 @@
 #### Consideration: 
 - change the deletion to soft deletion (make it inactive rather than fully removing it.)
 - Add validation for email, name etc..
-- Use Pageable instead:
+- Implement paginatino and search functionalities:
 ```Java
 @GetMapping
 public Page<Company> getCompanies(Pageable pageable) {
@@ -26,3 +26,4 @@ private LocalDateTime lastModifiedDate;
 ```
 - Add error handling
 - Retrieve all locations for a company
+- Use DTOs instead of entities

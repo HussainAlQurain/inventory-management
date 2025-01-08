@@ -8,6 +8,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface CompanyUserRepository extends JpaRepository<CompanyUser, Long> {
@@ -17,4 +18,6 @@ public interface CompanyUserRepository extends JpaRepository<CompanyUser, Long> 
 
     @Query("SELECT cu.company.id FROM CompanyUser cu WHERE cu.user.id = :userId")
     List<Long> findCompanyIdsByUserId(@Param("userId") Long userId);
+
+    Optional<CompanyUser> findByCompanyIdAndUserId(Long companyId, Long userId);
 }

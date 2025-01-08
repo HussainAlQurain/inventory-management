@@ -16,6 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.swing.text.html.Option;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
@@ -138,5 +139,16 @@ public class CompanyServiceImpl implements CompanyService {
         return newCompanyUsers.stream()
                 .map(CompanyUser::getUser)
                 .toList();
+    }
+
+    @Override
+    public void removeUserFromCompany(Long companyId, Long userId) {
+        Optional<CompanyUser> companyUser = companyUserRepository.findByCompanyIdAndUserId(companyId, userId);
+        if (companyUser.isPresent()) {
+            companyUserRepository.delete(companyUser.get());
+        }
+        else {
+            throw new RuntimeException("User is not associated with the company: " + companyId);
+        }
     }
 }

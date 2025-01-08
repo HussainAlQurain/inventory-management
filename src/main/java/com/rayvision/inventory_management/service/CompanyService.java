@@ -16,4 +16,5 @@ public interface CompanyService {
     List<CompanyDTO> findByUserId(Long userId);
     void delete(Long id);
     List<Users> addUsersToCompany(Long companyId, List<Long> users);
+    void removeUserFromCompany(Long companyId, Long userId);
 }

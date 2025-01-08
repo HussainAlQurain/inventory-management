@@ -56,4 +56,10 @@ public class CompanyController {
         List<Users> users = companyService.addUsersToCompany(companyId, userIds);
         return ResponseEntity.ok(users);
     }
+
+    @DeleteMapping("/{companyId}/users/{userId}")
+    public ResponseEntity<Void> deleteUserFromCompany(@PathVariable Long companyId, @PathVariable Long userId) {
+        companyService.removeUserFromCompany(companyId, userId);
+        return ResponseEntity.noContent().build();
+    }
 }

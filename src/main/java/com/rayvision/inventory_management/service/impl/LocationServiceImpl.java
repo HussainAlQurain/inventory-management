@@ -15,7 +15,7 @@ public class LocationServiceImpl implements LocationService {
 
     private final LocationRepository locationRepository;
 
-    public LocationServiceImpl(@Autowired LocationRepository locationRepository) {
+    public LocationServiceImpl(LocationRepository locationRepository) {
         this.locationRepository = locationRepository;
     }
 
@@ -45,7 +45,7 @@ public class LocationServiceImpl implements LocationService {
             Optional.ofNullable(location.getState()).ifPresent(existingLocation::setState);
             Optional.ofNullable(location.getZip()).ifPresent(existingLocation::setZip);
             Optional.ofNullable(location.getPhone()).ifPresent(existingLocation::setPhone);
-            Optional.ofNullable(location.getCompany()).ifPresent(existingLocation::setCompany);
+//            Optional.ofNullable(location.getCompany()).ifPresent(existingLocation::setCompany); // don't allow reassigning a location to different company
 
 //            // Update suppliers (add/remove)
 //            if (location.getAuthorizedSuppliers() != null) {

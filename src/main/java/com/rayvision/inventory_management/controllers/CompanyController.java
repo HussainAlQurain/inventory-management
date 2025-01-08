@@ -62,4 +62,10 @@ public class CompanyController {
         companyService.removeUserFromCompany(companyId, userId);
         return ResponseEntity.noContent().build();
     }
+
+    @PatchMapping("/{id}")
+    public ResponseEntity<Company> updateCompany(@PathVariable Long id, @RequestBody Company company) {
+       Company updatedCompany = companyService.partialUpdate(id, company);
+       return new ResponseEntity<>(updatedCompany, HttpStatus.OK);
+    }
 }

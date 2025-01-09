@@ -17,11 +17,12 @@ public class LocationController {
         this.locationService = locationService;
     }
 
-    @PostMapping
-    public ResponseEntity<Location> createLocation(@RequestBody Location location) {
-        Location savedLocation = this.locationService.save(location);
+    @PostMapping("/{companyId}")
+    public ResponseEntity<Location> createLocation(@PathVariable Long companyId, @RequestBody Location location) {
+        Location savedLocation = this.locationService.save(companyId, location);
         return new ResponseEntity<>(savedLocation, HttpStatus.CREATED);
     }
+
     @GetMapping
     public ResponseEntity<List<Location>> getAllLocations() {
         List<Location> locations = this.locationService.findAll();

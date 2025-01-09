@@ -1,6 +1,8 @@
 package com.rayvision.inventory_management.service.impl;
 
+import com.rayvision.inventory_management.model.Company;
 import com.rayvision.inventory_management.model.Location;
+import com.rayvision.inventory_management.repository.CompanyRepository;
 import com.rayvision.inventory_management.repository.LocationRepository;
 import com.rayvision.inventory_management.service.LocationService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,13 +17,18 @@ public class LocationServiceImpl implements LocationService {
 
     private final LocationRepository locationRepository;
 
-    public LocationServiceImpl(LocationRepository locationRepository) {
+    private final CompanyRepository companyRepository;
+
+    public LocationServiceImpl(LocationRepository locationRepository, CompanyRepository companyRepository) {
         this.locationRepository = locationRepository;
+        this.companyRepository = companyRepository;
     }
 
     @Transactional
     @Override
-    public Location save(Location location) {
+    public Location save(Long companyId, Location location) {
+        Company company = companyRepository.findById(companyId).orElseThrow(() -> new RuntimeException("Company not found"));
+        location.setCompany(company);
         return locationRepository.save(location);
     }
 

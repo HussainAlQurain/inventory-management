@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Optional;
 
 public interface LocationService {
-    Location save(Location location);
+    Location save(Long companyId, Location location);
     List<Location> findAll();
     Optional<Location> findOne(Long id);
     Location partialUpdate(Long id, Location location);

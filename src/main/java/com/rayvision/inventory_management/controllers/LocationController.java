@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/locations")
@@ -34,6 +35,20 @@ public class LocationController {
     public ResponseEntity<List<Location>> getAllLocations() {
         List<Location> locations = this.locationService.findAll();
         return new ResponseEntity<>(locations, HttpStatus.OK);
+    }
+
+    @GetMapping("/company/{companyId}")
+    public ResponseEntity<List<Location>> getLocationsByCompanyId(@PathVariable Long companyId) {
+        List<Location> locations = this.locationService.findByCompanyId(companyId);
+        return new ResponseEntity<>(locations, HttpStatus.OK);
+    }
+
+    @GetMapping("/{locationId}")
+    public ResponseEntity<Location> getLocationById(@PathVariable Long locationId) {
+        Optional<Location> foundLocation = locationService.findOne(locationId);
+        return foundLocation.map(location -> {
+            return new ResponseEntity<>(location, HttpStatus.OK);
+        }).orElse(new ResponseEntity<>(HttpStatus.NOT_FOUND));
     }
 
 }

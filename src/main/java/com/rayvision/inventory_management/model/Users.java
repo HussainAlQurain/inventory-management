@@ -41,6 +41,7 @@ public class Users {
     private Set<Role> roles = new HashSet<>();  // Initialize the set here to avoid errors
 
     @OneToMany(mappedBy = "user")
+    @JsonManagedReference("user-locationuser")
     private Set<LocationUser> locationUsers;
 
     @JsonIgnore

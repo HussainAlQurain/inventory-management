@@ -2,8 +2,12 @@ package com.rayvision.inventory_management.service.impl;
 
 import com.rayvision.inventory_management.model.Company;
 import com.rayvision.inventory_management.model.Location;
+import com.rayvision.inventory_management.model.LocationUser;
+import com.rayvision.inventory_management.model.Users;
 import com.rayvision.inventory_management.repository.CompanyRepository;
 import com.rayvision.inventory_management.repository.LocationRepository;
+import com.rayvision.inventory_management.repository.LocationUserRepository;
+import com.rayvision.inventory_management.repository.UserRepository;
 import com.rayvision.inventory_management.service.LocationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -11,6 +15,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 public class LocationServiceImpl implements LocationService {
@@ -19,9 +25,15 @@ public class LocationServiceImpl implements LocationService {
 
     private final CompanyRepository companyRepository;
 
-    public LocationServiceImpl(LocationRepository locationRepository, CompanyRepository companyRepository) {
+    private final LocationUserRepository locationUserRepository;
+
+    private final UserRepository userRepository;
+
+    public LocationServiceImpl(LocationRepository locationRepository, CompanyRepository companyRepository, LocationUserRepository locationUserRepository, UserRepository userRepository) {
         this.locationRepository = locationRepository;
         this.companyRepository = companyRepository;
+        this.locationUserRepository = locationUserRepository;
+        this.userRepository = userRepository;
     }
 
     @Transactional
@@ -106,5 +118,37 @@ public class LocationServiceImpl implements LocationService {
         } else {
             throw new RuntimeException("Location doesn't exist");
         }
+    }
+
+    @Transactional
+    @Override
+    public List<Users> addUsersToLocation(Long locationId, List<Long> userIds) {
+
+        // Fetch location
+        Location location = locationRepository.findById(locationId).orElseThrow(() -> new RuntimeException("Location not found"));
+
+        // Fetch users by Ids
+        List<Users> users = userRepository.findAllById(userIds);
+        if (users.isEmpty()) {
+            throw new RuntimeException("No valid users found for the given IDs.");
+        }
+        // Check for valid users
+        Set<Long> userIdSet = users.stream().map(Users::getId).collect(Collectors.toSet());
+        List<Long> invalidUserIds = userIds.stream().filter(userId -> !userIdSet.contains(userId)).collect(Collectors.toList());
+        if(!invalidUserIds.isEmpty()) {
+            throw new RuntimeException("Invalid users found for the given IDs: " + invalidUserIds);
+        }
+
+        //Filter out Users already associated with the location
+        Set<Long> existingUserIds = location.getLocationUsers().stream().map(locationUser -> locationUser.getUser().getId()).collect(Collectors.toSet());
+        List<LocationUser> newLocationUsers = users.stream().filter(user -> !existingUserIds.contains(user.getId())).map(user -> LocationUser.builder().user(user).location(location).build()).collect(Collectors.toList());
+        // Save only new LocationUser associations
+        if(!newLocationUsers.isEmpty()) {
+            locationUserRepository.saveAll(newLocationUsers);
+        }
+        return newLocationUsers.stream().map(LocationUser::getUser).toList();
+
+
+
     }
 }

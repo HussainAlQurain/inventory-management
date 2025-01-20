@@ -1,6 +1,7 @@
 package com.rayvision.inventory_management.service;
 
 import com.rayvision.inventory_management.model.Location;
+import com.rayvision.inventory_management.model.Users;
 
 import java.util.List;
 import java.util.Optional;
@@ -15,4 +16,6 @@ public interface LocationService {
     List<Location> findByUserId(Long userId);
     List<Location> findByCompanyIdAndUserId(Long companyId, Long userId);
     void delete(Long id);
+
+    List<Users> addUsersToLocation(Long locationId, List<Long> userIds);
 }

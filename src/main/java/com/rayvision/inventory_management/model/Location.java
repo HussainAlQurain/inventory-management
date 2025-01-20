@@ -3,6 +3,7 @@ package com.rayvision.inventory_management.model;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -43,6 +44,7 @@ public class Location {
     private Set<SupplierLocation> supplierLocations = new HashSet<>();
 
     @OneToMany(mappedBy = "location")
+    @JsonManagedReference("location-locationuser")
     private Set<LocationUser> locationUsers = new HashSet<>();
 
     @OneToMany(mappedBy = "location")

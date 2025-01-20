@@ -1,6 +1,7 @@
 package com.rayvision.inventory_management.controllers;
 
 import com.rayvision.inventory_management.model.Location;
+import com.rayvision.inventory_management.model.Users;
 import com.rayvision.inventory_management.service.LocationService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -23,9 +24,16 @@ public class LocationController {
         return new ResponseEntity<>(savedLocation, HttpStatus.CREATED);
     }
 
+    @PostMapping("/{locationId}/users")
+    public ResponseEntity<List<Users>> createUserLocation(@PathVariable Long locationId, @RequestBody List<Long> userIds) {
+        List<Users> savedUsers = locationService.addUsersToLocation(locationId, userIds);
+        return new ResponseEntity<>(savedUsers, HttpStatus.CREATED);
+    }
+
     @GetMapping
     public ResponseEntity<List<Location>> getAllLocations() {
         List<Location> locations = this.locationService.findAll();
         return new ResponseEntity<>(locations, HttpStatus.OK);
     }
+
 }

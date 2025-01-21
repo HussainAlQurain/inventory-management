@@ -16,6 +16,6 @@ public interface LocationService {
     List<Location> findByUserId(Long userId);
     List<Location> findByCompanyIdAndUserId(Long companyId, Long userId);
     void delete(Long id);
-
+    List<Users> findUsersByLocationId(Long locationId);
     List<Users> addUsersToLocation(Long locationId, List<Long> userIds);
 }

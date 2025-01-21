@@ -51,4 +51,9 @@ public class LocationController {
         }).orElse(new ResponseEntity<>(HttpStatus.NOT_FOUND));
     }
 
+    @GetMapping("/{locationId}/users")
+    public ResponseEntity<List<Users>> getUserLocationsByLocationId(@PathVariable Long locationId) {
+        return ResponseEntity.ok(locationService.findUsersByLocationId(locationId));
+    }
+
 }

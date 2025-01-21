@@ -147,8 +147,18 @@ public class LocationServiceImpl implements LocationService {
             locationUserRepository.saveAll(newLocationUsers);
         }
         return newLocationUsers.stream().map(LocationUser::getUser).toList();
+    }
 
+    @Override
+    public List<Users> findUsersByLocationId(Long locationId) {
+        Location location = locationRepository.findById(locationId)
+                .orElseThrow(() -> new RuntimeException("Location not found with id: " + locationId));
 
-
+        if (location.getLocationUsers().isEmpty()) {
+            throw new RuntimeException("No users found for the given location: " + location.getName());
+        }
+        return location.getLocationUsers().stream()
+                .map(LocationUser::getUser)
+                .collect(Collectors.toList());
     }
 }

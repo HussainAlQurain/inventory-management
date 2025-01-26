@@ -161,4 +161,16 @@ public class LocationServiceImpl implements LocationService {
                 .map(LocationUser::getUser)
                 .collect(Collectors.toList());
     }
+
+    @Override
+    public void removeUserFromLocation(Long locationId, Long userId) {
+        Optional<LocationUser> locationUser = locationUserRepository.findByLocationIdAndUserId(locationId, userId);
+        if (locationUser.isPresent()) {
+            locationUserRepository.delete(locationUser.get());
+        }
+        else {
+            throw new RuntimeException("User doesn't exist");
+        }
+
+    }
 }

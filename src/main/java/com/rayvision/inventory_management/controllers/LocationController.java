@@ -56,4 +56,10 @@ public class LocationController {
         return ResponseEntity.ok(locationService.findUsersByLocationId(locationId));
     }
 
+    @DeleteMapping("/{locationId}/users/{userId}")
+    public ResponseEntity<Void> deleteUserLocation(@PathVariable Long locationId, @PathVariable Long userId) {
+        locationService.removeUserFromLocation(locationId, userId);
+        return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+    }
+
 }

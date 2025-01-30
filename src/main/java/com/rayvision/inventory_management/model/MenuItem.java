@@ -1,32 +1,29 @@
 package com.rayvision.inventory_management.model;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.util.Set;
 
 @AllArgsConstructor
-@Data
+@Setter
+@Getter
 @NoArgsConstructor
 @Builder
 @Entity
 public class MenuItem {
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
     private String name;
 
-    @Column(name = "modifier_groups")
-    private String modifierGroups; // Can be a separate entity if needed
+    private String modifierGroups;
+    // could be separate entity or JSON if needed
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "buyer_location_id", nullable = false)
-    private Location buyerLocation;
+    // Remove or keep location if you want location-limited menu items:
+    // @ManyToOne(fetch = FetchType.LAZY)
+    // private Location buyerLocation;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id", nullable = false)
@@ -35,21 +32,14 @@ public class MenuItem {
     @Column(name = "pos_code", nullable = false, unique = true)
     private String posCode;
 
-    @Column(nullable = false)
+    // cost, foodCostPercentage, or other fields.
     private Double cost;
 
-    @Column(name = "food_cost_percentage", nullable = false)
-    private Double foodCostPercentage; // e.g., 17.63%
+    // Possibly compute cost from sub‐recipes & inventory items:
 
-    @Column(name = "retail_price_excluding_tax", nullable = false)
-    private Double retailPriceExcludingTax;
-
-    // MenuItemInventoryItems
     @OneToMany(mappedBy = "menuItem", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<MenuItemInventoryItem> menuItemInventoryItems;
 
-    // MenuItemSubRecipes
     @OneToMany(mappedBy = "menuItem", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<MenuItemSubRecipe> menuItemSubRecipes;
-
 }

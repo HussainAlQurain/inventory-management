@@ -15,8 +15,8 @@ import java.util.Set;
 @Builder
 @Entity
 public class SubRecipeItem {
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -31,6 +31,7 @@ public class SubRecipeItem {
     @JoinColumn(name = "unit_of_measure_id", nullable = false)
     private UnitOfMeasure unitOfMeasure;
 
+    // e.g. 2.0 “kg”, 5.0 “liters” of the ingredient
     @Column(nullable = false)
-    private Double quantity; // Quantity of the inventory item in this sub-recipe
+    private Double quantity;
 }

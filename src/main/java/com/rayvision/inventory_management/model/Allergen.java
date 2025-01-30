@@ -22,7 +22,7 @@ public class Allergen {
 
     private String description;
 
-    @ManyToMany(mappedBy = "allergens")
-    private Set<InventoryItem> inventoryItems;
+//    @ManyToMany(mappedBy = "allergens")
+//    private Set<InventoryItem> inventoryItems;
 
 }

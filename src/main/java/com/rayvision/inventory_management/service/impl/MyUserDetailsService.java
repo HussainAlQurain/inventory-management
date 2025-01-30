@@ -1,4 +1,4 @@
-package com.rayvision.inventory_management.service;
+package com.rayvision.inventory_management.service.impl;
 
 import com.rayvision.inventory_management.model.UserPrincipal;
 import com.rayvision.inventory_management.model.Users;

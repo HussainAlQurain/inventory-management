@@ -10,13 +10,9 @@ import com.rayvision.inventory_management.repository.CompanyRepository;
 import com.rayvision.inventory_management.repository.CompanyUserRepository;
 import com.rayvision.inventory_management.repository.UserRepository;
 import com.rayvision.inventory_management.service.CompanyService;
-import com.rayvision.inventory_management.service.UserService;
-import org.hibernate.Hibernate;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.swing.text.html.Option;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;

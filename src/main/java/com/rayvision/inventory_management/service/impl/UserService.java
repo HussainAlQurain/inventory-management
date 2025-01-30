@@ -1,4 +1,4 @@
-package com.rayvision.inventory_management.service;
+package com.rayvision.inventory_management.service.impl;
 
 import com.rayvision.inventory_management.enums.userRoles;
 import com.rayvision.inventory_management.model.Role;
@@ -8,7 +8,6 @@ import com.rayvision.inventory_management.repository.CompanyUserRepository;
 import com.rayvision.inventory_management.repository.RoleRepository;
 import com.rayvision.inventory_management.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;

@@ -5,7 +5,7 @@ import com.rayvision.inventory_management.mappers.impl.UserMapperImpl;
 import com.rayvision.inventory_management.model.Users;
 import com.rayvision.inventory_management.model.dto.LoginDTO;
 import com.rayvision.inventory_management.model.dto.UserDTO;
-import com.rayvision.inventory_management.service.UserService;
+import com.rayvision.inventory_management.service.impl.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

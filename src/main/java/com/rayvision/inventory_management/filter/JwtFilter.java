@@ -1,8 +1,8 @@
 package com.rayvision.inventory_management.filter;
 
 
-import com.rayvision.inventory_management.service.JWTService;
-import com.rayvision.inventory_management.service.MyUserDetailsService;
+import com.rayvision.inventory_management.service.impl.JWTService;
+import com.rayvision.inventory_management.service.impl.MyUserDetailsService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;

@@ -3,12 +3,13 @@ package com.rayvision.inventory_management.service;
 import com.rayvision.inventory_management.model.InventoryItem;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface InventoryItemService {
     List<InventoryItem> getAllInventoryItems();
-    InventoryItem getInventoryItemById(int id);
+    Optional<InventoryItem> getInventoryItemById(Long id);
     InventoryItem save(InventoryItem inventoryItem);
     InventoryItem update(InventoryItem inventoryItem);
     InventoryItem partialUpdate(InventoryItem inventoryItem);
-    void deleteInventoryItemById(int id);
+    void deleteInventoryItemById(Long id);
 }

@@ -3,10 +3,12 @@ package com.rayvision.inventory_management.service.impl;
 import com.rayvision.inventory_management.model.InventoryItem;
 import com.rayvision.inventory_management.repository.InventoryItemRepository;
 import com.rayvision.inventory_management.service.InventoryItemService;
+import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Optional;
 
+@Service
 public class InventoryItemServiceImpl implements InventoryItemService {
     private final InventoryItemRepository inventoryItemRepository;
 

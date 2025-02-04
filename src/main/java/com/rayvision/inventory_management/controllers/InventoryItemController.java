@@ -21,34 +21,34 @@ public class InventoryItemController {
     }
 
     // GET all inventory items
-    @GetMapping
-    public ResponseEntity<List<InventoryItem>> getAllInventoryItems() {
-        List<InventoryItem> items = inventoryItemService.getAllInventoryItems();
+    @GetMapping("company/{companyId}")
+    public ResponseEntity<List<InventoryItem>> getAllInventoryItems(@PathVariable Long companyId) {
+        List<InventoryItem> items = inventoryItemService.getAllInventoryItems(companyId);
         return ResponseEntity.ok(items);
     }
 
     // GET a single inventory item by id
-    @GetMapping("/{id}")
-    public ResponseEntity<InventoryItem> getInventoryItemById(@PathVariable Long id) {
-        Optional<InventoryItem> item = inventoryItemService.getInventoryItemById(id);
+    @GetMapping("/{id}/company/{companyId}")
+    public ResponseEntity<InventoryItem> getInventoryItemById(@PathVariable Long id, @PathVariable Long companyId) {
+        Optional<InventoryItem> item = inventoryItemService.getInventoryItemById(companyId, id);
         return item.map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     // POST a new inventory item
-    @PostMapping
-    public ResponseEntity<InventoryItem> createInventoryItem(@RequestBody InventoryItem inventoryItem) {
-        InventoryItem savedItem = inventoryItemService.save(inventoryItem);
+    @PostMapping("company/{companyId}")
+    public ResponseEntity<InventoryItem> createInventoryItem(@PathVariable Long companyId, @RequestBody InventoryItem inventoryItem) {
+        InventoryItem savedItem = inventoryItemService.save(companyId, inventoryItem);
         return ResponseEntity.status(HttpStatus.CREATED).body(savedItem);
     }
 
     // PUT to update an existing inventory item.
     // Note: This method assumes that the service’s update() method is implemented.
-    @PutMapping("/{id}")
-    public ResponseEntity<InventoryItem> updateInventoryItem(@PathVariable Long id,
+    @PutMapping("/{id}/company/{companyId}")
+    public ResponseEntity<InventoryItem> updateInventoryItem(@PathVariable Long id, @PathVariable Long companyId,
                                                              @RequestBody InventoryItem inventoryItem) {
         inventoryItem.setId(id);
-        InventoryItem updatedItem = inventoryItemService.update(inventoryItem);
+        InventoryItem updatedItem = inventoryItemService.update(companyId, inventoryItem);
         if (updatedItem != null) {
             return ResponseEntity.ok(updatedItem);
         }
@@ -56,12 +56,12 @@ public class InventoryItemController {
     }
 
     // PATCH to partially update an inventory item.
-    @PatchMapping("/{id}")
-    public ResponseEntity<InventoryItem> partialUpdateInventoryItem(@PathVariable Long id,
+    @PatchMapping("/{id}/company/{companyId}")
+    public ResponseEntity<InventoryItem> partialUpdateInventoryItem(@PathVariable Long id, @PathVariable Long companyid,
                                                                     @RequestBody InventoryItem inventoryItem) {
         inventoryItem.setId(id);
         try {
-            InventoryItem updatedItem = inventoryItemService.partialUpdate(inventoryItem);
+            InventoryItem updatedItem = inventoryItemService.partialUpdate(companyid, inventoryItem);
             return ResponseEntity.ok(updatedItem);
         } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();
@@ -69,10 +69,10 @@ public class InventoryItemController {
     }
 
     // DELETE an inventory item by id.
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteInventoryItem(@PathVariable Long id) {
+    @DeleteMapping("/{id}/company/{companyId}")
+    public ResponseEntity<Void> deleteInventoryItem(@PathVariable Long id, @PathVariable Long companyId) {
         try {
-            inventoryItemService.deleteInventoryItemById(id);
+            inventoryItemService.deleteInventoryItemById(companyId, id);
             return ResponseEntity.noContent().build();
         } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();

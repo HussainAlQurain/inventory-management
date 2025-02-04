@@ -6,10 +6,10 @@ import java.util.List;
 import java.util.Optional;
 
 public interface InventoryItemService {
-    List<InventoryItem> getAllInventoryItems();
-    Optional<InventoryItem> getInventoryItemById(Long id);
-    InventoryItem save(InventoryItem inventoryItem);
-    InventoryItem update(InventoryItem inventoryItem);
-    InventoryItem partialUpdate(InventoryItem inventoryItem);
-    void deleteInventoryItemById(Long id);
+    List<InventoryItem> getAllInventoryItems(Long companyId);
+    Optional<InventoryItem> getInventoryItemById(Long companyId ,Long id);
+    InventoryItem save(Long companyId, InventoryItem inventoryItem);
+    InventoryItem update(Long companyId, InventoryItem inventoryItem);
+    InventoryItem partialUpdate(Long companyId, InventoryItem inventoryItem);
+    void deleteInventoryItemById(Long companyId, Long id);
 }

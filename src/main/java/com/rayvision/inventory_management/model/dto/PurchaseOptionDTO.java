@@ -6,7 +6,7 @@ import lombok.Data;
 @Data
 public class PurchaseOptionDTO {
     private Long supplierId;
-    private Supplier supplier;
+    private SupplierDTO supplier;
     private Double price;
     private Double taxRate;
     private Long orderingUomId;

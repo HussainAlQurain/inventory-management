@@ -61,7 +61,7 @@ public class InventoryItemServiceImpl implements InventoryItemService {
     public void deleteInventoryItemById(Long companyId, Long id) {
         inventoryItemRepository
                 .findByCompanyIdAndId(companyId, id)
-                .ifPresentOrElse(existingItem -> inventoryItemRepository.delete(existingItem),
+                .ifPresentOrElse(inventoryItemRepository::delete,
                         () -> { throw new RuntimeException("Could not find inventory item with id: " + id );}
                 );
     }

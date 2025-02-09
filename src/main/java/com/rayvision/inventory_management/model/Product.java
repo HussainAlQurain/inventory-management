@@ -26,4 +26,9 @@ public class Product {
     private Double currentStock; // Current quantity in stock
     private Double threshold; // Minimum stock level to trigger an order
     private Double price; // Price per unit
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "company_id", nullable = false)
+    private Company company;
+
 }

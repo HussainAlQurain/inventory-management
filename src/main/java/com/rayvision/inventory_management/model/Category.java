@@ -35,4 +35,9 @@ public class Category {
 
     @OneToMany(mappedBy = "category")
     private Set<MenuItem> menuItems; // If MenuItem also has a category
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "company_id", nullable = false)
+    private Company company;
+
 }

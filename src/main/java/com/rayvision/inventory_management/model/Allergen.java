@@ -25,4 +25,9 @@ public class Allergen {
 //    @ManyToMany(mappedBy = "allergens")
 //    private Set<InventoryItem> inventoryItems;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "company_id", nullable = false)
+    private Company company;
+
+
 }

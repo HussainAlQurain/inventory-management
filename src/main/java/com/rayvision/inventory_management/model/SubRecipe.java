@@ -67,4 +67,8 @@ public class SubRecipe {
     // If you want to allow subRecipe to appear in multiple assortments
     // without direct ManyToMany, you could do bridging (AssortmentSubRecipe).
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "company_id", nullable = false)
+    private Company company;
+
 }

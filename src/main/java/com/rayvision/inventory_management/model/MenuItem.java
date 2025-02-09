@@ -42,4 +42,9 @@ public class MenuItem {
 
     @OneToMany(mappedBy = "menuItem", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<MenuItemSubRecipe> menuItemSubRecipes;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "company_id", nullable = false)
+    private Company company;
+
 }

@@ -29,4 +29,9 @@ public class UnitOfMeasure {
 
     @Column(nullable = false)
     private Double conversionFactor; // e.g., 1 Box = 12 Each => conversionFactor = 12.0
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "company_id", nullable = false)
+    private Company company;
+
 }

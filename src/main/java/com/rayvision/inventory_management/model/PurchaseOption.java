@@ -3,6 +3,8 @@ package com.rayvision.inventory_management.model;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.util.HashSet;
+
 @Entity
 @AllArgsConstructor
 @NoArgsConstructor
@@ -34,6 +36,13 @@ public class PurchaseOption {
      * e.g. 120.00 SAR per case, or 10.00 SAR per kg.
      */
     private Double price;
+
+    /**
+     * Price history records.
+     */
+    @OneToMany(mappedBy = "purchaseOption", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<PurchaseOptionPriceHistory> priceHistories = new HashSet<>();
+
 
     /**
      * Tax rate, if needed separately for each purchase option.

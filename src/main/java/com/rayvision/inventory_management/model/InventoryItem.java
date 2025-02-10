@@ -52,6 +52,10 @@ public class InventoryItem {
     @JoinColumn(name = "inventory_uom_id")
     private UnitOfMeasure inventoryUom;
 
+    @OneToMany(mappedBy = "inventoryItem", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<PurchaseOption> purchaseOptions = new HashSet<>();
+
+
 
     /**
      * If you still want to track which assortments this item belongs to,

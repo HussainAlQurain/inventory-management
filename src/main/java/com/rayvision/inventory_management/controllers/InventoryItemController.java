@@ -1,6 +1,8 @@
 package com.rayvision.inventory_management.controllers;
 
+import com.rayvision.inventory_management.facade.InventoryItemFacade;
 import com.rayvision.inventory_management.model.InventoryItem;
+import com.rayvision.inventory_management.model.dto.InventoryItemCreateDTO;
 import com.rayvision.inventory_management.service.InventoryItemService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -14,10 +16,12 @@ import java.util.Optional;
 @RequestMapping("/inventory-items")
 public class InventoryItemController {
     private final InventoryItemService inventoryItemService;
+    private final InventoryItemFacade inventoryItemFacade;
 
     @Autowired
-    public InventoryItemController(InventoryItemService inventoryItemService) {
+    public InventoryItemController(InventoryItemService inventoryItemService, InventoryItemFacade inventoryItemFacade) {
         this.inventoryItemService = inventoryItemService;
+        this.inventoryItemFacade = inventoryItemFacade;
     }
 
     // GET all inventory items
@@ -37,8 +41,9 @@ public class InventoryItemController {
 
     // POST a new inventory item
     @PostMapping("company/{companyId}")
-    public ResponseEntity<InventoryItem> createInventoryItem(@PathVariable Long companyId, @RequestBody InventoryItem inventoryItem) {
-        InventoryItem savedItem = inventoryItemService.save(companyId, inventoryItem);
+    public ResponseEntity<InventoryItem> createInventoryItem(@PathVariable Long companyId, @RequestBody InventoryItemCreateDTO inventoryItemCreateDTO) {
+        // consider returning inventoryitemdto
+        InventoryItem savedItem = inventoryItemFacade.createInventoryItem(companyId, inventoryItemCreateDTO);
         return ResponseEntity.status(HttpStatus.CREATED).body(savedItem);
     }
 

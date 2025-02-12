@@ -14,7 +14,6 @@ public class InventoryItemCreateDTO {
     private String description;
     private Double currentPrice = 0.0;
     private Double calories = 0.0;
-    private Long companyId;
     // You can use either the ID for an existing category...
     private Long categoryId;
     // ...or provide details to create a new one:

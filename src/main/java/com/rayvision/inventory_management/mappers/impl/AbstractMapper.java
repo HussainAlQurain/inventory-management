@@ -21,4 +21,8 @@ public abstract class AbstractMapper<E, D> implements Mapper<E, D> {
 
     protected abstract Class<E> getEntityClass();
     protected abstract Class<D> getDtoClass();
+
+    public ModelMapper getModelMapper() {
+        return modelMapper;
+    }
 }

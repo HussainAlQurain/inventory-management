@@ -11,6 +11,9 @@ public class InventoryItemCreateMapper extends AbstractMapper<InventoryItem, Inv
 
     public InventoryItemCreateMapper(ModelMapper modelMapper) {
         super(modelMapper);
+        // Skip purchaseOptions in this mapper so it doesn't attempt to convert them
+        modelMapper.typeMap(InventoryItemCreateDTO.class, InventoryItem.class)
+                .addMappings(mapper -> mapper.skip(InventoryItem::setPurchaseOptions));
     }
 
     @Override
@@ -22,4 +25,5 @@ public class InventoryItemCreateMapper extends AbstractMapper<InventoryItem, Inv
     protected Class<InventoryItemCreateDTO> getDtoClass() {
         return InventoryItemCreateDTO.class;
     }
+
 }

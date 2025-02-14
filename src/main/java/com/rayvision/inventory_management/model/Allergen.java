@@ -1,15 +1,13 @@
 package com.rayvision.inventory_management.model;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.util.Set;
 
 @AllArgsConstructor
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @Builder
 @Entity

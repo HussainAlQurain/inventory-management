@@ -10,6 +10,7 @@ public class PurchaseOptionDTO {
     private Double price;
     private Double taxRate;
     private Long orderingUomId;
+    private UnitOfMeasureCreateDTO orderingUom;
     private Double innerPackQuantity;
     private Double packsPerCase;
     private Double minOrderQuantity;

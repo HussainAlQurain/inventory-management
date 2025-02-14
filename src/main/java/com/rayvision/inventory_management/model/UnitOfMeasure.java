@@ -2,19 +2,17 @@ package com.rayvision.inventory_management.model;
 
 import com.rayvision.inventory_management.enums.UoMCategory;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 @AllArgsConstructor
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @Builder
 @Entity
 public class UnitOfMeasure {
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @Column(nullable = false, unique = true)
@@ -23,9 +21,9 @@ public class UnitOfMeasure {
     @Column(nullable = false, unique = true)
     private String abbreviation; // e.g., EA, BOX, KG
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private UoMCategory category; // COUNT, MASS, VOLUME
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "uom_category_id", nullable = false)
+    private UnitOfMeasureCategory category;
 
     @Column(nullable = false)
     private Double conversionFactor; // e.g., 1 Box = 12 Each => conversionFactor = 12.0
@@ -33,5 +31,6 @@ public class UnitOfMeasure {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "company_id", nullable = false)
     private Company company;
+
 
 }

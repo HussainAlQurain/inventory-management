@@ -9,8 +9,11 @@ public class UnitOfMeasureCreateDTO {
     @NotBlank(message = "Unit name is required")
     private String name;
     private String abbreviation;
-    @NotBlank
-    private String category;
+    // Either provide an existing category ID…
+    private Long categoryId;
+    // …or provide details for a new UOM category.
+    private UnitOfMeasureCategoryCreateDTO category;
     @NotNull
     private Double conversionFactor;
+
 }

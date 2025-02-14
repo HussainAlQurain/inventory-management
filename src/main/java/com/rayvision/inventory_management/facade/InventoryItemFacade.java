@@ -6,7 +6,11 @@ import com.rayvision.inventory_management.model.dto.InventoryItemCreateDTO;
 import com.rayvision.inventory_management.model.dto.PurchaseOptionDTO;
 import com.rayvision.inventory_management.model.dto.UnitOfMeasureCategoryCreateDTO;
 import com.rayvision.inventory_management.model.dto.UnitOfMeasureCreateDTO;
-import com.rayvision.inventory_management.service.*;
+import com.rayvision.inventory_management.service.CategoryService;
+import com.rayvision.inventory_management.service.InventoryItemService;
+import com.rayvision.inventory_management.service.SupplierService;
+import com.rayvision.inventory_management.service.UnitOfMeasureCategoryService;
+import com.rayvision.inventory_management.service.UnitOfMeasureService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,41 +44,44 @@ public class InventoryItemFacade {
     /**
      * Creates a new InventoryItem from the provided DTO.
      *
-     * <p>The method will:</p>
      * <ul>
-     *   <li>Use the dedicated mapper (which skips purchaseOptions) to map basic fields.</li>
-     *   <li>Handle the InventoryItem's Category:
+     *   <li>Uses the dedicated mapper (which skips category, inventoryUom, and purchaseOptions) to map basic fields.</li>
+     *   <li>Handles the InventoryItem’s category:
      *       <ul>
      *         <li>If a categoryId is provided, fetch that category.</li>
-     *         <li>Otherwise, if category details are provided, map and save a new category.</li>
+     *         <li>Otherwise, if category details are provided, map and save a new Category.</li>
      *       </ul>
      *   </li>
-     *   <li>Handle the InventoryItem's UOM:
+     *   <li>Handles the InventoryItem’s UOM:
      *       <ul>
      *         <li>If an inventoryUomId is provided, fetch that UOM.</li>
-     *         <li>Otherwise, map and save the UOM from the provided details (including its nested category).</li>
+     *         <li>Otherwise, maps the provided UOM DTO.
+     *             <ul>
+     *                <li>If the nested UOM category is provided and its id is null, either use its categoryId (if given) or map and save a new UnitOfMeasureCategory.</li>
+     *             </ul>
+     *         </li>
      *       </ul>
      *   </li>
-     *   <li>Process each PurchaseOption:
+     *   <li>Processes each PurchaseOption similarly:
      *       <ul>
-     *         <li>Map simple fields.</li>
-     *         <li>For ordering UOM:
+     *         <li>Maps simple fields.</li>
+     *         <li>Handles ordering UOM:
      *             <ul>
      *               <li>If an orderingUomId is provided, fetch that UOM.</li>
-     *               <li>Else if orderingUom details are provided, map and save a new UOM (including its nested category).</li>
-     *               <li>If neither is provided, default to the InventoryItem's UOM.</li>
+     *               <li>Else if orderingUom details are provided, map and save a new UOM (handling its nested category as above).</li>
+     *               <li>If neither is provided, defaults to the InventoryItem’s UOM.</li>
      *             </ul>
      *         </li>
-     *         <li>For the nested Supplier:
+     *         <li>Handles the nested Supplier:
      *             <ul>
      *               <li>If a supplierId is provided, fetch that supplier.</li>
-     *               <li>Otherwise, map and save a new supplier (set references on its emails/phones before saving).</li>
+     *               <li>Otherwise, map and save a new Supplier (making sure to set the supplier reference on its nested emails and phones).</li>
      *             </ul>
      *         </li>
-     *         <li>Link the PurchaseOption back to the InventoryItem.</li>
+     *         <li>Links the purchase option back to the InventoryItem.</li>
      *       </ul>
      *   </li>
-     *   <li>Save the entire InventoryItem (with cascading to purchase options, etc.).</li>
+     *   <li>Saves the entire InventoryItem (with cascading on purchase options, etc.).</li>
      * </ul>
      *
      * @param companyId the ID of the company (tenant)
@@ -83,75 +90,61 @@ public class InventoryItemFacade {
      */
     @Transactional
     public InventoryItem createInventoryItem(Long companyId, InventoryItemCreateDTO dto) {
-        // 1) Map basic fields (purchaseOptions are skipped in the mapper).
+        // 1. Map basic fields using the dedicated mapper.
+        // (Ensure that the mapper is configured to skip mapping of category, inventoryUom, and purchaseOptions.)
         InventoryItem item = itemCreateMapper.mapFrom(dto);
 
-        // 2) Handle InventoryItem's Category.
+        // 2. Handle InventoryItem's Category.
         if (dto.getCategoryId() != null) {
-            // Fetch existing category
-            Category existingCategory = categoryService
-                    .getCategoryById(companyId, dto.getCategoryId())
-                    .orElseThrow(() ->
-                            new RuntimeException("InventoryItem category not found for id: " + dto.getCategoryId())
-                    );
+            Category existingCategory = categoryService.getCategoryById(companyId, dto.getCategoryId())
+                    .orElseThrow(() -> new RuntimeException(
+                            "InventoryItem category not found for id: " + dto.getCategoryId()));
             item.setCategory(existingCategory);
-
         } else if (dto.getCategory() != null) {
-            // Create a new category from the DTO
+            // Map and save a new Category.
             Category newCategory = itemCreateMapper.getModelMapper().map(dto.getCategory(), Category.class);
             newCategory = categoryService.save(companyId, newCategory);
             item.setCategory(newCategory);
         }
 
-        // 3) Handle InventoryItem's UOM.
+        // 3. Handle InventoryItem's UOM.
         if (dto.getInventoryUomId() != null) {
-            // Fetch existing UOM
-            UnitOfMeasure existingUom = unitOfMeasureService
-                    .getById(companyId, dto.getInventoryUomId())
-                    .orElseThrow(() ->
-                            new RuntimeException("Inventory UOM not found for id: " + dto.getInventoryUomId())
-                    );
+            UnitOfMeasure existingUom = unitOfMeasureService.getById(companyId, dto.getInventoryUomId())
+                    .orElseThrow(() -> new RuntimeException(
+                            "Inventory UOM not found for id: " + dto.getInventoryUomId()));
             item.setInventoryUom(existingUom);
-
         } else if (dto.getInventoryUom() != null) {
-            // Map and save a new UOM from the DTO
             UnitOfMeasureCreateDTO uomDto = dto.getInventoryUom();
             UnitOfMeasure newUom = itemCreateMapper.getModelMapper().map(uomDto, UnitOfMeasure.class);
 
-            // Check if there's a nested category
+            // Manually handle the nested UOM category.
             if (uomDto.getCategory() != null) {
                 if (uomDto.getCategoryId() != null) {
-                    // Fetch existing UOM category by ID
-                    UnitOfMeasureCategory existingCat = unitOfMeasureCategoryService
+                    UnitOfMeasureCategory existingUomCat = unitOfMeasureCategoryService
                             .findById(uomDto.getCategoryId())
-                            .orElseThrow(() ->
-                                    new RuntimeException("UOM Category not found for id: " + uomDto.getCategoryId())
-                            );
-                    newUom.setCategory(existingCat);
-
+                            .orElseThrow(() -> new RuntimeException(
+                                    "UOM Category not found for id: " + uomDto.getCategoryId()));
+                    newUom.setCategory(existingUomCat);
                 } else {
-                    // Create a new UOM category from the nested DTO
                     UnitOfMeasureCategoryCreateDTO catDto = uomDto.getCategory();
-                    UnitOfMeasureCategory uomCategory = new UnitOfMeasureCategory();
-                    uomCategory.setName(catDto.getName());
-                    uomCategory.setDescription(catDto.getDescription());
-                    UnitOfMeasureCategory savedCat = unitOfMeasureCategoryService.save(companyId, uomCategory);
-                    newUom.setCategory(savedCat);
+                    UnitOfMeasureCategory uomCategory = UnitOfMeasureCategory.builder()
+                            .name(catDto.getName())
+                            .description(catDto.getDescription())
+                            .build();
+                    UnitOfMeasureCategory savedCategory = unitOfMeasureCategoryService.save(companyId, uomCategory);
+                    newUom.setCategory(savedCategory);
                 }
             }
-
-            // Save the new UOM and attach to the item
             newUom = unitOfMeasureService.save(companyId, newUom);
             item.setInventoryUom(newUom);
         }
 
-        // 4) Process PurchaseOptions
+        // 4. Process PurchaseOptions.
         if (dto.getPurchaseOptions() != null && !dto.getPurchaseOptions().isEmpty()) {
             Set<PurchaseOption> purchaseOptions = new HashSet<>();
-
             for (PurchaseOptionDTO poDto : dto.getPurchaseOptions()) {
                 PurchaseOption po = new PurchaseOption();
-                // Map simple fields
+                // Map simple fields.
                 po.setPrice(poDto.getPrice());
                 po.setTaxRate(poDto.getTaxRate());
                 po.setInnerPackQuantity(poDto.getInnerPackQuantity());
@@ -163,94 +156,79 @@ public class InventoryItemFacade {
                 po.setNickname(poDto.getNickname());
                 po.setScanBarcode(poDto.getScanBarcode());
 
-                // Handle ordering UOM
+                // Handle ordering UOM.
                 if (poDto.getOrderingUomId() != null) {
-                    UnitOfMeasure orderingUom = unitOfMeasureService
-                            .getById(companyId, poDto.getOrderingUomId())
-                            .orElseThrow(() ->
-                                    new RuntimeException("Ordering UOM not found for id: " + poDto.getOrderingUomId())
-                            );
+                    UnitOfMeasure orderingUom = unitOfMeasureService.getById(companyId, poDto.getOrderingUomId())
+                            .orElseThrow(() -> new RuntimeException(
+                                    "Ordering UOM not found for id: " + poDto.getOrderingUomId()));
                     po.setOrderingUom(orderingUom);
-
                 } else if (poDto.getOrderingUom() != null) {
-                    // Create new ordering UOM
                     UnitOfMeasureCreateDTO orderingUomDto = poDto.getOrderingUom();
                     UnitOfMeasure newOrderingUom = itemCreateMapper.getModelMapper()
                             .map(orderingUomDto, UnitOfMeasure.class);
 
-                    // If there's a nested category
+                    // Handle nested UOM category for ordering UOM.
                     if (orderingUomDto.getCategory() != null) {
                         if (orderingUomDto.getCategoryId() != null) {
-                            UnitOfMeasureCategory existingCat = unitOfMeasureCategoryService
+                            UnitOfMeasureCategory existingOrderingCat = unitOfMeasureCategoryService
                                     .findById(orderingUomDto.getCategoryId())
-                                    .orElseThrow(() ->
-                                            new RuntimeException("Ordering UOM Category not found for id: "
-                                                    + orderingUomDto.getCategoryId())
-                                    );
-                            newOrderingUom.setCategory(existingCat);
-
+                                    .orElseThrow(() -> new RuntimeException(
+                                            "Ordering UOM Category not found for id: "
+                                                    + orderingUomDto.getCategoryId()));
+                            newOrderingUom.setCategory(existingOrderingCat);
                         } else {
-                            // Create new category for ordering UOM
                             UnitOfMeasureCategoryCreateDTO catDto = orderingUomDto.getCategory();
-                            UnitOfMeasureCategory uomCategory = new UnitOfMeasureCategory();
-                            uomCategory.setName(catDto.getName());
-                            uomCategory.setDescription(catDto.getDescription());
-                            UnitOfMeasureCategory savedCat = unitOfMeasureCategoryService
-                                    .save(companyId, uomCategory);
-                            newOrderingUom.setCategory(savedCat);
+                            UnitOfMeasureCategory orderingCategory = UnitOfMeasureCategory.builder()
+                                    .name(catDto.getName())
+                                    .description(catDto.getDescription())
+                                    .build();
+                            UnitOfMeasureCategory savedOrderingCat =
+                                    unitOfMeasureCategoryService.save(companyId, orderingCategory);
+                            newOrderingUom.setCategory(savedOrderingCat);
                         }
                     }
-
                     newOrderingUom = unitOfMeasureService.save(companyId, newOrderingUom);
                     po.setOrderingUom(newOrderingUom);
-
                 } else {
-                    // Default to the InventoryItem's UOM
+                    // Default to the InventoryItem's UOM.
                     po.setOrderingUom(item.getInventoryUom());
                 }
 
-                // Handle nested Supplier
+                // Handle nested Supplier.
                 if (poDto.getSupplierId() != null) {
-                    // Fetch existing supplier
-                    Supplier existingSupplier = supplierService
-                            .getSupplierById(companyId, poDto.getSupplierId())
-                            .orElseThrow(() ->
-                                    new RuntimeException("Supplier not found for id: " + poDto.getSupplierId())
-                            );
+                    Supplier existingSupplier = supplierService.getSupplierById(companyId, poDto.getSupplierId())
+                            .orElseThrow(() -> new RuntimeException(
+                                    "Supplier not found for id: " + poDto.getSupplierId()));
                     po.setSupplier(existingSupplier);
-
                 } else if (poDto.getSupplier() != null) {
-                    // Map the new supplier
-                    Supplier mappedSupplier = itemCreateMapper.getModelMapper()
+                    // Use a final (or effectively final) variable for the mapped supplier,
+                    // so we can safely use it in a lambda.
+                    final Supplier mappedSupplier = itemCreateMapper.getModelMapper()
                             .map(poDto.getSupplier(), Supplier.class);
 
-                    // Set references for each email
+                    // Update nested emails/phones to point back to mappedSupplier
                     if (mappedSupplier.getOrderEmails() != null) {
                         mappedSupplier.getOrderEmails().forEach(e -> e.setSupplier(mappedSupplier));
                     }
-
-                    // Set references for each phone
                     if (mappedSupplier.getOrderPhones() != null) {
                         mappedSupplier.getOrderPhones().forEach(p -> p.setSupplier(mappedSupplier));
                     }
 
-                    // Save the mapped supplier
+                    // Now persist the new supplier. This returns the managed instance.
                     Supplier savedSupplier = supplierService.save(companyId, mappedSupplier);
+
+                    // Attach the saved (managed) instance to the PurchaseOption
                     po.setSupplier(savedSupplier);
                 }
 
-                // Link purchase option back to the InventoryItem
+                // Link purchase option to the InventoryItem.
                 po.setInventoryItem(item);
                 purchaseOptions.add(po);
             }
-
-            // Attach to the item
             item.setPurchaseOptions(purchaseOptions);
         }
 
-        // 5) Finally, save the complete InventoryItem
+        // 5. Save the complete InventoryItem (cascading purchase options, etc.)
         return inventoryItemService.save(companyId, item);
     }
 }
-
-

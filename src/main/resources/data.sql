@@ -32,6 +32,14 @@ SELECT 'Company A', '3000000000000', '+966013555555', '+966555555555', 'hussain.
     WHERE NOT EXISTS (SELECT 1 FROM company WHERE name = 'Company A');
 
 
+-- Insert a default location for Company A if it doesn't exist
+INSERT INTO location (name, code, address, city, state, zip, phone, company_id)
+SELECT 'Default Location', 'LOC1', '123 Main St', 'Khobar', 'Eastern Province', '12345', '+966123456789', 1
+    WHERE NOT EXISTS (
+  SELECT 1 FROM location WHERE name = 'Default Location' AND company_id = 1
+);
+
+
 INSERT INTO user_roles (user_id, role_id)
 SELECT 1, 1
     WHERE NOT EXISTS (SELECT 1 FROM user_roles WHERE user_id = 1 AND role_id = 1);

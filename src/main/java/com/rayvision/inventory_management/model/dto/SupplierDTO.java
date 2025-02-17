@@ -30,5 +30,7 @@ public class SupplierDTO {
      */
     private List<Long> authorizedBuyerIds;
 
-
+    // >>> New fields for defaultCategory <<<
+    private Long defaultCategoryId;          // references an existing Category by ID
+    private CategoryCreateDTO defaultCategory; // for creating a brand-new Category
 }

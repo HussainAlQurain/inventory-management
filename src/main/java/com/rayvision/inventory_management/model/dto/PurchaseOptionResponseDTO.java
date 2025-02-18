@@ -20,6 +20,9 @@ public class PurchaseOptionResponseDTO {
     private Long supplierId;
     private String supplierName;
 
+    private UnitOfMeasureResponseDTO orderingUom;
+    private SupplierResponseDTO supplier;
+
     // If you want to show ordering UOM info:
     private Long orderingUomId;
     private String orderingUomName;

@@ -41,4 +41,5 @@ public interface InventoryItemResponseMapper {
     @Mapping(source = "location.id", target = "locationId")
     SupplierLocationResponseDTO toSupplierLocationResponseDTO(SupplierLocation sl);
 
+
 }

@@ -3,10 +3,10 @@ package com.rayvision.inventory_management.model.dto;
 import lombok.Data;
 
 @Data
-public class PurchaseOptionResponseDTO {
-    private Long id;
-    private Double price;
+public class PurchaseOptionPartialUpdateDTO {
+    private Long supplierId;
     private Double taxRate;
+    private Long orderingUomId;
     private Double innerPackQuantity;
     private Double packsPerCase;
     private Double minOrderQuantity;
@@ -15,14 +15,4 @@ public class PurchaseOptionResponseDTO {
     private String supplierProductCode;
     private String nickname;
     private String scanBarcode;
-
-    // If you want to show some supplier info:
-    private Long supplierId;
-    private String supplierName;
-
-    // If you want to show ordering UOM info:
-    private Long orderingUomId;
-    private String orderingUomName;
-    private String orderingUomAbbreviation;
-
 }

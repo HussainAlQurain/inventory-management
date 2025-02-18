@@ -3,7 +3,9 @@ package com.rayvision.inventory_management.model;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 @AllArgsConstructor
@@ -63,5 +65,8 @@ public class Supplier {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "company_id", nullable = false)
     private Company company;
+
+    @Transient
+    private List<Long> authorizedBuyerIds = new ArrayList<>();
 
 }

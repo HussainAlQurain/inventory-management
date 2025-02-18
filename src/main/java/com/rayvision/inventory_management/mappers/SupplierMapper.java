@@ -23,6 +23,8 @@ public interface SupplierMapper {
     @Mapping(target = "company", ignore = true)
     @Mapping(target = "defaultCategory", ignore = true)    // fetched from DB or set in service
     @Mapping(target = "authorizedBuyers", ignore = true)  // if you have bridging logic in service
+    // <-- Add this line so that `dto.authorizedBuyerIds` goes into the transient supplier field
+    @Mapping(source = "authorizedBuyerIds", target = "authorizedBuyerIds")
     Supplier fromSupplierCreateDTO(SupplierCreateDTO dto);
 
     // 2) Convert entity -> response

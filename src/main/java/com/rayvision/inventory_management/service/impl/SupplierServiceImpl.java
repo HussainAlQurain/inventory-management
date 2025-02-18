@@ -1,7 +1,9 @@
 package com.rayvision.inventory_management.service.impl;
 
-import com.rayvision.inventory_management.model.Supplier;
+import com.rayvision.inventory_management.model.*;
+import com.rayvision.inventory_management.repository.CategoryRepository;
 import com.rayvision.inventory_management.repository.CompanyRepository;
+import com.rayvision.inventory_management.repository.LocationRepository;
 import com.rayvision.inventory_management.repository.SupplierRepository;
 import com.rayvision.inventory_management.service.SupplierService;
 import org.springframework.stereotype.Service;
@@ -13,10 +15,15 @@ import java.util.Optional;
 public class SupplierServiceImpl implements SupplierService {
     private final SupplierRepository supplierRepository;
     private final CompanyRepository companyRepository;
+    private final CategoryRepository categoryRepository;
+    private final LocationRepository locationRepository;
 
-    public SupplierServiceImpl(SupplierRepository supplierRepository, CompanyRepository companyRepository) {
+
+    public SupplierServiceImpl(SupplierRepository supplierRepository, CompanyRepository companyRepository, CategoryRepository categoryRepository, LocationRepository locationRepository) {
         this.supplierRepository = supplierRepository;
         this.companyRepository = companyRepository;
+        this.categoryRepository = categoryRepository;
+        this.locationRepository = locationRepository;
     }
 
     @Override
@@ -31,11 +38,42 @@ public class SupplierServiceImpl implements SupplierService {
 
     @Override
     public Supplier save(Long companyId, Supplier supplier) {
-        return companyRepository.findById(companyId).map(company -> {
-            supplier.setCompany(company);
-            return supplierRepository.save(supplier);
-        }).orElseThrow(() -> new RuntimeException("Invalid Company ID: " + companyId));
+        // (1) Link the Supplier to the Company
+        Company company = companyRepository.findById(companyId)
+                .orElseThrow(() -> new RuntimeException("Invalid Company ID: " + companyId));
+        supplier.setCompany(company);
+
+        // (2) If defaultCategory != null & has an ID, fetch from DB
+        if (supplier.getDefaultCategory() != null && supplier.getDefaultCategory().getId() != null) {
+            Long catId = supplier.getDefaultCategory().getId();
+            Category cat = categoryRepository.findByCompanyIdAndId(companyId, catId)
+                    .orElseThrow(() -> new RuntimeException("Category not found for id: " + catId));
+            supplier.setDefaultCategory(cat);
+        }
+
+        // (3) If we have authorizedBuyerIds, build SupplierLocation bridging
+        if (supplier.getAuthorizedBuyerIds() != null && !supplier.getAuthorizedBuyerIds().isEmpty()) {
+            for (Long locId : supplier.getAuthorizedBuyerIds()) {
+                Location loc = locationRepository.findByCompanyIdAndId(companyId, locId)
+                        .orElseThrow(() -> new RuntimeException("Location not found for id: " + locId));
+
+                SupplierLocation sl = new SupplierLocation();
+                sl.setSupplier(supplier);
+                sl.setLocation(loc);
+
+                // Because supplier.authorizedBuyers is a Set<SupplierLocation> mapped by "supplier"
+                supplier.getAuthorizedBuyers().add(sl);
+            }
+        }
+
+        // (4) If we have phones/emails, they should already be linked
+        //     (phone.setSupplier(supplier)) in the mapper or an after-mapping step.
+        //     Just confirm we have CascadeType.ALL or do the setSupplier if needed.
+
+        // (5) Finally, persist
+        return supplierRepository.save(supplier);
     }
+
 
     @Override
     public Supplier update(Long companyId, Supplier supplier) {

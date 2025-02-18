@@ -59,7 +59,8 @@ public class Supplier {
     private Set<SupplierPhone> orderPhones = new HashSet<>();
 
     // Authorized Buyers (Locations)
-    @OneToMany(mappedBy = "supplier")
+    @OneToMany(mappedBy = "supplier", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
     private Set<SupplierLocation> authorizedBuyers = new HashSet<>();
 
     @ManyToOne(fetch = FetchType.LAZY)

@@ -1,6 +1,7 @@
 package com.rayvision.inventory_management.service.impl;
 
 import com.rayvision.inventory_management.model.InventoryItem;
+import com.rayvision.inventory_management.model.dto.InventoryItemPartialUpdateDTO;
 import com.rayvision.inventory_management.repository.CompanyRepository;
 import com.rayvision.inventory_management.repository.InventoryItemRepository;
 import com.rayvision.inventory_management.service.InventoryItemService;
@@ -43,18 +44,33 @@ public class InventoryItemServiceImpl implements InventoryItemService {
     }
 
     @Override
-    public InventoryItem partialUpdate(Long companyId, InventoryItem inventoryItem) {
-        return inventoryItemRepository.findByCompanyIdAndId(companyId, inventoryItem.getId()).map(existingItem -> {
-            Optional.ofNullable(inventoryItem.getName()).ifPresent(existingItem::setName);
-            Optional.ofNullable(inventoryItem.getSku()).ifPresent(existingItem::setSku);
-            Optional.ofNullable(inventoryItem.getProductCode()).ifPresent(existingItem::setProductCode);
-            Optional.ofNullable(inventoryItem.getDescription()).ifPresent(existingItem::setDescription);
-            Optional.ofNullable(inventoryItem.getCurrentPrice()).ifPresent(existingItem::setCurrentPrice);
-            Optional.ofNullable(inventoryItem.getCalories()).ifPresent(existingItem::setCalories);
-            Optional.ofNullable(inventoryItem.getCategory()).ifPresent(existingItem::setCategory);
-            Optional.ofNullable(inventoryItem.getInventoryUom()).ifPresent(existingItem::setInventoryUom);
-            return existingItem;
-        }).orElseThrow(() -> new RuntimeException("Could not find inventory item with id: " + inventoryItem.getId()));
+    public InventoryItem partialUpdate(Long companyId, Long itemId, InventoryItemPartialUpdateDTO partialDto) {
+        return inventoryItemRepository.findByCompanyIdAndId(companyId, itemId)
+                .map(existingItem -> {
+                    // For each field in partialDto, use Optional.ofNullable(...)
+                    Optional.ofNullable(partialDto.getName()).ifPresent(existingItem::setName);
+                    Optional.ofNullable(partialDto.getSku()).ifPresent(existingItem::setSku);
+                    Optional.ofNullable(partialDto.getProductCode()).ifPresent(existingItem::setProductCode);
+                    Optional.ofNullable(partialDto.getDescription()).ifPresent(existingItem::setDescription);
+                    Optional.ofNullable(partialDto.getCurrentPrice()).ifPresent(existingItem::setCurrentPrice);
+                    Optional.ofNullable(partialDto.getCalories()).ifPresent(existingItem::setCalories);
+
+                    // If you allow category or UOM changes, you'd do the same pattern or
+                    // fetch them first if you need an ID. For example:
+                    /*
+                    if (partialDto.getCategoryId() != null) {
+                        Category cat = categoryRepository.findByCompanyIdAndId(companyId, partialDto.getCategoryId())
+                            .orElseThrow(() -> new RuntimeException("Category not found"));
+                        existingItem.setCategory(cat);
+                    }
+                    */
+
+                    // Then save
+                    return inventoryItemRepository.save(existingItem);
+                })
+                .orElseThrow(() -> new RuntimeException(
+                        "Could not find inventory item with id " + itemId + " for company " + companyId
+                ));
     }
 
     @Override

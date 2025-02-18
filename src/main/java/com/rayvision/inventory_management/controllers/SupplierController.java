@@ -2,6 +2,7 @@ package com.rayvision.inventory_management.controllers;
 
 
 import com.rayvision.inventory_management.mappers.InventoryItemResponseMapper;
+import com.rayvision.inventory_management.mappers.SupplierMapper;
 import com.rayvision.inventory_management.model.Supplier;
 import com.rayvision.inventory_management.model.SupplierEmail;
 import com.rayvision.inventory_management.model.SupplierPhone;
@@ -24,19 +25,19 @@ public class SupplierController {
     private final SupplierService supplierService;
     private final SupplierEmailService supplierEmailService;
     private final SupplierPhoneService supplierPhoneService;
-    private final InventoryItemResponseMapper mapper;
+    private final SupplierMapper supplierMapper; // <--- The new dedicated mapper
 
     @Autowired
     public SupplierController(
             SupplierService supplierService,
             SupplierEmailService supplierEmailService,
             SupplierPhoneService supplierPhoneService,
-            InventoryItemResponseMapper inventoryItemResponseMapper
+            SupplierMapper supplierMapper
     ) {
         this.supplierService = supplierService;
         this.supplierEmailService = supplierEmailService;
         this.supplierPhoneService = supplierPhoneService;
-        this.mapper = inventoryItemResponseMapper;
+        this.supplierMapper = supplierMapper;
     }
 
     // 1) GET all Suppliers
@@ -44,7 +45,7 @@ public class SupplierController {
     public ResponseEntity<List<SupplierResponseDTO>> getAllSuppliers(@PathVariable Long companyId) {
         List<Supplier> suppliers = supplierService.getAllSuppliers(companyId);
         List<SupplierResponseDTO> dtos = suppliers.stream()
-                .map(mapper::toSupplierResponseDTO)
+                .map(supplierMapper::toSupplierResponseDTO)
                 .toList();
         return ResponseEntity.ok(dtos);
     }
@@ -59,7 +60,7 @@ public class SupplierController {
         if (supplierOpt.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
-        SupplierResponseDTO dto = mapper.toSupplierResponseDTO(supplierOpt.get());
+        SupplierResponseDTO dto = supplierMapper.toSupplierResponseDTO(supplierOpt.get());
         return ResponseEntity.ok(dto);
     }
 
@@ -69,27 +70,19 @@ public class SupplierController {
             @PathVariable Long companyId,
             @RequestBody SupplierCreateDTO createDto
     ) {
-        // Build or map a Supplier entity from createDto:
-        Supplier newSupplier = new Supplier();
-        newSupplier.setName(createDto.getName());
-        newSupplier.setCustomerNumber(createDto.getCustomerNumber());
-        newSupplier.setMinimumOrder(createDto.getMinimumOrder());
-        newSupplier.setTaxId(createDto.getTaxId());
-        newSupplier.setTaxRate(createDto.getTaxRate());
-        newSupplier.setPaymentTerms(createDto.getPaymentTerms());
-        newSupplier.setComments(createDto.getComments());
-        newSupplier.setAddress(createDto.getAddress());
-        newSupplier.setCity(createDto.getCity());
-        newSupplier.setState(createDto.getState());
-        newSupplier.setZip(createDto.getZip());
-        newSupplier.setCcEmails(createDto.getCcEmails());
+        // A) Map the DTO to a new Supplier
+        Supplier newSupplier = supplierMapper.fromSupplierCreateDTO(createDto);
 
+        // B) Call service (which sets the company, fetches defaultCategory if needed, etc.)
         Supplier saved = supplierService.save(companyId, newSupplier);
-        SupplierResponseDTO resp = mapper.toSupplierResponseDTO(saved);
+
+        // C) Convert to response
+        SupplierResponseDTO resp = supplierMapper.toSupplierResponseDTO(saved);
         return ResponseEntity.status(HttpStatus.CREATED).body(resp);
     }
 
     // 4) PARTIAL UPDATE existing Supplier
+    //    (still manual or you can create a "updateSupplierFromPartialDTO(...)" method in SupplierMapper)
     @PatchMapping("/{id}/company/{companyId}")
     public ResponseEntity<SupplierResponseDTO> partialUpdateSupplier(
             @PathVariable Long id,
@@ -99,7 +92,6 @@ public class SupplierController {
         // Build a minimal Supplier entity with the ID
         Supplier patchEntity = new Supplier();
         patchEntity.setId(id);
-        // Only set fields from patchDto that are not null
         if (patchDto.getName() != null) patchEntity.setName(patchDto.getName());
         if (patchDto.getCustomerNumber() != null) patchEntity.setCustomerNumber(patchDto.getCustomerNumber());
         if (patchDto.getMinimumOrder() != null) patchEntity.setMinimumOrder(patchDto.getMinimumOrder());
@@ -114,7 +106,7 @@ public class SupplierController {
         if (patchDto.getCcEmails() != null) patchEntity.setCcEmails(patchDto.getCcEmails());
 
         Supplier updated = supplierService.partialUpdate(companyId, patchEntity);
-        SupplierResponseDTO resp = mapper.toSupplierResponseDTO(updated);
+        SupplierResponseDTO resp = supplierMapper.toSupplierResponseDTO(updated);
         return ResponseEntity.ok(resp);
     }
 
@@ -128,7 +120,6 @@ public class SupplierController {
         return ResponseEntity.noContent().build();
     }
 
-
     // ====== SUPPLIER EMAIL SUB-RESOURCE ======
 
     // 6) GET all Emails for a Supplier
@@ -137,10 +128,10 @@ public class SupplierController {
             @PathVariable Long supplierId,
             @PathVariable Long companyId
     ) {
-        // Possibly validate the supplier first, or rely on service logic
         List<SupplierEmail> emails = supplierEmailService.getEmailsBySupplier(companyId, supplierId);
         List<SupplierEmailResponseDTO> dtos = emails.stream()
-                .map(mapper::toSupplierEmailResponseDTO)
+                // you can use supplierMapper.toSupplierEmailResponseDTO if you prefer
+                .map(supplierMapper::toSupplierEmailResponseDTO)
                 .toList();
         return ResponseEntity.ok(dtos);
     }
@@ -152,17 +143,16 @@ public class SupplierController {
             @PathVariable Long companyId,
             @RequestBody SupplierEmailCreateDTO dto
     ) {
-        // Build entity from dto
         SupplierEmail email = new SupplierEmail();
         email.setEmail(dto.getEmail());
         email.setDefault(dto.isDefault());
 
         SupplierEmail saved = supplierEmailService.saveEmail(companyId, supplierId, email);
-        SupplierEmailResponseDTO resp = mapper.toSupplierEmailResponseDTO(saved);
+        SupplierEmailResponseDTO resp = supplierMapper.toSupplierEmailResponseDTO(saved);
         return ResponseEntity.status(HttpStatus.CREATED).body(resp);
     }
 
-    // 8) PATCH or PUT for an existing SupplierEmail
+    // 8) PATCH for an existing SupplierEmail
     @PatchMapping("/{supplierId}/company/{companyId}/emails/{emailId}")
     public ResponseEntity<SupplierEmailResponseDTO> updateSupplierEmail(
             @PathVariable Long supplierId,
@@ -170,15 +160,14 @@ public class SupplierController {
             @PathVariable Long emailId,
             @RequestBody SupplierEmailPartialUpdateDTO dto
     ) {
-        // Build partial entity
         SupplierEmail email = new SupplierEmail();
         email.setId(emailId);
         if (dto.getEmail() != null) email.setEmail(dto.getEmail());
-        // We always update isDefault, so:
+        // We always update isDefault
         email.setDefault(dto.isDefault());
 
         SupplierEmail updated = supplierEmailService.updateEmail(companyId, supplierId, email);
-        SupplierEmailResponseDTO resp = mapper.toSupplierEmailResponseDTO(updated);
+        SupplierEmailResponseDTO resp = supplierMapper.toSupplierEmailResponseDTO(updated);
         return ResponseEntity.ok(resp);
     }
 
@@ -196,7 +185,6 @@ public class SupplierController {
 
     // ====== SUPPLIER PHONE SUB-RESOURCE ======
 
-    // Similarly for phones:
     @GetMapping("/{supplierId}/company/{companyId}/phones")
     public ResponseEntity<List<SupplierPhoneResponseDTO>> getSupplierPhones(
             @PathVariable Long supplierId,
@@ -204,7 +192,7 @@ public class SupplierController {
     ) {
         List<SupplierPhone> phones = supplierPhoneService.getPhonesBySupplier(companyId, supplierId);
         List<SupplierPhoneResponseDTO> dtos = phones.stream()
-                .map(mapper::toSupplierPhoneResponseDTO)
+                .map(supplierMapper::toSupplierPhoneResponseDTO)
                 .toList();
         return ResponseEntity.ok(dtos);
     }
@@ -220,7 +208,7 @@ public class SupplierController {
         phone.setDefault(dto.isDefault());
 
         SupplierPhone saved = supplierPhoneService.savePhone(companyId, supplierId, phone);
-        SupplierPhoneResponseDTO resp = mapper.toSupplierPhoneResponseDTO(saved);
+        SupplierPhoneResponseDTO resp = supplierMapper.toSupplierPhoneResponseDTO(saved);
         return ResponseEntity.status(HttpStatus.CREATED).body(resp);
     }
 
@@ -237,7 +225,7 @@ public class SupplierController {
         phone.setDefault(dto.isDefault());
 
         SupplierPhone updated = supplierPhoneService.updatePhone(companyId, supplierId, phone);
-        SupplierPhoneResponseDTO resp = mapper.toSupplierPhoneResponseDTO(updated);
+        SupplierPhoneResponseDTO resp = supplierMapper.toSupplierPhoneResponseDTO(updated);
         return ResponseEntity.ok(resp);
     }
 

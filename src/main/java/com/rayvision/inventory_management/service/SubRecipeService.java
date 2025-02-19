@@ -1,39 +1,36 @@
 package com.rayvision.inventory_management.service;
 
 import com.rayvision.inventory_management.model.SubRecipe;
+import com.rayvision.inventory_management.model.dto.SubRecipeCreateDTO;
 
 import java.util.List;
 import java.util.Optional;
 
 public interface SubRecipeService {
-    /**
-     * Retrieve all SubRecipes for a given company.
-     */
     List<SubRecipe> getAllSubRecipes(Long companyId);
 
-    /**
-     * Retrieve a single SubRecipe by id for a given company.
-     */
     Optional<SubRecipe> getSubRecipeById(Long companyId, Long subRecipeId);
 
     /**
-     * Create a new SubRecipe, linking it to the specified company.
+     * Creates a new subRecipe plus bridging lines from the DTO
      */
-    SubRecipe createSubRecipe(Long companyId, SubRecipe subRecipe);
+    SubRecipe createSubRecipe(Long companyId, SubRecipeCreateDTO dto);
 
     /**
-     * Update an existing SubRecipe fully.
+     * Update (full) a subRecipe, re-building bridging lines
      */
-    SubRecipe updateSubRecipe(Long companyId, SubRecipe subRecipe);
+    SubRecipe updateSubRecipe(Long companyId, Long subRecipeId, SubRecipeCreateDTO dto);
 
     /**
-     * Partially update fields of a SubRecipe.
+     * Partial update if the user only wants to change certain fields or bridging lines
      */
-    SubRecipe partialUpdateSubRecipe(Long companyId, SubRecipe subRecipe);
+    SubRecipe partialUpdateSubRecipe(Long companyId, Long subRecipeId, SubRecipeCreateDTO dto);
 
-    /**
-     * Delete a SubRecipe by id (for a given company).
-     */
     void deleteSubRecipeById(Long companyId, Long subRecipeId);
+
+    /**
+     * Recompute cost from bridging lines (inventory items)
+     */
+    SubRecipe recalcSubRecipeCost(SubRecipe subRecipe);
 
 }

@@ -1,21 +1,19 @@
 package com.rayvision.inventory_management.model;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.util.Set;
 
 @AllArgsConstructor
-@Data
+@Setter
+@Getter
 @NoArgsConstructor
 @Builder
 @Entity
 public class Assortment {
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     private String name;
@@ -32,8 +30,8 @@ public class Assortment {
     )
     private Set<InventoryItem> inventoryItems;
 
-    // Many-to-Many relationship with Location (Authorized Buyers)
-    @OneToMany(mappedBy = "assortment")
+    // Many-to-Many relationship with Location (through AssortmentLocation)
+    @OneToMany(mappedBy = "assortment", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<AssortmentLocation> assortmentLocations;
 
     // Many-to-Many relationship with SubRecipe
@@ -44,5 +42,4 @@ public class Assortment {
             inverseJoinColumns = @JoinColumn(name = "sub_recipe_id")
     )
     private Set<SubRecipe> subRecipes;
-
 }

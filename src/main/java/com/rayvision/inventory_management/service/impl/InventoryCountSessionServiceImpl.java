@@ -9,10 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 @Service
 @Transactional
@@ -25,6 +22,7 @@ public class InventoryCountSessionServiceImpl implements InventoryCountSessionSe
     private final StorageAreaRepository storageAreaRepository;
     private final InventoryItemRepository inventoryItemRepository;
     private final InventoryCountSessionMapper sessionMapper;
+    private final AssortmentLocationRepository assortmentLocationRepository;
 
     public InventoryCountSessionServiceImpl(
             InventoryCountSessionRepository sessionRepository,
@@ -33,7 +31,8 @@ public class InventoryCountSessionServiceImpl implements InventoryCountSessionSe
             UnitOfMeasureRepository uomRepository,
             StorageAreaRepository storageAreaRepository,
             InventoryItemRepository inventoryItemRepository,
-            InventoryCountSessionMapper sessionMapper
+            InventoryCountSessionMapper sessionMapper,
+            AssortmentLocationRepository assortmentLocationRepository
     ) {
         this.sessionRepository = sessionRepository;
         this.lineRepository = lineRepository;
@@ -42,6 +41,7 @@ public class InventoryCountSessionServiceImpl implements InventoryCountSessionSe
         this.storageAreaRepository = storageAreaRepository;
         this.inventoryItemRepository = inventoryItemRepository;
         this.sessionMapper = sessionMapper;
+        this.assortmentLocationRepository = assortmentLocationRepository;
     }
 
     // --------------------------------------------------------------------------
@@ -110,10 +110,20 @@ public class InventoryCountSessionServiceImpl implements InventoryCountSessionSe
         // 4) Now fetch ALL items for this location’s company
         //    (or if you have a custom relationship, only items that "belong" to that location).
         Long companyId = location.getCompany().getId();
-        List<InventoryItem> allItems = inventoryItemRepository.findByCompanyId(companyId);
+        // (A) find bridging records
+        List<AssortmentLocation> bridgingList = assortmentLocationRepository.findByLocationId(locationId);
+        // (B) gather items in a set
+        Set<InventoryItem> unionItems = new HashSet<>();
+        for (AssortmentLocation al : bridgingList) {
+            Assortment asst = al.getAssortment();
+            if (asst.getInventoryItems() != null) {
+                unionItems.addAll(asst.getInventoryItems());
+            }
+        }
+
 
         // 5) For each item, if we don’t already have a line from the DTO, create a new line with 0.0
-        for (InventoryItem item : allItems) {
+        for (InventoryItem item : unionItems) {
             if (!linesFromDto.containsKey(item.getId())) {
                 // Create an empty line for that item
                 InventoryCountLine newLine = new InventoryCountLine();

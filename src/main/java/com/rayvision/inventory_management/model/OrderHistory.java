@@ -26,6 +26,7 @@ public class OrderHistory {
     @Enumerated(EnumType.STRING)
     private OrderStatus status;
 
+    @Temporal(TemporalType.TIMESTAMP)
     private LocalDateTime timestamp;
 
     private String comments;

@@ -22,7 +22,6 @@ public class InventoryCountSession {
     @JoinColumn(name = "location_id")
     private Location location; // The place where we’re counting
 
-    @Temporal(TemporalType.TIMESTAMP)
     private LocalDate countDate;
 
     // Could be an enum or just a String: "START_OF_DAY" or "END_OF_DAY"
@@ -32,7 +31,6 @@ public class InventoryCountSession {
 
     private boolean locked;
 
-    @Temporal(TemporalType.TIMESTAMP)
     private LocalDate lockedDate; // or lockedAt (DateTime) if you want a timestamp
 
     // One session has many lines

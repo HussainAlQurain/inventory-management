@@ -5,6 +5,7 @@ import com.rayvision.inventory_management.model.*;
 import com.rayvision.inventory_management.model.dto.InventoryCountSessionDTO;
 import com.rayvision.inventory_management.repository.*;
 import com.rayvision.inventory_management.service.InventoryCountSessionService;
+import com.rayvision.inventory_management.service.StockTransactionService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,8 +22,9 @@ public class InventoryCountSessionServiceImpl implements InventoryCountSessionSe
     private final UnitOfMeasureRepository uomRepository;
     private final StorageAreaRepository storageAreaRepository;
     private final InventoryItemRepository inventoryItemRepository;
-    private final InventoryCountSessionMapper sessionMapper;
+    private final InventoryCountSessionMapper inventoryCountSessionMapper;
     private final AssortmentLocationRepository assortmentLocationRepository;
+    private final StockTransactionService stockTransactionService;
 
     public InventoryCountSessionServiceImpl(
             InventoryCountSessionRepository sessionRepository,
@@ -31,8 +33,9 @@ public class InventoryCountSessionServiceImpl implements InventoryCountSessionSe
             UnitOfMeasureRepository uomRepository,
             StorageAreaRepository storageAreaRepository,
             InventoryItemRepository inventoryItemRepository,
-            InventoryCountSessionMapper sessionMapper,
-            AssortmentLocationRepository assortmentLocationRepository
+            InventoryCountSessionMapper inventoryCountSessionMapper,
+            AssortmentLocationRepository assortmentLocationRepository,
+            StockTransactionService stockTransactionService
     ) {
         this.sessionRepository = sessionRepository;
         this.lineRepository = lineRepository;
@@ -40,8 +43,9 @@ public class InventoryCountSessionServiceImpl implements InventoryCountSessionSe
         this.uomRepository = uomRepository;
         this.storageAreaRepository = storageAreaRepository;
         this.inventoryItemRepository = inventoryItemRepository;
-        this.sessionMapper = sessionMapper;
+        this.inventoryCountSessionMapper = inventoryCountSessionMapper;
         this.assortmentLocationRepository = assortmentLocationRepository;
+        this.stockTransactionService = stockTransactionService;
     }
 
     // --------------------------------------------------------------------------
@@ -54,7 +58,7 @@ public class InventoryCountSessionServiceImpl implements InventoryCountSessionSe
                 .orElseThrow(() -> new RuntimeException("Location not found: " + locationId));
 
         // 2) Convert top-level fields from DTO -> entity
-        InventoryCountSession sessionEntity = sessionMapper.toEntity(dto);
+        InventoryCountSession sessionEntity = inventoryCountSessionMapper.toEntity(dto);
         sessionEntity.setLocation(location);
         sessionEntity.setLocked(false);
 
@@ -66,7 +70,7 @@ public class InventoryCountSessionServiceImpl implements InventoryCountSessionSe
         Map<Long, InventoryCountLine> linesFromDto = new HashMap<>();
         if (dto.getLines() != null) {
             for (var lineDto : dto.getLines()) {
-                InventoryCountLine lineEntity = sessionMapper.toLineEntity(lineDto);
+                InventoryCountLine lineEntity = inventoryCountSessionMapper.toLineEntity(lineDto);
 
                 // fetch item
                 InventoryItem item = inventoryItemRepository.findById(lineDto.getInventoryItemId())
@@ -208,14 +212,57 @@ public class InventoryCountSessionServiceImpl implements InventoryCountSessionSe
     @Override
     public InventoryCountSession lockSession(Long sessionId) {
         InventoryCountSession existing = getSession(sessionId);
+        if (existing.isLocked()) {
+            throw new RuntimeException("Session is already locked");
+        }
+
         existing.setLocked(true);
         existing.setLockedDate(LocalDate.now());
-        return sessionRepository.save(existing);
+        sessionRepository.save(existing);
+
+        // For each line, compute actual vs. theoretical
+        Location loc = existing.getLocation();
+        LocalDate countDate = existing.getCountDate();  // date of the count
+
+        for (InventoryCountLine line : existing.getLines()) {
+            InventoryItem item = line.getInventoryItem();
+            double actual = Optional.ofNullable(line.getConvertedQuantityInBaseUom()).orElse(0.0);
+
+            // 1) Theoretical from all StockTransactions up to countDate
+            double theoretical = stockTransactionService
+                    .calculateTheoreticalOnHand(loc.getId(), item.getId(), countDate);
+
+            double diff = actual - theoretical;
+            if (Math.abs(diff) > 0.000001) { // if difference is not negligible
+                // cost for the difference
+                double unitCost = Optional.ofNullable(item.getCurrentPrice()).orElse(0.0);
+                double costForDiff = diff * unitCost;
+
+                // record an ADJUSTMENT referencing the session ID
+                stockTransactionService.recordAdjustment(
+                        loc,                         // location
+                        item,                        // item
+                        diff,                        // qty difference
+                        costForDiff,                // cost difference
+                        existing.getId(),           // sourceReferenceId = sessionId
+                        countDate                   // date
+                );
+            }
+        }
+
+        return existing;
     }
 
     @Override
     public InventoryCountSession unlockSession(Long sessionId) {
         InventoryCountSession existing = getSession(sessionId);
+        if (!existing.isLocked()) {
+            throw new RuntimeException("Session is not locked");
+        }
+
+        // Remove any ADJUSTMENT StockTransactions created when we locked the session
+        stockTransactionService.deleteBySourceReferenceId(sessionId);
+
         existing.setLocked(false);
         existing.setLockedDate(null);
         return sessionRepository.save(existing);

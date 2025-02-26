@@ -114,12 +114,20 @@ public class InventoryCountSessionServiceImpl implements InventoryCountSessionSe
         List<AssortmentLocation> bridgingList = assortmentLocationRepository.findByLocationId(locationId);
         // (B) gather items in a set
         Set<InventoryItem> unionItems = new HashSet<>();
-        for (AssortmentLocation al : bridgingList) {
-            Assortment asst = al.getAssortment();
-            if (asst.getInventoryItems() != null) {
-                unionItems.addAll(asst.getInventoryItems());
+        if (bridgingList.isEmpty()) {
+            // Fallback
+            List<InventoryItem> allCompanyItems = inventoryItemRepository.findByCompanyId(companyId);
+            unionItems.addAll(allCompanyItems);
+        } else {
+            // Normal logic: gather items from all assigned assortments
+            for (AssortmentLocation al : bridgingList) {
+                Assortment asst = al.getAssortment();
+                if (asst.getInventoryItems() != null) {
+                    unionItems.addAll(asst.getInventoryItems());
+                }
             }
         }
+
 
 
         // 5) For each item, if we don’t already have a line from the DTO, create a new line with 0.0

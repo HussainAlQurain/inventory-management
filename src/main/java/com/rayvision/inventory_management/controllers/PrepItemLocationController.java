@@ -1,7 +1,9 @@
 package com.rayvision.inventory_management.controllers;
 
 
+import com.rayvision.inventory_management.mappers.PrepItemLocationMapper;
 import com.rayvision.inventory_management.model.PrepItemLocation;
+import com.rayvision.inventory_management.model.dto.PrepItemLocationDTO;
 import com.rayvision.inventory_management.service.PrepItemLocationService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -16,65 +18,67 @@ import java.util.List;
 @RestController
 @RequestMapping("/prep-locations")
 public class PrepItemLocationController {
-    private final PrepItemLocationService prepItemLocationService;
+    private final PrepItemLocationService service;
+    private final PrepItemLocationMapper mapper;
 
-    public PrepItemLocationController(PrepItemLocationService prepItemLocationService) {
-        this.prepItemLocationService = prepItemLocationService;
+    public PrepItemLocationController(PrepItemLocationService service,
+                                      PrepItemLocationMapper mapper) {
+        this.service = service;
+        this.mapper = mapper;
     }
 
-    // GET all bridging rows for a subRecipe
-    @GetMapping("/sub-recipe/{subRecipeId}")
-    public ResponseEntity<List<PrepItemLocation>> getBySubRecipe(@PathVariable Long subRecipeId) {
-        List<PrepItemLocation> list = prepItemLocationService.getBySubRecipe(subRecipeId);
-        return ResponseEntity.ok(list);
-    }
-
-    // GET all bridging rows for a location
-    @GetMapping("/location/{locationId}")
-    public ResponseEntity<List<PrepItemLocation>> getByLocation(@PathVariable Long locationId) {
-        List<PrepItemLocation> list = prepItemLocationService.getByLocation(locationId);
-        return ResponseEntity.ok(list);
-    }
-
-    // GET single bridging row
-    @GetMapping("/{bridgingId}")
-    public ResponseEntity<PrepItemLocation> getOne(@PathVariable Long bridgingId) {
-        return prepItemLocationService.getOne(bridgingId)
-                .map(ResponseEntity::ok)
+    // GET bridging row by ID
+    @GetMapping("/{id}")
+    public ResponseEntity<PrepItemLocationDTO> getOne(@PathVariable Long id) {
+        return service.getOne(id)
+                .map(entity -> ResponseEntity.ok(mapper.toDto(entity)))
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     // CREATE bridging row
     @PostMapping
-    public ResponseEntity<PrepItemLocation> create(@RequestParam Long subRecipeId,
-                                                   @RequestParam Long locationId,
-                                                   @RequestBody PrepItemLocation prepLoc) {
-        // pass subRecipeId, locationId, plus the partial fields in the request body
-        PrepItemLocation created = prepItemLocationService.create(subRecipeId, locationId, prepLoc);
-        return ResponseEntity.status(HttpStatus.CREATED).body(created);
+    public ResponseEntity<PrepItemLocationDTO> create(@RequestBody PrepItemLocationDTO dto) {
+        PrepItemLocation created = service.create(dto);
+        return ResponseEntity.status(HttpStatus.CREATED).body(mapper.toDto(created));
     }
 
     // UPDATE bridging row
-    @PutMapping("/{bridgingId}")
-    public ResponseEntity<PrepItemLocation> update(@PathVariable Long bridgingId,
-                                                   @RequestBody PrepItemLocation patch) {
+    @PatchMapping("/{id}")
+    public ResponseEntity<PrepItemLocationDTO> update(@PathVariable Long id,
+                                                      @RequestBody PrepItemLocationDTO dto) {
         try {
-            PrepItemLocation updated = prepItemLocationService.update(bridgingId, patch);
-            return ResponseEntity.ok(updated);
+            PrepItemLocation updated = service.update(id, dto);
+            return ResponseEntity.ok(mapper.toDto(updated));
         } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();
         }
     }
 
     // DELETE bridging row
-    @DeleteMapping("/{bridgingId}")
-    public ResponseEntity<Void> delete(@PathVariable Long bridgingId) {
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> delete(@PathVariable Long id) {
         try {
-            prepItemLocationService.delete(bridgingId);
+            service.delete(id);
             return ResponseEntity.noContent().build();
         } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();
         }
+    }
+
+    // GET by subRecipe
+    @GetMapping("/sub-recipe/{subRecipeId}")
+    public ResponseEntity<List<PrepItemLocationDTO>> getBySubRecipe(@PathVariable Long subRecipeId) {
+        List<PrepItemLocation> list = service.getBySubRecipe(subRecipeId);
+        List<PrepItemLocationDTO> dtoList = list.stream().map(mapper::toDto).toList();
+        return ResponseEntity.ok(dtoList);
+    }
+
+    // GET by location
+    @GetMapping("/location/{locationId}")
+    public ResponseEntity<List<PrepItemLocationDTO>> getByLocation(@PathVariable Long locationId) {
+        List<PrepItemLocation> list = service.getByLocation(locationId);
+        List<PrepItemLocationDTO> dtoList = list.stream().map(mapper::toDto).toList();
+        return ResponseEntity.ok(dtoList);
     }
 
 }

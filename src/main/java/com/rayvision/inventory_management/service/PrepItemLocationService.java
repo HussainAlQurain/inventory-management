@@ -1,32 +1,26 @@
 package com.rayvision.inventory_management.service;
 
 import com.rayvision.inventory_management.model.PrepItemLocation;
+import com.rayvision.inventory_management.model.dto.PrepItemLocationDTO;
 
 import java.util.List;
 import java.util.Optional;
 
 public interface PrepItemLocationService {
-    /**
-     * Get all PrepItemLocation rows for a given subRecipe or location.
-     */
+    // If you want to create from a DTO that includes subRecipeId + locationId
+    PrepItemLocation create(PrepItemLocationDTO dto);
+
+    // Partial or full update
+    PrepItemLocation update(Long bridgingId, PrepItemLocationDTO dto);
+
+    // If you want a "createOrUpdateBySubRecipeAndLocation" approach:
+    PrepItemLocation createOrUpdate(PrepItemLocationDTO dto);
+
+    void delete(Long bridgingId);
+    Optional<PrepItemLocation> getOne(Long bridgingId);
+
+    // Existing queries
     List<PrepItemLocation> getBySubRecipe(Long subRecipeId);
     List<PrepItemLocation> getByLocation(Long locationId);
 
-    /**
-     * Create new bridging row linking subRecipe + location,
-     * with minOnHand, par, etc.
-     */
-    PrepItemLocation create(Long subRecipeId, Long locationId, PrepItemLocation prepLoc);
-
-    /**
-     * Partial update of fields like onHand, minOnHand, par, etc.
-     */
-    PrepItemLocation update(Long bridgingId, PrepItemLocation patch);
-
-    /**
-     * Delete bridging row.
-     */
-    void delete(Long bridgingId);
-
-    Optional<PrepItemLocation> getOne(Long bridgingId);
 }

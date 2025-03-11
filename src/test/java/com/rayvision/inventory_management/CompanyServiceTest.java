@@ -34,7 +34,7 @@ public class CompanyServiceTest {
         when(companyRepository.save(any(Company.class))).thenReturn(company);
 
         // Act
-        Company result = companyService.createCompany(company);
+        Company result = companyService.save(company);
 
         // Assert
         assertNotNull(company);

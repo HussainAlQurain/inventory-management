@@ -34,7 +34,7 @@ public class CompanyControllerTest {
     void createCompany_ShouldReturnCompany_WhenRequestIsValid() throws Exception {
         // Arrange
         Company company = Company.builder().name("AHAB").build();
-        Mockito.when(companyService.createCompany(any(Company.class))).thenReturn(company);
+        Mockito.when(companyService.save(any(Company.class))).thenReturn(company);
 
         // Act & Assert
         mockMvc.perform(post("/companies")

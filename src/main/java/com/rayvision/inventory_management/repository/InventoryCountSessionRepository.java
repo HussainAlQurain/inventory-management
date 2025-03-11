@@ -2,6 +2,8 @@ package com.rayvision.inventory_management.repository;
 
 import com.rayvision.inventory_management.model.InventoryCountSession;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -12,5 +14,8 @@ public interface InventoryCountSessionRepository extends JpaRepository<Inventory
 
     List<InventoryCountSession> findByLocationId(Long locationId);
     Optional<InventoryCountSession> findByLocationIdAndId(Long locationId, Long sessionId);
+
+    @Query("SELECT s FROM InventoryCountSession s WHERE s.location.id = :locationId AND s.locked = false")
+    List<InventoryCountSession> findOpenSessionsByLocationId(@Param("locationId") Long locationId);
 
 }

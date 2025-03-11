@@ -3,9 +3,14 @@ package com.rayvision.inventory_management.service.impl;
 import com.rayvision.inventory_management.mappers.InventoryCountSessionMapper;
 import com.rayvision.inventory_management.model.*;
 import com.rayvision.inventory_management.model.dto.InventoryCountSessionDTO;
+import com.rayvision.inventory_management.model.dto.InventoryCountLineDTO;
+import com.rayvision.inventory_management.model.dto.InventoryItemLocationDTO;
+import com.rayvision.inventory_management.model.dto.PrepItemLocationDTO;
 import com.rayvision.inventory_management.repository.*;
 import com.rayvision.inventory_management.service.InventoryCountSessionService;
 import com.rayvision.inventory_management.service.StockTransactionService;
+import com.rayvision.inventory_management.service.InventoryItemLocationService;
+import com.rayvision.inventory_management.service.PrepItemLocationService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,9 +27,14 @@ public class InventoryCountSessionServiceImpl implements InventoryCountSessionSe
     private final UnitOfMeasureRepository uomRepository;
     private final StorageAreaRepository storageAreaRepository;
     private final InventoryItemRepository inventoryItemRepository;
+    private final SubRecipeRepository subRecipeRepository; // NEW
     private final InventoryCountSessionMapper inventoryCountSessionMapper;
     private final AssortmentLocationRepository assortmentLocationRepository;
     private final StockTransactionService stockTransactionService;
+
+    // bridging services to update onHand after lock
+    private final InventoryItemLocationService inventoryItemLocationService;
+    private final PrepItemLocationService prepItemLocationService;
 
     public InventoryCountSessionServiceImpl(
             InventoryCountSessionRepository sessionRepository,
@@ -33,9 +43,12 @@ public class InventoryCountSessionServiceImpl implements InventoryCountSessionSe
             UnitOfMeasureRepository uomRepository,
             StorageAreaRepository storageAreaRepository,
             InventoryItemRepository inventoryItemRepository,
+            SubRecipeRepository subRecipeRepository,       // NEW
             InventoryCountSessionMapper inventoryCountSessionMapper,
             AssortmentLocationRepository assortmentLocationRepository,
-            StockTransactionService stockTransactionService
+            StockTransactionService stockTransactionService,
+            InventoryItemLocationService inventoryItemLocationService,
+            PrepItemLocationService prepItemLocationService
     ) {
         this.sessionRepository = sessionRepository;
         this.lineRepository = lineRepository;
@@ -43,39 +56,51 @@ public class InventoryCountSessionServiceImpl implements InventoryCountSessionSe
         this.uomRepository = uomRepository;
         this.storageAreaRepository = storageAreaRepository;
         this.inventoryItemRepository = inventoryItemRepository;
+        this.subRecipeRepository = subRecipeRepository;   // NEW
         this.inventoryCountSessionMapper = inventoryCountSessionMapper;
         this.assortmentLocationRepository = assortmentLocationRepository;
         this.stockTransactionService = stockTransactionService;
+        this.inventoryItemLocationService = inventoryItemLocationService;
+        this.prepItemLocationService = prepItemLocationService;
     }
 
-    // --------------------------------------------------------------------------
-    // CREATE SESSION with lines for all items
-    // --------------------------------------------------------------------------
     @Override
     public InventoryCountSession createSession(Long locationId, InventoryCountSessionDTO dto) {
+        // 0) PREVENT MULTIPLE OPEN SESSIONS
+        List<InventoryCountSession> open = sessionRepository.findOpenSessionsByLocationId(locationId);
+        if (!open.isEmpty()) {
+            throw new RuntimeException("Cannot create a new session: another unlocked session exists for location " + locationId);
+        }
+
         // 1) Validate location
         var location = locationRepository.findById(locationId)
                 .orElseThrow(() -> new RuntimeException("Location not found: " + locationId));
 
-        // 2) Convert top-level fields from DTO -> entity
+        // 2) Convert top-level fields
         InventoryCountSession sessionEntity = inventoryCountSessionMapper.toEntity(dto);
         sessionEntity.setLocation(location);
         sessionEntity.setLocked(false);
-
         if (sessionEntity.getCountDate() == null) {
             sessionEntity.setCountDate(LocalDate.now());
         }
 
-        // 3) Build a map of lines from the DTO (if any were passed in).
-        Map<Long, InventoryCountLine> linesFromDto = new HashMap<>();
+        // 3) Build lines from the DTO
+        Map<String, InventoryCountLine> linesFromDto = new HashMap<>();
+        // We'll use a key that indicates whether it's item-based or subRecipe-based, e.g. "item-123" or "sub-456"
         if (dto.getLines() != null) {
-            for (var lineDto : dto.getLines()) {
+            for (InventoryCountLineDTO lineDto : dto.getLines()) {
                 InventoryCountLine lineEntity = inventoryCountSessionMapper.toLineEntity(lineDto);
 
-                // fetch item
-                InventoryItem item = inventoryItemRepository.findById(lineDto.getInventoryItemId())
-                        .orElseThrow(() -> new RuntimeException("InventoryItem not found: " + lineDto.getInventoryItemId()));
-                lineEntity.setInventoryItem(item);
+                // EITHER item or subRecipe
+                if (lineDto.getInventoryItemId() != null) {
+                    InventoryItem item = inventoryItemRepository.findById(lineDto.getInventoryItemId())
+                            .orElseThrow(() -> new RuntimeException("Item not found: " + lineDto.getInventoryItemId()));
+                    lineEntity.setInventoryItem(item);
+                } else if (lineDto.getSubRecipeId() != null) {
+                    SubRecipe sub = subRecipeRepository.findById(lineDto.getSubRecipeId())
+                            .orElseThrow(() -> new RuntimeException("SubRecipe not found: " + lineDto.getSubRecipeId()));
+                    lineEntity.setSubRecipe(sub);
+                }
 
                 // fetch optional storageArea
                 if (lineDto.getStorageAreaId() != null) {
@@ -83,61 +108,58 @@ public class InventoryCountSessionServiceImpl implements InventoryCountSessionSe
                             .orElseThrow(() -> new RuntimeException("StorageArea not found: " + lineDto.getStorageAreaId()));
                     lineEntity.setStorageArea(sa);
                 }
-                // fetch optional countUom
+
+                // countUom
                 if (lineDto.getCountUomId() != null) {
                     UnitOfMeasure uom = uomRepository.findById(lineDto.getCountUomId())
                             .orElseThrow(() -> new RuntimeException("UOM not found: " + lineDto.getCountUomId()));
                     lineEntity.setCountUom(uom);
-                } else {
-                    lineEntity.setCountUom(item.getInventoryUom());
                 }
 
-                // compute conversions
                 Double qty = Optional.ofNullable(lineDto.getCountedQuantity()).orElse(0.0);
-                double convFactor = Optional.ofNullable(lineEntity.getCountUom())
-                        .map(UnitOfMeasure::getConversionFactor)
-                        .orElse(1.0);
-                double baseQty = qty * convFactor;
+                double conv = Optional.ofNullable(lineEntity.getCountUom()).map(UnitOfMeasure::getConversionFactor).orElse(1.0);
+                double baseQty = qty * conv;
                 lineEntity.setConvertedQuantityInBaseUom(baseQty);
 
-                double price = Optional.ofNullable(item.getCurrentPrice()).orElse(0.0);
+                // set cost if it's an item
+                double price = 0.0;
+                if (lineEntity.getInventoryItem() != null) {
+                    price = Optional.ofNullable(lineEntity.getInventoryItem().getCurrentPrice()).orElse(0.0);
+                }
                 lineEntity.setLineTotalValue(baseQty * price);
 
-                // Link to session
                 lineEntity.setCountSession(sessionEntity);
 
-                // put in map by itemId
-                linesFromDto.put(item.getId(), lineEntity);
+                // Key: "item-123" or "sub-456"
+                String key;
+                if (lineEntity.getInventoryItem() != null) {
+                    key = "item-" + lineEntity.getInventoryItem().getId();
+                } else {
+                    key = "sub-" + lineEntity.getSubRecipe().getId();
+                }
+                linesFromDto.put(key, lineEntity);
             }
         }
 
-        // 4) Now fetch ALL items for this location’s company
-        //    (or if you have a custom relationship, only items that "belong" to that location).
+        // 4) find items via assortments (or fallback)
         Long companyId = location.getCompany().getId();
-        // (A) find bridging records
         List<AssortmentLocation> bridgingList = assortmentLocationRepository.findByLocationId(locationId);
-        // (B) gather items in a set
+
+        // union of InventoryItems
         Set<InventoryItem> unionItems = new HashSet<>();
         if (bridgingList.isEmpty()) {
-            // Fallback
-            List<InventoryItem> allCompanyItems = inventoryItemRepository.findByCompanyId(companyId);
-            unionItems.addAll(allCompanyItems);
+            unionItems.addAll(inventoryItemRepository.findByCompanyId(companyId));
         } else {
-            // Normal logic: gather items from all assigned assortments
             for (AssortmentLocation al : bridgingList) {
-                Assortment asst = al.getAssortment();
-                if (asst.getInventoryItems() != null) {
-                    unionItems.addAll(asst.getInventoryItems());
-                }
+                unionItems.addAll(al.getAssortment().getInventoryItems());
             }
         }
+        // If you also want subRecipes in the same session, you might do something similar for subRecipes, or handle them differently.
 
-
-
-        // 5) For each item, if we don’t already have a line from the DTO, create a new line with 0.0
+        // 5) If not in linesFromDto, create a 0.0 line
         for (InventoryItem item : unionItems) {
-            if (!linesFromDto.containsKey(item.getId())) {
-                // Create an empty line for that item
+            String key = "item-" + item.getId();
+            if (!linesFromDto.containsKey(key)) {
                 InventoryCountLine newLine = new InventoryCountLine();
                 newLine.setInventoryItem(item);
                 newLine.setCountedQuantity(0.0);
@@ -145,42 +167,28 @@ public class InventoryCountSessionServiceImpl implements InventoryCountSessionSe
                 newLine.setConvertedQuantityInBaseUom(0.0);
                 newLine.setLineTotalValue(0.0);
                 newLine.setCountSession(sessionEntity);
-
-                // (No storageArea by default, or you can guess one)
-                // e.g., newLine.setStorageArea(null);
-
-                // add to linesFromDto so we eventually add to session
-                linesFromDto.put(item.getId(), newLine);
+                linesFromDto.put(key, newLine);
             }
         }
 
-        // 6) Attach all lines to the session
-        sessionEntity.getLines().addAll(linesFromDto.values());
+        // If you also want to auto-add subRecipes from an “assortment of subRecipes,” do it here
 
-        // 7) Save
+        sessionEntity.getLines().addAll(linesFromDto.values());
         return sessionRepository.save(sessionEntity);
     }
 
-    // --------------------------------------------------------------------------
-    // READ
-    // --------------------------------------------------------------------------
     @Override
-    @Transactional(readOnly = true)
     public InventoryCountSession getSession(Long sessionId) {
         return sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new RuntimeException("Count session not found: " + sessionId));
     }
 
-    // --------------------------------------------------------------------------
-    // UPDATE
-    // --------------------------------------------------------------------------
     @Override
     public InventoryCountSession updateSession(Long sessionId, InventoryCountSession patch) {
         InventoryCountSession existing = getSession(sessionId);
         if (existing.isLocked()) {
             throw new RuntimeException("Cannot update locked session");
         }
-        // Update simple fields
         if (patch.getCountDate() != null) {
             existing.setCountDate(patch.getCountDate());
         }
@@ -190,13 +198,9 @@ public class InventoryCountSessionServiceImpl implements InventoryCountSessionSe
         if (patch.getDayPart() != null) {
             existing.setDayPart(patch.getDayPart());
         }
-        // ignoring lines for "updateSession" in this example
         return sessionRepository.save(existing);
     }
 
-    // --------------------------------------------------------------------------
-    // DELETE
-    // --------------------------------------------------------------------------
     @Override
     public void deleteSession(Long sessionId) {
         InventoryCountSession existing = getSession(sessionId);
@@ -206,9 +210,6 @@ public class InventoryCountSessionServiceImpl implements InventoryCountSessionSe
         sessionRepository.delete(existing);
     }
 
-    // --------------------------------------------------------------------------
-    // LOCK/UNLOCK
-    // --------------------------------------------------------------------------
     @Override
     public InventoryCountSession lockSession(Long sessionId) {
         InventoryCountSession existing = getSession(sessionId);
@@ -216,36 +217,69 @@ public class InventoryCountSessionServiceImpl implements InventoryCountSessionSe
             throw new RuntimeException("Session is already locked");
         }
 
+        // Mark locked
         existing.setLocked(true);
         existing.setLockedDate(LocalDate.now());
         sessionRepository.save(existing);
 
-        // For each line, compute actual vs. theoretical
+        // For each line, unify the "theoretical" logic for item or subRecipe
         Location loc = existing.getLocation();
-        LocalDate countDate = existing.getCountDate();  // date of the count
+        LocalDate countDate = existing.getCountDate();
 
         for (InventoryCountLine line : existing.getLines()) {
-            InventoryItem item = line.getInventoryItem();
             double actual = Optional.ofNullable(line.getConvertedQuantityInBaseUom()).orElse(0.0);
 
-            // 1) Theoretical from all StockTransactions up to countDate
+            InventoryItem item = line.getInventoryItem();
+            SubRecipe sub = line.getSubRecipe();
+
+            // Use the unified approach if you want subRecipes in your ledger:
+            Long itemId = (item != null) ? item.getId() : null;
+            Long subId = (sub != null) ? sub.getId() : null;
+
+            // Theoretical from the ledger (either item or subRecipe) using the new method
             double theoretical = stockTransactionService
-                    .calculateTheoreticalOnHand(loc.getId(), item.getId(), countDate);
+                    .calculateTheoreticalOnHandUnified(loc.getId(), itemId, subId, countDate);
 
             double diff = actual - theoretical;
-            if (Math.abs(diff) > 0.000001) { // if difference is not negligible
-                // cost for the difference
-                double unitCost = Optional.ofNullable(item.getCurrentPrice()).orElse(0.0);
-                double costForDiff = diff * unitCost;
 
-                // record an ADJUSTMENT referencing the session ID
-                stockTransactionService.recordAdjustment(
-                        loc,                         // location
-                        item,                        // item
-                        diff,                        // qty difference
-                        costForDiff,                // cost difference
-                        existing.getId(),           // sourceReferenceId = sessionId
-                        countDate                   // date
+            // 1) Post ADJUSTMENT if the difference is significant
+            if (Math.abs(diff) > 0.000001) {
+                double unitCost = 0.0;
+                if (item != null) {
+                    unitCost = Optional.ofNullable(item.getCurrentPrice()).orElse(0.0);
+                    // record item-based adjustment
+                    stockTransactionService.recordAdjustment(loc, item, diff, diff * unitCost,
+                            existing.getId(), countDate);
+                } else if (sub != null) {
+                    // Possibly you want subRecipe cost?
+                    // If you store cost in subRecipe, you can do:
+                    unitCost = Optional.ofNullable(sub.getCost()).orElse(0.0);
+                    // record subRecipe-based adjustment
+                    stockTransactionService.recordAdjustment(loc, sub, diff, diff * unitCost,
+                            existing.getId(), countDate);
+                }
+            }
+
+            // 2) Update bridging for onHand/lastCount
+            if (item != null) {
+                inventoryItemLocationService.createOrUpdateByItemAndLocation(
+                        InventoryItemLocationDTO.builder()
+                                .inventoryItemId(item.getId())
+                                .locationId(loc.getId())
+                                .onHand(actual)
+                                .lastCount(actual)
+                                .lastCountDate(countDate)
+                                .build()
+                );
+            } else if (sub != null) {
+                prepItemLocationService.createOrUpdate(
+                        PrepItemLocationDTO.builder()
+                                .subRecipeId(sub.getId())
+                                .locationId(loc.getId())
+                                .onHand(actual)
+                                .lastCount(actual)
+                                .lastCountDate(countDate)
+                                .build()
                 );
             }
         }
@@ -259,8 +293,7 @@ public class InventoryCountSessionServiceImpl implements InventoryCountSessionSe
         if (!existing.isLocked()) {
             throw new RuntimeException("Session is not locked");
         }
-
-        // Remove any ADJUSTMENT StockTransactions created when we locked the session
+        // remove ADJUSTMENT transactions
         stockTransactionService.deleteBySourceReferenceId(sessionId);
 
         existing.setLocked(false);
@@ -268,9 +301,7 @@ public class InventoryCountSessionServiceImpl implements InventoryCountSessionSe
         return sessionRepository.save(existing);
     }
 
-    // --------------------------------------------------------------------------
     // LINES
-    // --------------------------------------------------------------------------
     @Override
     public InventoryCountLine addLine(Long sessionId, InventoryCountLine line) {
         InventoryCountSession session = getSession(sessionId);
@@ -279,34 +310,43 @@ public class InventoryCountSessionServiceImpl implements InventoryCountSessionSe
         }
         line.setCountSession(session);
 
-        // Validate item
-        InventoryItem item = inventoryItemRepository.findById(line.getInventoryItem().getId())
-                .orElseThrow(() -> new RuntimeException("InventoryItem not found"));
+        // if item or subRecipe?
+        if (line.getInventoryItem() != null && line.getInventoryItem().getId() != null) {
+            InventoryItem item = inventoryItemRepository.findById(line.getInventoryItem().getId())
+                    .orElseThrow(() -> new RuntimeException("InventoryItem not found"));
+            line.setInventoryItem(item);
+            // set the default countUom if needed
+            if (line.getCountUom() == null) {
+                line.setCountUom(item.getInventoryUom());
+            }
+        } else if (line.getSubRecipe() != null && line.getSubRecipe().getId() != null) {
+            SubRecipe sub = subRecipeRepository.findById(line.getSubRecipe().getId())
+                    .orElseThrow(() -> new RuntimeException("SubRecipe not found"));
+            line.setSubRecipe(sub);
+        }
 
-        // Validate or set UOM
         if (line.getCountUom() != null && line.getCountUom().getId() != null) {
             UnitOfMeasure uom = uomRepository.findById(line.getCountUom().getId())
                     .orElseThrow(() -> new RuntimeException("UOM not found"));
             line.setCountUom(uom);
-        } else {
-            line.setCountUom(item.getInventoryUom());
         }
 
-        // Validate storage area (optional)
+        // storage area
         if (line.getStorageArea() != null && line.getStorageArea().getId() != null) {
             StorageArea sa = storageAreaRepository.findById(line.getStorageArea().getId())
                     .orElseThrow(() -> new RuntimeException("StorageArea not found"));
             line.setStorageArea(sa);
         }
 
-        // Recompute base qty
         double convFactor = Optional.ofNullable(line.getCountUom())
-                .map(UnitOfMeasure::getConversionFactor)
-                .orElse(1.0);
+                .map(UnitOfMeasure::getConversionFactor).orElse(1.0);
         double baseQty = Optional.ofNullable(line.getCountedQuantity()).orElse(0.0) * convFactor;
         line.setConvertedQuantityInBaseUom(baseQty);
 
-        double price = Optional.ofNullable(item.getCurrentPrice()).orElse(0.0);
+        double price = 0.0;
+        if (line.getInventoryItem() != null) {
+            price = Optional.ofNullable(line.getInventoryItem().getCurrentPrice()).orElse(0.0);
+        }
         line.setLineTotalValue(baseQty * price);
 
         return lineRepository.save(line);
@@ -321,34 +361,39 @@ public class InventoryCountSessionServiceImpl implements InventoryCountSessionSe
 
         InventoryCountLine existing = lineRepository.findById(lineId)
                 .orElseThrow(() -> new RuntimeException("Line not found"));
-
         if (!existing.getCountSession().getId().equals(sessionId)) {
             throw new RuntimeException("Line does not belong to session " + sessionId);
         }
 
-        // Update fields
+        // update fields
         if (patchLine.getCountedQuantity() != null) {
             existing.setCountedQuantity(patchLine.getCountedQuantity());
         }
+
         if (patchLine.getCountUom() != null && patchLine.getCountUom().getId() != null) {
             UnitOfMeasure newUom = uomRepository.findById(patchLine.getCountUom().getId())
                     .orElseThrow(() -> new RuntimeException("UOM not found"));
             existing.setCountUom(newUom);
         }
+
         if (patchLine.getStorageArea() != null && patchLine.getStorageArea().getId() != null) {
             StorageArea sa = storageAreaRepository.findById(patchLine.getStorageArea().getId())
                     .orElseThrow(() -> new RuntimeException("StorageArea not found"));
             existing.setStorageArea(sa);
         }
 
-        // Recompute base qty
+        // if patchLine's subRecipe or item is changed, that would be more advanced logic
+        // you can block it or allow it.
+
         double convFactor = Optional.ofNullable(existing.getCountUom())
-                .map(UnitOfMeasure::getConversionFactor)
-                .orElse(1.0);
+                .map(UnitOfMeasure::getConversionFactor).orElse(1.0);
         double baseQty = Optional.ofNullable(existing.getCountedQuantity()).orElse(0.0) * convFactor;
         existing.setConvertedQuantityInBaseUom(baseQty);
 
-        double price = Optional.ofNullable(existing.getInventoryItem().getCurrentPrice()).orElse(0.0);
+        double price = 0.0;
+        if (existing.getInventoryItem() != null) {
+            price = Optional.ofNullable(existing.getInventoryItem().getCurrentPrice()).orElse(0.0);
+        }
         existing.setLineTotalValue(baseQty * price);
 
         return lineRepository.save(existing);
@@ -366,8 +411,6 @@ public class InventoryCountSessionServiceImpl implements InventoryCountSessionSe
         if (!existing.getCountSession().getId().equals(sessionId)) {
             throw new RuntimeException("Line does not belong to session " + sessionId);
         }
-
         lineRepository.delete(existing);
     }
-
 }

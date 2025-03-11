@@ -2,6 +2,8 @@ package com.rayvision.inventory_management.repository;
 
 import com.rayvision.inventory_management.model.StockTransaction;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
@@ -20,10 +22,34 @@ public interface StockTransactionRepository extends JpaRepository<StockTransacti
 
     // Returns all StockTransaction records for this locationId + itemId
     // where date <= upToDate
+    @Query("SELECT tx FROM StockTransaction tx "
+            + "WHERE tx.location.id = :locationId "
+            + "AND tx.item.id = :itemId "
+            + "AND tx.date <= :upToDate")
     List<StockTransaction> findByLocationIdAndItemIdAndDateLessThanEqual(
-            Long locationId,
-            Long itemId,
-            LocalDate upToDate
+            @Param("locationId") Long locationId,
+            @Param("itemId") Long itemId,
+            @Param("upToDate") LocalDate upToDate
+    );
+
+    @Query("SELECT tx FROM StockTransaction tx "
+            + "WHERE tx.location.id = :locationId "
+            + "AND tx.item.id = :itemId "
+            + "AND tx.date <= :upToDate")
+    List<StockTransaction> findByLocationAndItemUpToDate(
+            @Param("locationId") Long locationId,
+            @Param("itemId") Long itemId,
+            @Param("upToDate") LocalDate upToDate
+    );
+
+    @Query("SELECT tx FROM StockTransaction tx "
+            + "WHERE tx.location.id = :locationId "
+            + "AND tx.subRecipe.id = :subRecipeId "
+            + "AND tx.date <= :upToDate")
+    List<StockTransaction> findByLocationAndSubRecipeUpToDate(
+            @Param("locationId") Long locationId,
+            @Param("subRecipeId") Long subRecipeId,
+            @Param("upToDate") LocalDate upToDate
     );
 
 }

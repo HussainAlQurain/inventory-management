@@ -29,6 +29,11 @@ public class StockTransaction {
     @ManyToOne
     private InventoryItem item;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "sub_recipe_id")
+    private SubRecipe subRecipe;  // optionally null
+
+
     /**
      * A generic reference ID you can use to link back to
      * any "source" record (like an Order, Transfer, or InventoryCountSession).

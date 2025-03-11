@@ -5,11 +5,11 @@ import lombok.Data;
 @Data
 public class InventoryCountLineDTO {
     private Long id;
-    private Long inventoryItemId;
+    private Long inventoryItemId;     // optional
+    private Long subRecipeId;         // optional
     private Long storageAreaId;
     private Double countedQuantity;
     private Long countUomId;
-
-    private Double convertedQuantityInBaseUom; // optional
-    private Double lineTotalValue;             // optional
+    private Double convertedQuantityInBaseUom;
+    private Double lineTotalValue;
 }

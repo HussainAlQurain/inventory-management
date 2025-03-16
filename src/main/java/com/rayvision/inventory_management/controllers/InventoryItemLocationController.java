@@ -4,10 +4,14 @@ import com.rayvision.inventory_management.mappers.InventoryItemLocationMapper;
 import com.rayvision.inventory_management.model.InventoryItemLocation;
 import com.rayvision.inventory_management.model.dto.InventoryItemLocationDTO;
 import com.rayvision.inventory_management.model.records.BulkUpdateRequest;
+import com.rayvision.inventory_management.model.records.LocationInventoryDTO;
 import com.rayvision.inventory_management.service.InventoryItemLocationService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/inventory-item-locations")
@@ -57,5 +61,42 @@ public class InventoryItemLocationController {
         service.bulkUpdate(req.companyId(), req.itemId(), req.newMin(), req.newPar());
         return ResponseEntity.ok().build();
     }
+
+    @GetMapping("/item/{itemId}/company/{companyId}")
+    public ResponseEntity<List<LocationInventoryDTO>> getLocationsForItem(
+            @PathVariable Long itemId,
+            @PathVariable Long companyId
+    ) {
+        // 1) fetch bridging for itemId
+        List<InventoryItemLocation> bridgingList = service.findByItemId(itemId);
+
+        // 2) filter bridging by company? i.e. bridgingList = bridgingList.stream()
+        //        .filter(b -> b.getLocation().getCompany().getId().equals(companyId))
+        //        .toList();
+
+        // 3) build a DTO that has { location: {id,name}, quantity, value }
+        //    Possibly compute 'value = quantity * item.currentPrice'
+        //    For that, we might need the item’s currentPrice or bridgingList might hold it.
+        //    If you store item in bridging, you can do bridging.getInventoryItem().getCurrentPrice().
+
+        List<LocationInventoryDTO> dtos = bridgingList.stream().map(b -> {
+            double qty = Optional.ofNullable(b.getOnHand()).orElse(0.0);
+            double price = 0.0;
+            if (b.getInventoryItem() != null && b.getInventoryItem().getCurrentPrice() != null) {
+                price = b.getInventoryItem().getCurrentPrice();
+            }
+            double value = qty * price;
+
+            return new LocationInventoryDTO(
+                    b.getLocation().getId(),
+                    b.getLocation().getName(),
+                    qty,
+                    value
+            );
+        }).toList();
+
+        return ResponseEntity.ok(dtos);
+    }
+
 
 }

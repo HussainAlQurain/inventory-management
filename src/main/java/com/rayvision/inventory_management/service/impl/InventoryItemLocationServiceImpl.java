@@ -127,4 +127,9 @@ public class InventoryItemLocationServiceImpl implements InventoryItemLocationSe
         repository.saveAll(bridgingList);
     }
 
+    @Override
+    public List<InventoryItemLocation> findByItemId(Long itemId) {
+        return repository.findByInventoryItemId(itemId);
+    }
+
 }

@@ -84,7 +84,7 @@ public class SecurityConfig {
         List<String> allowedOrigins = Arrays.asList(corsAllowedOrigins.split(","));
         corsConfiguration.setAllowedOrigins(allowedOrigins);
         
-        corsConfiguration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        corsConfiguration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         corsConfiguration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "Cache-Control", "X-Requested-With", "Origin", "Accept"));
         corsConfiguration.setAllowCredentials(true); // Allow credentials like cookies or Authorization headers
         source.registerCorsConfiguration("/**", corsConfiguration);

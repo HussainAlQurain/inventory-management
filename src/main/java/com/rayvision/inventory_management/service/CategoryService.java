@@ -12,4 +12,5 @@ public interface CategoryService {
     Category update(Long companyId, Category category);
     Category partialUpdate(Long companyId, Category category);
     void deleteCategoryById(Long companyId, Long id);
+    List<Category> searchForInventoryItemsOrUnused(Long companyId, String search);
 }

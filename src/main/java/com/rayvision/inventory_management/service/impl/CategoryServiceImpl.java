@@ -66,4 +66,11 @@ public class CategoryServiceImpl implements CategoryService {
                 .orElseThrow(() -> new RuntimeException("Category not found for company: " + companyId));
         categoryRepository.delete(category);
     }
+
+    public List<Category> searchForInventoryItemsOrUnused(Long companyId, String search) {
+        // If we want to treat null as empty, do:
+        if (search == null) search = "";
+        return categoryRepository.searchForInventoryItemsOrUnused(companyId, search);
+    }
+
 }

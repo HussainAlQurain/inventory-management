@@ -32,13 +32,19 @@ public class CategoryController {
      * GET all categories for a given company
      */
     @GetMapping("/company/{companyId}")
-    public ResponseEntity<List<CategoryResponseDTO>> getAllCategories(@PathVariable Long companyId) {
-        List<Category> categories = categoryService.getAllCategories(companyId);
+    public ResponseEntity<List<CategoryResponseDTO>> getAllCategories(
+            @PathVariable Long companyId,
+            @RequestParam(name = "search", required = false, defaultValue = "") String searchTerm
+    ) {
+        List<Category> categories = categoryService.searchForInventoryItemsOrUnused(companyId, searchTerm);
+
         List<CategoryResponseDTO> responseList = categories.stream()
                 .map(inventoryItemResponseMapper::toCategoryResponseDTO)
                 .toList();
+
         return ResponseEntity.ok(responseList);
     }
+
 
     /**
      * GET a single category by ID

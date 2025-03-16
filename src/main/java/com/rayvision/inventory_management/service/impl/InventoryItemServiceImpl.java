@@ -52,7 +52,7 @@ public class InventoryItemServiceImpl implements InventoryItemService {
                     Optional.ofNullable(partialDto.getSku()).ifPresent(existingItem::setSku);
                     Optional.ofNullable(partialDto.getProductCode()).ifPresent(existingItem::setProductCode);
                     Optional.ofNullable(partialDto.getDescription()).ifPresent(existingItem::setDescription);
-                    Optional.ofNullable(partialDto.getCurrentPrice()).ifPresent(existingItem::setCurrentPrice);
+//                    Optional.ofNullable(partialDto.getCurrentPrice()).ifPresent(existingItem::setCurrentPrice);
                     Optional.ofNullable(partialDto.getCalories()).ifPresent(existingItem::setCalories);
 
                     // If you allow category or UOM changes, you'd do the same pattern or

@@ -106,4 +106,23 @@ public class PurchaseOptionController {
 
         return ResponseEntity.ok(responseDto);
     }
+
+    @DeleteMapping("/{purchaseOptionId}/company/{companyId}")
+    public ResponseEntity<Void> deletePurchaseOption(
+            @PathVariable Long companyId,
+            @PathVariable Long purchaseOptionId
+    ) {
+        purchaseOptionService.deletePurchaseOption(companyId, purchaseOptionId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PatchMapping("/{purchaseOptionId}/company/{companyId}/main")
+    public ResponseEntity<Void> setAsMain(
+            @PathVariable Long companyId,
+            @PathVariable Long purchaseOptionId
+    ) {
+        purchaseOptionService.setAsMain(companyId, purchaseOptionId);
+        return ResponseEntity.noContent().build();
+    }
+
 }

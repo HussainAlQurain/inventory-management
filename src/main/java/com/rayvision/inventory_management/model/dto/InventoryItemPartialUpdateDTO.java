@@ -10,4 +10,7 @@ public class InventoryItemPartialUpdateDTO {
     private String description;
     private Double currentPrice;
     private Double calories;
+    private Long categoryId;
+    // ...or provide details to create a new one:
+    private CategoryCreateDTO category;
 }

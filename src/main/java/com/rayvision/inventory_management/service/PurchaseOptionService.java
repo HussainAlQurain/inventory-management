@@ -12,4 +12,8 @@ public interface PurchaseOptionService {
     void disablePurchaseOption(Long companyId, Long purchaseOptionId);
     PurchaseOption updatePriceManually(Long companyId, Long purchaseOptionId, Double newPrice);
     List<PurchaseOption> getPurchaseOptions(Long inventoryItemId);
+
+    void deletePurchaseOption(Long companyId, Long purchaseOptionId);
+
+    void setAsMain(Long companyId, Long purchaseOptionId);
 }

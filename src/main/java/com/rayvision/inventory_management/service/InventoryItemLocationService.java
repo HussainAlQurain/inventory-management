@@ -20,4 +20,6 @@ public interface InventoryItemLocationService {
 
     List<InventoryItemLocation> getByItem(Long itemId);
     List<InventoryItemLocation> getByLocation(Long locationId);
+    void bulkUpdate(Long companyId, Long itemId, Double newMin, Double newPar);
+
 }

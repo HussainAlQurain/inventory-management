@@ -112,5 +112,19 @@ public class InventoryItemLocationServiceImpl implements InventoryItemLocationSe
         return repository.findByLocationId(locationId);
     }
 
+    @Override
+    public void bulkUpdate(Long companyId, Long itemId, Double newMin, Double newPar) {
+        // find bridging rows
+        // typically we do something like:
+        List<InventoryItemLocation> bridgingList = repository.findByInventoryItemId(itemId);
+        // if you want to check company as well, ensure bridgingList only from that company's locations
+        bridgingList.forEach(b -> {
+            if (b.getLocation().getCompany().getId().equals(companyId)) {
+                if (newMin != null) b.setMinOnHand(newMin);
+                if (newPar != null) b.setParLevel(newPar);
+            }
+        });
+        repository.saveAll(bridgingList);
+    }
 
 }

@@ -53,8 +53,9 @@ public class InventoryItemLocationController {
 
     @PostMapping("/bulk-update")
     public ResponseEntity<Void> bulkUpdate(@RequestBody BulkUpdateRequest req) {
-        // parse req.itemId, req.newMin, req.newPar, req.companyId
-        // do a service method: itemLocationService.bulkUpdate(req.companyId, req.itemId, req.newMin, req.newPar)
+        // example request = { "companyId": 123, "itemId": 456, "newMin": 10, "newPar": 20 }
+        service.bulkUpdate(req.companyId(), req.itemId(), req.newMin(), req.newPar());
         return ResponseEntity.ok().build();
     }
+
 }

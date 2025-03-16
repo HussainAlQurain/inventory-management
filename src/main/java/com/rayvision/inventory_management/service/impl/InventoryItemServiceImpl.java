@@ -1,7 +1,9 @@
 package com.rayvision.inventory_management.service.impl;
 
+import com.rayvision.inventory_management.model.Category;
 import com.rayvision.inventory_management.model.InventoryItem;
 import com.rayvision.inventory_management.model.dto.InventoryItemPartialUpdateDTO;
+import com.rayvision.inventory_management.repository.CategoryRepository;
 import com.rayvision.inventory_management.repository.CompanyRepository;
 import com.rayvision.inventory_management.repository.InventoryItemRepository;
 import com.rayvision.inventory_management.service.InventoryItemService;
@@ -14,10 +16,12 @@ import java.util.Optional;
 public class InventoryItemServiceImpl implements InventoryItemService {
     private final InventoryItemRepository inventoryItemRepository;
     private final CompanyRepository companyRepository;
+    private final CategoryRepository categoryRepository;
 
-    public InventoryItemServiceImpl(InventoryItemRepository inventoryItemRepository, CompanyRepository companyRepository) {
+    public InventoryItemServiceImpl(InventoryItemRepository inventoryItemRepository, CompanyRepository companyRepository, CategoryRepository categoryRepository) {
         this.inventoryItemRepository = inventoryItemRepository;
         this.companyRepository = companyRepository;
+        this.categoryRepository = categoryRepository;
     }
 
     @Override
@@ -57,13 +61,11 @@ public class InventoryItemServiceImpl implements InventoryItemService {
 
                     // If you allow category or UOM changes, you'd do the same pattern or
                     // fetch them first if you need an ID. For example:
-                    /*
                     if (partialDto.getCategoryId() != null) {
                         Category cat = categoryRepository.findByCompanyIdAndId(companyId, partialDto.getCategoryId())
                             .orElseThrow(() -> new RuntimeException("Category not found"));
                         existingItem.setCategory(cat);
                     }
-                    */
 
                     // Then save
                     return inventoryItemRepository.save(existingItem);

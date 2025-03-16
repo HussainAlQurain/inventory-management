@@ -173,4 +173,33 @@ public class PurchaseOptionServiceImpl implements PurchaseOptionService {
     public List<PurchaseOption> getPurchaseOptions(Long inventoryItemId) {
         return purchaseOptionRepository.findByInventoryItemId(inventoryItemId);
     }
+
+    @Override
+    public void deletePurchaseOption(Long companyId, Long purchaseOptionId) {
+        PurchaseOption existing = purchaseOptionRepository.findById(purchaseOptionId)
+                .orElseThrow(() -> new RuntimeException("PurchaseOption not found: " + purchaseOptionId));
+
+        // optional check belongs to same company
+        if (!existing.getInventoryItem().getCompany().getId().equals(companyId)) {
+            throw new RuntimeException("PurchaseOption does not belong to this company");
+        }
+
+        purchaseOptionRepository.delete(existing);
+
+    }
+
+    @Override
+    public void setAsMain(Long companyId, Long purchaseOptionId) {
+        PurchaseOption target = purchaseOptionRepository.findById(purchaseOptionId)
+                .orElseThrow(() -> new RuntimeException("PurchaseOption not found: " + purchaseOptionId));
+
+        Long itemId = target.getInventoryItem().getId();
+        // 1) find all purchaseOptions for this item
+        List<PurchaseOption> all = purchaseOptionRepository.findByInventoryItemId(itemId);
+        for (PurchaseOption po : all) {
+            po.setMainPurchaseOption(po.getId().equals(purchaseOptionId));
+            purchaseOptionRepository.save(po);
+        }
+    }
+
 }

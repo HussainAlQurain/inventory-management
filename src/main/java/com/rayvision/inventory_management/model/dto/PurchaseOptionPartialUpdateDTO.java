@@ -10,8 +10,8 @@ public class PurchaseOptionPartialUpdateDTO {
     private Double innerPackQuantity;
     private Double packsPerCase;
     private Double minOrderQuantity;
-    private boolean mainPurchaseOption;
-    private boolean orderingEnabled;
+    private Boolean mainPurchaseOption;
+    private Boolean orderingEnabled;
     private String supplierProductCode;
     private String nickname;
     private String scanBarcode;

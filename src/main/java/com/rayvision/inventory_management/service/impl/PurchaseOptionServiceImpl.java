@@ -83,46 +83,58 @@ public class PurchaseOptionServiceImpl implements PurchaseOptionService {
     public PurchaseOption partialUpdate(Long companyId, Long purchaseOptionId, PurchaseOptionPartialUpdateDTO dto) {
         // 1) Find existing PO
         PurchaseOption existing = purchaseOptionRepository.findById(purchaseOptionId)
-                .orElseThrow(() -> new RuntimeException(
-                        "PurchaseOption not found with id " + purchaseOptionId
-                ));
-        // If you also want to check that the InventoryItem belongs to the same company,
-        // you can do existing.getInventoryItem().getCompany().getId().equals(companyId)
+                .orElseThrow(() -> new RuntimeException("PurchaseOption not found with id " + purchaseOptionId));
 
-        // 2) Apply partial fields
-        if (dto.getTaxRate() != null) existing.setTaxRate(dto.getTaxRate());
-        if (dto.getInnerPackQuantity() != null) existing.setInnerPackQuantity(dto.getInnerPackQuantity());
-        if (dto.getPacksPerCase() != null) existing.setPacksPerCase(dto.getPacksPerCase());
-        if (dto.getMinOrderQuantity() != null) existing.setMinOrderQuantity(dto.getMinOrderQuantity());
-        existing.setMainPurchaseOption(dto.isMainPurchaseOption());
-        existing.setOrderingEnabled(dto.isOrderingEnabled());
-        if (dto.getSupplierProductCode() != null) existing.setSupplierProductCode(dto.getSupplierProductCode());
-        if (dto.getNickname() != null) existing.setNickname(dto.getNickname());
-        if (dto.getScanBarcode() != null) existing.setScanBarcode(dto.getScanBarcode());
+        // Update only if non-null
+        if (dto.getTaxRate() != null) {
+            existing.setTaxRate(dto.getTaxRate());
+        }
+        if (dto.getInnerPackQuantity() != null) {
+            existing.setInnerPackQuantity(dto.getInnerPackQuantity());
+        }
+        if (dto.getPacksPerCase() != null) {
+            existing.setPacksPerCase(dto.getPacksPerCase());
+        }
+        if (dto.getMinOrderQuantity() != null) {
+            existing.setMinOrderQuantity(dto.getMinOrderQuantity());
+        }
+        if (dto.getMainPurchaseOption() != null) {  // Only update if provided
+            if(dto.getMainPurchaseOption())
+            {
+                this.setAsMain(companyId, purchaseOptionId);
+            }
+        }
+        if (dto.getOrderingEnabled() != null) {  // Only update if provided
+            existing.setOrderingEnabled(dto.getOrderingEnabled());
+        }
+        if (dto.getSupplierProductCode() != null) {
+            existing.setSupplierProductCode(dto.getSupplierProductCode());
+        }
+        if (dto.getNickname() != null) {
+            existing.setNickname(dto.getNickname());
+        }
+        if (dto.getScanBarcode() != null) {
+            existing.setScanBarcode(dto.getScanBarcode());
+        }
 
-        // If you allow changing supplier in partial update:
+        // If you allow changing supplier:
         if (dto.getSupplierId() != null) {
             Supplier supplier = supplierRepository.findByCompanyIdAndId(companyId, dto.getSupplierId())
-                    .orElseThrow(() -> new RuntimeException(
-                            "Supplier not found with id " + dto.getSupplierId() + " for company " + companyId
-                    ));
+                    .orElseThrow(() -> new RuntimeException("Supplier not found with id " + dto.getSupplierId() + " for company " + companyId));
             existing.setSupplier(supplier);
         }
 
-        // If you allow changing orderingUom in partial update:
+        // If you allow changing ordering UOM:
         if (dto.getOrderingUomId() != null) {
             UnitOfMeasure uom = unitOfMeasureRepository.findByCompanyIdAndId(companyId, dto.getOrderingUomId())
-                    .orElseThrow(() -> new RuntimeException(
-                            "Ordering UOM not found with id " + dto.getOrderingUomId() + " for company " + companyId
-                    ));
+                    .orElseThrow(() -> new RuntimeException("Ordering UOM not found with id " + dto.getOrderingUomId() + " for company " + companyId));
             existing.setOrderingUom(uom);
         }
 
-        // Note: We do NOT update price here, because you want a special method for that.
-
-        // 3) Save
+        // 3) Save and return the updated PO
         return purchaseOptionRepository.save(existing);
     }
+
 
     @Override
     public void disablePurchaseOption(Long companyId, Long purchaseOptionId) {
@@ -190,16 +202,25 @@ public class PurchaseOptionServiceImpl implements PurchaseOptionService {
 
     @Override
     public void setAsMain(Long companyId, Long purchaseOptionId) {
+        // Fetch the target purchase option
         PurchaseOption target = purchaseOptionRepository.findById(purchaseOptionId)
                 .orElseThrow(() -> new RuntimeException("PurchaseOption not found: " + purchaseOptionId));
 
+        // Get the inventory item ID for this purchase option
         Long itemId = target.getInventoryItem().getId();
-        // 1) find all purchaseOptions for this item
-        List<PurchaseOption> all = purchaseOptionRepository.findByInventoryItemId(itemId);
-        for (PurchaseOption po : all) {
-            po.setMainPurchaseOption(po.getId().equals(purchaseOptionId));
+
+        // Retrieve all purchase options for this inventory item
+        List<PurchaseOption> purchaseOptions = purchaseOptionRepository.findByInventoryItemId(itemId);
+
+        // Loop over them and update only the mainPurchaseOption flag:
+        for (PurchaseOption po : purchaseOptions) {
+            // Set the flag to true only for the target purchase option, false otherwise.
+            boolean shouldBeMain = po.getId().equals(purchaseOptionId);
+            po.setMainPurchaseOption(shouldBeMain);
+            // Save the purchase option without modifying its orderingEnabled property.
             purchaseOptionRepository.save(po);
         }
     }
+
 
 }

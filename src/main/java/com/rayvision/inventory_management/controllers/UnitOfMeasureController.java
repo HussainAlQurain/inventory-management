@@ -14,11 +14,14 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+@RestController
+@RequestMapping("/unit-of-measures")
 public class UnitOfMeasureController {
 
     private final UnitOfMeasureService uomService;
     private final UnitOfMeasureMapper uomMapper;
 
+    @Autowired
     public UnitOfMeasureController(UnitOfMeasureService uomService, UnitOfMeasureMapper uomMapper) {
         this.uomService = uomService;
         this.uomMapper = uomMapper;

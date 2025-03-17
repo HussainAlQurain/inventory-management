@@ -4,6 +4,7 @@ import com.rayvision.inventory_management.mappers.UnitOfMeasureMapper;
 import com.rayvision.inventory_management.model.UnitOfMeasure;
 import com.rayvision.inventory_management.model.dto.UnitOfMeasureCreateDTO;
 import com.rayvision.inventory_management.model.dto.UnitOfMeasureResponseDTO;
+import com.rayvision.inventory_management.service.UnitOfMeasureCategoryService;
 import com.rayvision.inventory_management.service.UnitOfMeasureService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -20,11 +21,13 @@ public class UnitOfMeasureController {
 
     private final UnitOfMeasureService uomService;
     private final UnitOfMeasureMapper uomMapper;
+    private final UnitOfMeasureCategoryService uomCategoryService;
 
     @Autowired
-    public UnitOfMeasureController(UnitOfMeasureService uomService, UnitOfMeasureMapper uomMapper) {
+    public UnitOfMeasureController(UnitOfMeasureService uomService, UnitOfMeasureMapper uomMapper, UnitOfMeasureCategoryService uomCategoryService) {
         this.uomService = uomService;
         this.uomMapper = uomMapper;
+        this.uomCategoryService = uomCategoryService;
     }
 
     /**
@@ -65,6 +68,9 @@ public class UnitOfMeasureController {
         // Here we assume you already have a valid category set on the DTO.
         if (dto.getCategoryId() != null) {
             // Here you would fetch the category entity and set it.
+            uom.setCategory(uomCategoryService.findById(dto.getCategoryId()).orElseThrow(
+                    () -> new RuntimeException("Category not found")
+            ));
             // For example: uom.setCategory(categoryService.getById(dto.getCategoryId()).orElse(null));
         } else if (dto.getCategory() != null) {
             // Optionally, create a new category and then set it.

@@ -8,4 +8,5 @@ public class UnitOfMeasureCategoryCreateDTO {
     @NotBlank(message = "UOM Category name is required")
     private String name;
     private String description;
+    private Long companyId;
 }

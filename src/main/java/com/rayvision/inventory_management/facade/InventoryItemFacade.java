@@ -99,6 +99,7 @@ public class InventoryItemFacade {
                 newUom.setCategory(existingUomCat);
             } else if (uomDto.getCategory() != null) {
                 UnitOfMeasureCategory newUomCat = unitOfMeasureCategoryMapper.mapFrom(uomDto.getCategory());
+                newUomCat.setCompany(company);
                 newUomCat = unitOfMeasureCategoryService.save(companyId, newUomCat);
                 newUom.setCategory(newUomCat);
             }
@@ -130,6 +131,7 @@ public class InventoryItemFacade {
                         ordUom.setCategory(ordCat);
                     } else if (ordUomDto.getCategory() != null) {
                         UnitOfMeasureCategory newCat = unitOfMeasureCategoryMapper.mapFrom(ordUomDto.getCategory());
+                        newCat.setCompany(company);
                         newCat = unitOfMeasureCategoryService.save(companyId, newCat);
                         ordUom.setCategory(newCat);
                     }

@@ -19,4 +19,9 @@ public class UnitOfMeasureCategory {
 
     private String description;
 
+    // Associate with Company so that each category belongs to a specific company.
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "company_id", nullable = false)
+    private Company company;
+
 }

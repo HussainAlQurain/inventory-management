@@ -2,6 +2,7 @@ package com.rayvision.inventory_management.service;
 
 import com.rayvision.inventory_management.model.UnitOfMeasureCategory;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface UnitOfMeasureCategoryService {
@@ -21,5 +22,15 @@ public interface UnitOfMeasureCategoryService {
      * @return an Optional containing the category if found, otherwise empty.
      */
     Optional<UnitOfMeasureCategory> findById(Long id);
+
+    /**
+     * Retrieves all UnitOfMeasureCategories for the company.
+     */
+    List<UnitOfMeasureCategory> getAll(Long companyId);
+
+    /**
+     * Deletes a UnitOfMeasureCategory by its ID.
+     */
+    void deleteById(Long id);
 
 }

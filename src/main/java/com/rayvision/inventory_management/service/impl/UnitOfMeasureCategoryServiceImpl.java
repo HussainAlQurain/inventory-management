@@ -5,6 +5,7 @@ import com.rayvision.inventory_management.repository.UnitOfMeasureCategoryReposi
 import com.rayvision.inventory_management.service.UnitOfMeasureCategoryService;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -27,5 +28,16 @@ public class UnitOfMeasureCategoryServiceImpl implements UnitOfMeasureCategorySe
     public Optional<UnitOfMeasureCategory> findById(Long id) {
         return repository.findById(id);
     }
+
+    @Override
+    public List<UnitOfMeasureCategory> getAll(Long companyId) {
+        return repository.findByCompanyId(companyId);
+    }
+
+    @Override
+    public void deleteById(Long id) {
+        repository.deleteById(id);
+    }
+
 
 }

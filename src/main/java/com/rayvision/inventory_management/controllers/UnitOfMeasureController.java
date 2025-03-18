@@ -1,7 +1,9 @@
 package com.rayvision.inventory_management.controllers;
 
+import com.rayvision.inventory_management.mappers.UnitOfMeasureCategoryMapper;
 import com.rayvision.inventory_management.mappers.UnitOfMeasureMapper;
 import com.rayvision.inventory_management.model.UnitOfMeasure;
+import com.rayvision.inventory_management.model.UnitOfMeasureCategory;
 import com.rayvision.inventory_management.model.dto.UnitOfMeasureCreateDTO;
 import com.rayvision.inventory_management.model.dto.UnitOfMeasureResponseDTO;
 import com.rayvision.inventory_management.service.UnitOfMeasureCategoryService;
@@ -20,14 +22,16 @@ import java.util.stream.Collectors;
 public class UnitOfMeasureController {
 
     private final UnitOfMeasureService uomService;
-    private final UnitOfMeasureMapper uomMapper;
+    private final UnitOfMeasureMapper unitOfMeasureMapper;
     private final UnitOfMeasureCategoryService uomCategoryService;
+    private final UnitOfMeasureCategoryMapper uomCategoryMapper;
 
     @Autowired
-    public UnitOfMeasureController(UnitOfMeasureService uomService, UnitOfMeasureMapper uomMapper, UnitOfMeasureCategoryService uomCategoryService) {
+    public UnitOfMeasureController(UnitOfMeasureService uomService, UnitOfMeasureMapper unitOfMeasureMapper, UnitOfMeasureCategoryService uomCategoryService, UnitOfMeasureCategoryMapper uomCategoryMapper) {
         this.uomService = uomService;
-        this.uomMapper = uomMapper;
+        this.unitOfMeasureMapper = unitOfMeasureMapper;
         this.uomCategoryService = uomCategoryService;
+        this.uomCategoryMapper = uomCategoryMapper;
     }
 
     /**
@@ -37,7 +41,7 @@ public class UnitOfMeasureController {
     public ResponseEntity<List<UnitOfMeasureResponseDTO>> getAllUoms(@PathVariable Long companyId) {
         List<UnitOfMeasure> uoms = uomService.getAllUnitOfMeasures(companyId);
         List<UnitOfMeasureResponseDTO> dtos = uoms.stream()
-                .map(uomMapper::toResponseDTO)
+                .map(unitOfMeasureMapper::toResponseDTO)
                 .collect(Collectors.toList());
         return ResponseEntity.ok(dtos);
     }
@@ -48,7 +52,7 @@ public class UnitOfMeasureController {
     @GetMapping("/{id}/company/{companyId}")
     public ResponseEntity<UnitOfMeasureResponseDTO> getUomById(@PathVariable Long id, @PathVariable Long companyId) {
         Optional<UnitOfMeasure> uomOpt = uomService.getById(companyId, id);
-        return uomOpt.map(uom -> ResponseEntity.ok(uomMapper.toResponseDTO(uom)))
+        return uomOpt.map(uom -> ResponseEntity.ok(unitOfMeasureMapper.toResponseDTO(uom)))
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
@@ -73,12 +77,12 @@ public class UnitOfMeasureController {
             ));
             // For example: uom.setCategory(categoryService.getById(dto.getCategoryId()).orElse(null));
         } else if (dto.getCategory() != null) {
-            // Optionally, create a new category and then set it.
-            // For simplicity, this example does not cover that.
+            UnitOfMeasureCategory savedCategory = uomCategoryService.save(companyId, uomCategoryMapper.fromCreateDTO(dto.getCategory()));
+            dto.setCategoryId(savedCategory.getId());
         }
 
         UnitOfMeasure saved = uomService.save(companyId, uom);
-        return ResponseEntity.status(HttpStatus.CREATED).body(uomMapper.toResponseDTO(saved));
+        return ResponseEntity.status(HttpStatus.CREATED).body(unitOfMeasureMapper.toResponseDTO(saved));
     }
 
     /**
@@ -96,7 +100,7 @@ public class UnitOfMeasureController {
         if (dto.getConversionFactor() != null) uom.setConversionFactor(dto.getConversionFactor());
         // Similarly, update the category if provided.
         UnitOfMeasure updated = uomService.partialUpdate(companyId, uom);
-        return ResponseEntity.ok(uomMapper.toResponseDTO(updated));
+        return ResponseEntity.ok(unitOfMeasureMapper.toResponseDTO(updated));
     }
 
     /**

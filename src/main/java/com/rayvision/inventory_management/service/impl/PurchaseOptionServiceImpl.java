@@ -74,9 +74,18 @@ public class PurchaseOptionServiceImpl implements PurchaseOptionService {
             // default to the InventoryItem's UOM if you want:
             po.setOrderingUom(item.getInventoryUom());
         }
+        // 3) Save the new purchase option
+        PurchaseOption saved = purchaseOptionRepository.save(po);
 
-        // 3) Save
-        return purchaseOptionRepository.save(po);
+        // 4) If the new option is marked as main, call setAsMain to update all other options for that item.
+        if (saved.isMainPurchaseOption()) {
+            setAsMain(companyId, saved.getId());
+            // Optionally re-load the saved purchase option from the repository.
+            saved = purchaseOptionRepository.findById(saved.getId())
+                    .orElseThrow(() -> new RuntimeException("PurchaseOption not found after setAsMain"));
+        }
+        return saved;
+
     }
 
     @Override
@@ -102,6 +111,10 @@ public class PurchaseOptionServiceImpl implements PurchaseOptionService {
             if(dto.getMainPurchaseOption())
             {
                 this.setAsMain(companyId, purchaseOptionId);
+            }
+            else {
+                // If false is provided, update the flag directly.
+                existing.setMainPurchaseOption(false);
             }
         }
         if (dto.getOrderingEnabled() != null) {  // Only update if provided

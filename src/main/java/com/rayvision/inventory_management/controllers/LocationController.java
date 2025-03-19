@@ -1,7 +1,9 @@
 package com.rayvision.inventory_management.controllers;
 
+import com.rayvision.inventory_management.mappers.LocationMapper;
 import com.rayvision.inventory_management.model.Location;
 import com.rayvision.inventory_management.model.Users;
+import com.rayvision.inventory_management.model.dto.LocationDTO;
 import com.rayvision.inventory_management.service.LocationService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -9,21 +11,30 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/locations")
 public class LocationController {
     private final LocationService locationService;
+    private final LocationMapper locationMapper;
 
-    public LocationController(LocationService locationService) {
+    public LocationController(LocationService locationService, LocationMapper locationMapper) {
         this.locationService = locationService;
+        this.locationMapper = locationMapper;
     }
 
     @PostMapping("/{companyId}")
-    public ResponseEntity<Location> createLocation(@PathVariable Long companyId, @RequestBody Location location) {
+    public ResponseEntity<LocationDTO> createLocation(@PathVariable Long companyId,
+                                                      @RequestBody LocationDTO locationDTO) {
+        // Convert DTO to entity
+        Location location = locationMapper.toEntity(locationDTO);
         Location savedLocation = this.locationService.save(companyId, location);
-        return new ResponseEntity<>(savedLocation, HttpStatus.CREATED);
+        // Convert saved entity back to DTO
+        LocationDTO responseDTO = locationMapper.toDTO(savedLocation);
+        return new ResponseEntity<>(responseDTO, HttpStatus.CREATED);
     }
+
 
     @PostMapping("/{locationId}/users")
     public ResponseEntity<List<Users>> createUserLocation(@PathVariable Long locationId, @RequestBody List<Long> userIds) {
@@ -32,27 +43,37 @@ public class LocationController {
     }
 
     @GetMapping
-    public ResponseEntity<List<Location>> getAllLocations() {
+    public ResponseEntity<List<LocationDTO>> getAllLocations() {
         List<Location> locations = this.locationService.findAll();
-        return new ResponseEntity<>(locations, HttpStatus.OK);
+        List<LocationDTO> dtos = locations.stream()
+                .map(locationMapper::toDTO)
+                .collect(Collectors.toList());
+        return new ResponseEntity<>(dtos, HttpStatus.OK);
     }
+
 
     @GetMapping("/company/{companyId}")
-    public ResponseEntity<List<Location>> getLocationsByCompanyId(@PathVariable Long companyId) {
+    public ResponseEntity<List<LocationDTO>> getLocationsByCompanyId(@PathVariable Long companyId) {
         List<Location> locations = this.locationService.findByCompanyId(companyId);
-        return new ResponseEntity<>(locations, HttpStatus.OK);
+        List<LocationDTO> dtos = locations.stream()
+                .map(locationMapper::toDTO)
+                .collect(Collectors.toList());
+        return new ResponseEntity<>(dtos, HttpStatus.OK);
     }
 
+
     @GetMapping("/{locationId}")
-    public ResponseEntity<Location> getLocationById(@PathVariable Long locationId) {
+    public ResponseEntity<LocationDTO> getLocationById(@PathVariable Long locationId) {
         Optional<Location> foundLocation = locationService.findOne(locationId);
-        return foundLocation.map(location -> {
-            return new ResponseEntity<>(location, HttpStatus.OK);
-        }).orElse(new ResponseEntity<>(HttpStatus.NOT_FOUND));
+        if (foundLocation.isPresent()) {
+            return ResponseEntity.ok(locationMapper.toDTO(foundLocation.get()));
+        } else {
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        }
     }
 
     @GetMapping("/{locationId}/users")
-    public ResponseEntity<List<Users>> getUserLocationsByLocationId(@PathVariable Long locationId) {
+    public ResponseEntity<List<?>> getUserLocationsByLocationId(@PathVariable Long locationId) {
         return ResponseEntity.ok(locationService.findUsersByLocationId(locationId));
     }
 

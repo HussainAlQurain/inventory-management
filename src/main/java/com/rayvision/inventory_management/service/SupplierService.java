@@ -12,4 +12,5 @@ public interface SupplierService {
     Supplier update(Long companyId, Supplier supplier);
     Supplier partialUpdate(Long companyId, Supplier supplier);
     void deleteSupplierById(Long companyId, Long id);
+    List<Supplier> searchSuppliers(Long companyId, String searchTerm);
 }

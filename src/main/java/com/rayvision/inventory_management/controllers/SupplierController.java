@@ -50,6 +50,20 @@ public class SupplierController {
         return ResponseEntity.ok(dtos);
     }
 
+    /**
+     * GET all Suppliers for a company with optional search by name.
+     */
+    @GetMapping("/company/{companyId}/search")
+    public ResponseEntity<List<SupplierResponseDTO>> searchSuppliers(
+            @PathVariable Long companyId,
+            @RequestParam(name = "search", defaultValue = "") String searchTerm) {
+        List<Supplier> suppliers = supplierService.searchSuppliers(companyId, searchTerm);
+        List<SupplierResponseDTO> dtos = suppliers.stream()
+                .map(supplierMapper::toSupplierResponseDTO)
+                .toList();
+        return ResponseEntity.ok(dtos);
+    }
+
     // 2) GET single Supplier
     @GetMapping("/{id}/company/{companyId}")
     public ResponseEntity<SupplierResponseDTO> getSupplierById(

@@ -123,5 +123,9 @@ public class SupplierServiceImpl implements SupplierService {
         supplierRepository.delete(supplier);
     }
 
+    @Override
+    public List<Supplier> searchSuppliers(Long companyId, String searchTerm) {
+        return supplierRepository.findByCompanyIdAndNameContaining(companyId, searchTerm);
+    }
 
 }

@@ -27,3 +27,9 @@ private LocalDateTime lastModifiedDate;
 - Add error handling
 - Retrieve all locations for a company
 - Use DTOs instead of entities
+
+### Unit of measures bases
+- KG
+- Liter
+- Each
+- Meter

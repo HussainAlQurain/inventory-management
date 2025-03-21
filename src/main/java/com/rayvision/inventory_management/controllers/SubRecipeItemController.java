@@ -1,6 +1,8 @@
 package com.rayvision.inventory_management.controllers;
 
+import com.rayvision.inventory_management.mappers.SubRecipeItemLineMapper;
 import com.rayvision.inventory_management.model.SubRecipeItem;
+import com.rayvision.inventory_management.model.dto.SubRecipeItemLineDTO;
 import com.rayvision.inventory_management.service.SubRecipeItemService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -13,58 +15,72 @@ import java.util.List;
 public class SubRecipeItemController {
 
     private final SubRecipeItemService subRecipeItemService;
+    private final SubRecipeItemLineMapper subRecipeItemLineMapper;
 
-    public SubRecipeItemController(SubRecipeItemService subRecipeItemService) {
+    public SubRecipeItemController(SubRecipeItemService subRecipeItemService, SubRecipeItemLineMapper subRecipeItemLineMapper) {
         this.subRecipeItemService = subRecipeItemService;
+        this.subRecipeItemLineMapper = subRecipeItemLineMapper;
     }
 
     // GET all items for the subRecipe
     @GetMapping
-    public ResponseEntity<List<SubRecipeItem>> getAllItems(@PathVariable Long subRecipeId) {
-        List<SubRecipeItem> items = subRecipeItemService.getItemsBySubRecipe(subRecipeId);
-        return ResponseEntity.ok(items);
+    public ResponseEntity<List<SubRecipeItemLineDTO>> getAllItems(@PathVariable Long subRecipeId) {
+        List<SubRecipeItem> entities = subRecipeItemService.getItemsBySubRecipe(subRecipeId);
+        List<SubRecipeItemLineDTO> dtos = entities.stream()
+                .map(subRecipeItemLineMapper::toDto)
+                .toList();
+        return ResponseEntity.ok(dtos);
     }
+
 
     // GET single item
     @GetMapping("/{itemId}")
-    public ResponseEntity<SubRecipeItem> getItem(@PathVariable Long subRecipeId,
-                                                 @PathVariable Long itemId) {
+    public ResponseEntity<SubRecipeItemLineDTO> getItem(@PathVariable Long subRecipeId,
+                                                        @PathVariable Long itemId) {
         return subRecipeItemService.getOne(subRecipeId, itemId)
+                .map(subRecipeItemLineMapper::toDto)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
+
     // CREATE new subRecipeItem
     @PostMapping
-    public ResponseEntity<SubRecipeItem> createItem(@PathVariable Long subRecipeId,
-                                                    @RequestBody SubRecipeItem item) {
-        SubRecipeItem created = subRecipeItemService.createItem(subRecipeId, item);
-        return ResponseEntity.status(HttpStatus.CREATED).body(created);
+    public ResponseEntity<SubRecipeItemLineDTO> createItem(@PathVariable Long subRecipeId,
+                                                           @RequestBody SubRecipeItemLineDTO dto) {
+        SubRecipeItem entity = subRecipeItemLineMapper.toEntity(dto);
+        SubRecipeItem created = subRecipeItemService.createItem(subRecipeId, entity);
+        SubRecipeItemLineDTO responseDto = subRecipeItemLineMapper.toDto(created);
+        return ResponseEntity.status(HttpStatus.CREATED).body(responseDto);
     }
+
 
     // UPDATE (full) subRecipeItem
     @PutMapping("/{itemId}")
-    public ResponseEntity<SubRecipeItem> updateItem(@PathVariable Long subRecipeId,
-                                                    @PathVariable Long itemId,
-                                                    @RequestBody SubRecipeItem item) {
-        item.setId(itemId);
+    public ResponseEntity<SubRecipeItemLineDTO> updateItem(@PathVariable Long subRecipeId,
+                                                           @PathVariable Long itemId,
+                                                           @RequestBody SubRecipeItemLineDTO dto) {
+        dto.setId(itemId);
+        SubRecipeItem entity = subRecipeItemLineMapper.toEntity(dto);
         try {
-            SubRecipeItem updated = subRecipeItemService.updateItem(subRecipeId, item);
-            return ResponseEntity.ok(updated);
+            SubRecipeItem updated = subRecipeItemService.updateItem(subRecipeId, entity);
+            return ResponseEntity.ok(subRecipeItemLineMapper.toDto(updated));
         } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();
         }
     }
 
+
     // PARTIAL update
     @PatchMapping("/{itemId}")
-    public ResponseEntity<SubRecipeItem> partialUpdateItem(@PathVariable Long subRecipeId,
-                                                           @PathVariable Long itemId,
-                                                           @RequestBody SubRecipeItem patchItem) {
-        patchItem.setId(itemId);
+    public ResponseEntity<SubRecipeItemLineDTO> partialUpdateItem(@PathVariable Long subRecipeId,
+                                                                  @PathVariable Long itemId,
+                                                                  @RequestBody SubRecipeItemLineDTO dto) {
+        dto.setId(itemId);
+        SubRecipeItem entity = subRecipeItemLineMapper.toEntity(dto);
         try {
-            SubRecipeItem updated = subRecipeItemService.partialUpdateItem(subRecipeId, patchItem);
-            return ResponseEntity.ok(updated);
+            SubRecipeItem updated = subRecipeItemService.partialUpdateItem(subRecipeId, entity);
+            return ResponseEntity.ok(subRecipeItemLineMapper.toDto(updated));
         } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();
         }
@@ -81,5 +97,4 @@ public class SubRecipeItemController {
             return ResponseEntity.notFound().build();
         }
     }
-
 }

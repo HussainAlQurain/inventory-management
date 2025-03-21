@@ -1,7 +1,9 @@
 package com.rayvision.inventory_management.controllers;
 
+import com.rayvision.inventory_management.mappers.SubRecipeMapper;
 import com.rayvision.inventory_management.model.SubRecipe;
 import com.rayvision.inventory_management.model.dto.SubRecipeCreateDTO;
+import com.rayvision.inventory_management.model.dto.SubRecipeDTO;
 import com.rayvision.inventory_management.service.SubRecipeService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -14,24 +16,29 @@ import java.util.List;
 public class SubRecipeController {
 
     private final SubRecipeService subRecipeService;
+    private final SubRecipeMapper subRecipeMapper;
 
-    public SubRecipeController(SubRecipeService subRecipeService) {
+    public SubRecipeController(SubRecipeService subRecipeService, SubRecipeMapper subRecipeMapper) {
         this.subRecipeService = subRecipeService;
+        this.subRecipeMapper = subRecipeMapper;
     }
 
     @GetMapping("/company/{companyId}")
-    public ResponseEntity<List<SubRecipe>> getAllSubRecipes(@PathVariable Long companyId) {
+    public ResponseEntity<List<SubRecipeDTO>> getAllSubRecipes(@PathVariable Long companyId) {
         List<SubRecipe> list = subRecipeService.getAllSubRecipes(companyId);
-        return ResponseEntity.ok(list);
+        List<SubRecipeDTO> dtoList = list.stream().map(subRecipeMapper::toDto).toList();
+        return ResponseEntity.ok(dtoList);
     }
 
     @GetMapping("/{subRecipeId}/company/{companyId}")
-    public ResponseEntity<SubRecipe> getSubRecipeById(@PathVariable Long companyId,
-                                                      @PathVariable Long subRecipeId) {
+    public ResponseEntity<SubRecipeDTO> getSubRecipeById(@PathVariable Long subRecipeId,
+                                                         @PathVariable Long companyId) {
         return subRecipeService.getSubRecipeById(companyId, subRecipeId)
+                .map(subRecipeMapper::toDto)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
+
 
     // CREATE using the new DTO
     @PostMapping("/company/{companyId}")

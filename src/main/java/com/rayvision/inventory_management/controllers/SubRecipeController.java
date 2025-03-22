@@ -23,12 +23,12 @@ public class SubRecipeController {
         this.subRecipeMapper = subRecipeMapper;
     }
 
-    @GetMapping("/company/{companyId}")
-    public ResponseEntity<List<SubRecipeDTO>> getAllSubRecipes(@PathVariable Long companyId) {
-        List<SubRecipe> list = subRecipeService.getAllSubRecipes(companyId);
-        List<SubRecipeDTO> dtoList = list.stream().map(subRecipeMapper::toDto).toList();
-        return ResponseEntity.ok(dtoList);
-    }
+//    @GetMapping("/company/{companyId}")
+//    public ResponseEntity<List<SubRecipeDTO>> getAllSubRecipes(@PathVariable Long companyId) {
+//        List<SubRecipe> list = subRecipeService.getAllSubRecipes(companyId);
+//        List<SubRecipeDTO> dtoList = list.stream().map(subRecipeMapper::toDto).toList();
+//        return ResponseEntity.ok(dtoList);
+//    }
 
     @GetMapping("/company/{companyId}")
     public ResponseEntity<List<SubRecipeDTO>> getAllSubRecipes(

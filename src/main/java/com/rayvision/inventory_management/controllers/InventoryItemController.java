@@ -32,12 +32,12 @@ public class InventoryItemController {
     }
 
     // GET all inventory items
-    @GetMapping("company/{companyId}")
-    public ResponseEntity<List<InventoryItemResponseDTO>> getAllInventoryItems(@PathVariable Long companyId) {
-        List<InventoryItem> items = inventoryItemService.getAllInventoryItems(companyId);
-        List<InventoryItemResponseDTO> responseList = items.stream().map(inventoryItemResponseMapper::toInventoryItemResponseDTO).toList();
-        return ResponseEntity.ok(responseList);
-    }
+//    @GetMapping("company/{companyId}")
+//    public ResponseEntity<List<InventoryItemResponseDTO>> getAllInventoryItems(@PathVariable Long companyId) {
+//        List<InventoryItem> items = inventoryItemService.getAllInventoryItems(companyId);
+//        List<InventoryItemResponseDTO> responseList = items.stream().map(inventoryItemResponseMapper::toInventoryItemResponseDTO).toList();
+//        return ResponseEntity.ok(responseList);
+//    }
 
     @GetMapping("/company/{companyId}")
     public ResponseEntity<List<InventoryItemResponseDTO>> getInventoryItemsByCompany(

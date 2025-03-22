@@ -1,7 +1,10 @@
 package com.rayvision.inventory_management.controllers;
 
+import com.rayvision.inventory_management.mappers.MenuItemResponseMapper;
 import com.rayvision.inventory_management.model.MenuItem;
 import com.rayvision.inventory_management.model.dto.MenuItemCreateDTO;
+import com.rayvision.inventory_management.model.dto.MenuItemInventoryLineDTO;
+import com.rayvision.inventory_management.model.dto.MenuItemResponseDTO;
 import com.rayvision.inventory_management.service.MenuItemService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -14,51 +17,63 @@ import java.util.List;
 public class MenuItemController {
 
     private final MenuItemService menuItemService;
+    private final MenuItemResponseMapper menuItemResponseMapper;
 
-    public MenuItemController(MenuItemService menuItemService) {
+    public MenuItemController(MenuItemService menuItemService, MenuItemResponseMapper menuItemResponseMapper) {
         this.menuItemService = menuItemService;
+        this.menuItemResponseMapper = menuItemResponseMapper;
     }
 
     @GetMapping("/company/{companyId}")
-    public ResponseEntity<List<MenuItem>> getAllMenuItems(@PathVariable Long companyId) {
-        return ResponseEntity.ok(menuItemService.getAllMenuItems(companyId));
+    public ResponseEntity<List<MenuItemResponseDTO>> getAllMenuItems(@PathVariable Long companyId) {
+        List<MenuItem> items = menuItemService.getAllMenuItems(companyId);
+        List<MenuItemResponseDTO> dtoList = items.stream()
+                .map(menuItemResponseMapper::toDto)
+                .toList();
+        return ResponseEntity.ok(dtoList);
     }
 
+
     @GetMapping("/{id}/company/{companyId}")
-    public ResponseEntity<MenuItem> getMenuItemById(@PathVariable Long companyId,
-                                                    @PathVariable Long id) {
+    public ResponseEntity<MenuItemResponseDTO> getMenuItemById(@PathVariable Long companyId,
+                                                               @PathVariable Long id) {
         return menuItemService.getMenuItemById(companyId, id)
+                .map(menuItemResponseMapper::toDto)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
+
     @PostMapping("/company/{companyId}")
-    public ResponseEntity<MenuItem> createMenuItem(@PathVariable Long companyId,
-                                                   @RequestBody MenuItemCreateDTO dto) {
+    public ResponseEntity<MenuItemResponseDTO> createMenuItem(@PathVariable Long companyId,
+                                                              @RequestBody MenuItemCreateDTO dto) {
         MenuItem created = menuItemService.createMenuItem(companyId, dto);
-        return ResponseEntity.status(HttpStatus.CREATED).body(created);
+        MenuItemResponseDTO response = menuItemResponseMapper.toDto(created);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
+
     @PutMapping("/{id}/company/{companyId}")
-    public ResponseEntity<MenuItem> updateMenuItem(@PathVariable Long companyId,
-                                                   @PathVariable Long id,
-                                                   @RequestBody MenuItemCreateDTO dto) {
+    public ResponseEntity<MenuItemResponseDTO> updateMenuItem(@PathVariable Long companyId,
+                                                              @PathVariable Long id,
+                                                              @RequestBody MenuItemCreateDTO dto) {
         try {
             MenuItem updated = menuItemService.updateMenuItem(companyId, id, dto);
-            return ResponseEntity.ok(updated);
-        } catch (RuntimeException e) {
+            return ResponseEntity.ok(menuItemResponseMapper.toDto(updated));
+        } catch (RuntimeException ex) {
             return ResponseEntity.notFound().build();
         }
     }
 
+
     @PatchMapping("/{id}/company/{companyId}")
-    public ResponseEntity<MenuItem> partialUpdateMenuItem(@PathVariable Long companyId,
-                                                          @PathVariable Long id,
-                                                          @RequestBody MenuItemCreateDTO dto) {
+    public ResponseEntity<MenuItemResponseDTO> partialUpdateMenuItem(@PathVariable Long companyId,
+                                                                     @PathVariable Long id,
+                                                                     @RequestBody MenuItemCreateDTO dto) {
         try {
             MenuItem updated = menuItemService.partialUpdateMenuItem(companyId, id, dto);
-            return ResponseEntity.ok(updated);
-        } catch (RuntimeException e) {
+            return ResponseEntity.ok(menuItemResponseMapper.toDto(updated));
+        } catch (RuntimeException ex) {
             return ResponseEntity.notFound().build();
         }
     }
@@ -69,9 +84,8 @@ public class MenuItemController {
         try {
             menuItemService.deleteMenuItemById(companyId, id);
             return ResponseEntity.noContent().build();
-        } catch (RuntimeException e) {
+        } catch (RuntimeException ex) {
             return ResponseEntity.notFound().build();
         }
     }
-
 }

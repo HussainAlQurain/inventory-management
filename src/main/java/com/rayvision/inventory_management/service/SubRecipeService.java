@@ -33,5 +33,5 @@ public interface SubRecipeService {
      */
     SubRecipe recalcSubRecipeCost(SubRecipe subRecipe);
 
-    List<SubRecipe> searchSubRecipes(Long companyId, String searchTerm)
+    List<SubRecipe> searchSubRecipes(Long companyId, String searchTerm);
 }

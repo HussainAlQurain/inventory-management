@@ -355,5 +355,9 @@ public class SubRecipeServiceImpl implements SubRecipeService {
         return subRecipe;
     }
 
+    @Override
+    public List<SubRecipe> searchSubRecipes(Long companyId, String searchTerm) {
+        return subRecipeRepository.searchSubRecipes(companyId, searchTerm);
+    }
 
 }

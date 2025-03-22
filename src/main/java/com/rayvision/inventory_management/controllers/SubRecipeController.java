@@ -30,6 +30,18 @@ public class SubRecipeController {
         return ResponseEntity.ok(dtoList);
     }
 
+    @GetMapping("/company/{companyId}")
+    public ResponseEntity<List<SubRecipeDTO>> getAllSubRecipes(
+            @PathVariable Long companyId,
+            @RequestParam(name = "search", required = false, defaultValue = "") String searchTerm
+    ) {
+        List<SubRecipe> list = subRecipeService.searchSubRecipes(companyId, searchTerm);
+        List<SubRecipeDTO> dtoList = list.stream()
+                .map(subRecipeMapper::toDto)
+                .toList();
+        return ResponseEntity.ok(dtoList);
+    }
+
     @GetMapping("/{subRecipeId}/company/{companyId}")
     public ResponseEntity<SubRecipeDTO> getSubRecipeById(@PathVariable Long subRecipeId,
                                                          @PathVariable Long companyId) {

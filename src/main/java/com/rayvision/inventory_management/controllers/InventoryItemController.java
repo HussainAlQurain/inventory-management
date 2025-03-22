@@ -39,6 +39,19 @@ public class InventoryItemController {
         return ResponseEntity.ok(responseList);
     }
 
+    @GetMapping("/company/{companyId}")
+    public ResponseEntity<List<InventoryItemResponseDTO>> getInventoryItemsByCompany(
+            @PathVariable Long companyId,
+            @RequestParam(name = "search", required = false, defaultValue = "") String searchTerm
+    ) {
+        List<InventoryItem> items = inventoryItemService.searchItems(companyId, searchTerm);
+        // map to DTO
+        List<InventoryItemResponseDTO> dtos = items.stream()
+                .map(inventoryItemResponseMapper::toInventoryItemResponseDTO)
+                .toList();
+        return ResponseEntity.ok(dtos);
+    }
+
     // GET a single inventory item by id
     @GetMapping("/{id}/company/{companyId}")
     public ResponseEntity<InventoryItemResponseDTO> getInventoryItemById(@PathVariable Long id, @PathVariable Long companyId) {

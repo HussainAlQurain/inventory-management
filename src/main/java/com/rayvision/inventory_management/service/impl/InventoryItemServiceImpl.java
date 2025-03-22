@@ -83,4 +83,9 @@ public class InventoryItemServiceImpl implements InventoryItemService {
                         () -> { throw new RuntimeException("Could not find inventory item with id: " + id );}
                 );
     }
+
+    @Override
+    public List<InventoryItem> searchItems(Long companyId, String searchTerm) {
+        return inventoryItemRepository.searchInventoryItems(companyId, searchTerm);
+    }
 }

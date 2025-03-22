@@ -3,6 +3,8 @@ package com.rayvision.inventory_management.repository;
 import com.rayvision.inventory_management.model.Company;
 import com.rayvision.inventory_management.model.InventoryItem;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -13,4 +15,17 @@ public interface InventoryItemRepository extends JpaRepository<InventoryItem, Lo
     List<InventoryItem> company(Company company);
     List<InventoryItem> findByCompanyId(Long companyId);
     Optional<InventoryItem> findByCompanyIdAndId(Long companyId, Long inventoryId);
+
+    @Query("""
+    SELECT i
+    FROM InventoryItem i
+    WHERE i.company.id = :companyId
+      AND (:searchTerm = '' 
+           OR LOWER(i.name) LIKE LOWER(CONCAT('%', :searchTerm, '%')))
+    """)
+    List<InventoryItem> searchInventoryItems(
+            @Param("companyId") Long companyId,
+            @Param("searchTerm") String searchTerm
+    );
+
 }

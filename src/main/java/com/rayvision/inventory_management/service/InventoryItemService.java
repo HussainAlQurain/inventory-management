@@ -13,4 +13,5 @@ public interface InventoryItemService {
     InventoryItem update(Long companyId, InventoryItem inventoryItem);
     InventoryItem partialUpdate(Long companyId, Long itemId, InventoryItemPartialUpdateDTO inventoryItemPartialUpdateDTO);
     void deleteInventoryItemById(Long companyId, Long id);
+    List<InventoryItem> searchItems(Long companyId, String searchTerm);
 }

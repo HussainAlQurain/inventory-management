@@ -73,7 +73,7 @@ public class SubRecipe {
     /**
      * Optional textual instructions or notes for making it.
      */
-    @Lob
+    @Column(columnDefinition = "text")
     private String instructions;
 
     /**

@@ -54,20 +54,20 @@ public class SubRecipeController {
 
     // CREATE using the new DTO
     @PostMapping("/company/{companyId}")
-    public ResponseEntity<SubRecipe> createSubRecipe(@PathVariable Long companyId,
+    public ResponseEntity<SubRecipeDTO> createSubRecipe(@PathVariable Long companyId,
                                                      @RequestBody SubRecipeCreateDTO dto) {
         SubRecipe created = subRecipeService.createSubRecipe(companyId, dto);
-        return ResponseEntity.status(HttpStatus.CREATED).body(created);
+        return ResponseEntity.status(HttpStatus.CREATED).body(subRecipeMapper.toDto(created));
     }
 
     // UPDATE (full replace) using the new DTO
     @PutMapping("/{subRecipeId}/company/{companyId}")
-    public ResponseEntity<SubRecipe> updateSubRecipe(@PathVariable Long companyId,
+    public ResponseEntity<SubRecipeDTO> updateSubRecipe(@PathVariable Long companyId,
                                                      @PathVariable Long subRecipeId,
                                                      @RequestBody SubRecipeCreateDTO dto) {
         try {
             SubRecipe updated = subRecipeService.updateSubRecipe(companyId, subRecipeId, dto);
-            return ResponseEntity.ok(updated);
+            return ResponseEntity.ok(subRecipeMapper.toDto(updated));
         } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();
         }
@@ -75,12 +75,12 @@ public class SubRecipeController {
 
     // PARTIAL update
     @PatchMapping("/{subRecipeId}/company/{companyId}")
-    public ResponseEntity<SubRecipe> partialUpdateSubRecipe(@PathVariable Long companyId,
+    public ResponseEntity<SubRecipeDTO> partialUpdateSubRecipe(@PathVariable Long companyId,
                                                             @PathVariable Long subRecipeId,
                                                             @RequestBody SubRecipeCreateDTO dto) {
         try {
             SubRecipe updated = subRecipeService.partialUpdateSubRecipe(companyId, subRecipeId, dto);
-            return ResponseEntity.ok(updated);
+            return ResponseEntity.ok(subRecipeMapper.toDto(updated));
         } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();
         }

@@ -48,6 +48,5 @@ public class SubRecipeCreateDTO {
     /**
      * The bridging lines to InventoryItems (subRecipeItems).
      */
-    private List<SubRecipeItemLineDTO> ingredients;
-
+    private List<SubRecipeLineDTO> lines;  // or call it “ingredients” still
 }

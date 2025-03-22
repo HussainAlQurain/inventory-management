@@ -4,6 +4,7 @@ import com.rayvision.inventory_management.enums.SubRecipeType;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.util.HashSet;
 import java.util.Set;
 
 @AllArgsConstructor
@@ -78,8 +79,11 @@ public class SubRecipe {
     /**
      * The subRecipeItems referencing InventoryItems that form this recipe.
      */
-    @OneToMany(mappedBy = "subRecipe", cascade = CascadeType.ALL, orphanRemoval = true)
-    private Set<SubRecipeItem> subRecipeItems;
+//    @OneToMany(mappedBy = "subRecipe", cascade = CascadeType.ALL, orphanRemoval = true)
+//    private Set<SubRecipeItem> subRecipeItems;
+    @OneToMany(mappedBy = "parentSubRecipe", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<SubRecipeLine> subRecipeLines = new HashSet<>();
+
 
     /**
      * For (type == PREPARATION),

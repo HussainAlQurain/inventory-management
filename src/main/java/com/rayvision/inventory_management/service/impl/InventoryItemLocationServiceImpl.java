@@ -21,16 +21,16 @@ public class InventoryItemLocationServiceImpl implements InventoryItemLocationSe
     private final InventoryItemLocationRepository repository;
     private final InventoryItemRepository itemRepository;
     private final LocationRepository locationRepository;
-    private final InventoryItemLocationMapper mapper;
+    private final InventoryItemLocationMapper inventoryItemLocationMapper;
 
     public InventoryItemLocationServiceImpl(InventoryItemLocationRepository repository,
                                             InventoryItemRepository itemRepository,
                                             LocationRepository locationRepository,
-                                            InventoryItemLocationMapper mapper) {
+                                            InventoryItemLocationMapper inventoryItemLocationMapper) {
         this.repository = repository;
         this.itemRepository = itemRepository;
         this.locationRepository = locationRepository;
-        this.mapper = mapper;
+        this.inventoryItemLocationMapper = inventoryItemLocationMapper;
     }
 
     @Override

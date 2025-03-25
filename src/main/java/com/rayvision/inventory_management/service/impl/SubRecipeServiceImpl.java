@@ -320,7 +320,7 @@ public class SubRecipeServiceImpl implements SubRecipeService {
 
                 double lineCost = 0.0;
                 double netQty = line.getQuantity() != null ? line.getQuantity() : 0.0;
-                double wastage = line.getWastagePercent() != null ? line.getWastagePercent() : 0.0;
+                double wastage = line.getWastagePercent() != null ? (line.getWastagePercent() / 100) : 0.0;
                 double grossQty = netQty * (1.0 + wastage);
 
                 if (line.getInventoryItem() != null) {

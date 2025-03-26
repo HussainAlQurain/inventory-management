@@ -131,9 +131,6 @@ public class InventoryItemLocationController {
         return ResponseEntity.ok().build();
     }
 
-    // ... existing endpoints ...
-
-    // Add this record at the bottom of the file
     public record ThresholdUpdateRequest(Double minOnHand, Double parLevel) {}
 
 

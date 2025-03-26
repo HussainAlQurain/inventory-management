@@ -1,5 +1,6 @@
 package com.rayvision.inventory_management.service.impl;
 
+import com.rayvision.inventory_management.enums.SubRecipeType;
 import com.rayvision.inventory_management.mappers.PrepItemLocationMapper;
 import com.rayvision.inventory_management.model.Location;
 import com.rayvision.inventory_management.model.PrepItemLocation;
@@ -86,11 +87,8 @@ public class PrepItemLocationServiceImpl implements PrepItemLocationService {
         // to either update or create new
         Long srId = dto.getSubRecipeId();
         Long locId = dto.getLocationId();
-        Optional<PrepItemLocation> existingOpt =
-                prepItemLocationRepository.findAll().stream()
-                        .filter(x -> x.getSubRecipe().getId().equals(srId)
-                                && x.getLocation().getId().equals(locId))
-                        .findFirst();
+        Optional<PrepItemLocation> existingOpt = prepItemLocationRepository
+                .findBySubRecipeIdAndLocationId(dto.getSubRecipeId(), dto.getLocationId());
         if (existingOpt.isPresent()) {
             // update relevant fields
             PrepItemLocation existing = existingOpt.get();
@@ -98,7 +96,7 @@ public class PrepItemLocationServiceImpl implements PrepItemLocationService {
             if (dto.getMinOnHand() != null) existing.setMinOnHand(dto.getMinOnHand());
             if (dto.getPar() != null) existing.setPar(dto.getPar());
             if (dto.getLastCount() != null) existing.setLastCount(dto.getLastCount());
-            // etc
+            if (dto.getLastCountDate() != null) existing.setLastCountDate(dto.getLastCountDate());
             return prepItemLocationRepository.save(existing);
         } else {
             // create new
@@ -126,6 +124,56 @@ public class PrepItemLocationServiceImpl implements PrepItemLocationService {
     @Override
     public List<PrepItemLocation> getByLocation(Long locationId) {
         return prepItemLocationRepository.findByLocationId(locationId);
+    }
+
+    @Override
+    public void setThresholdsForLocation(Long subRecipeId, Long locationId, Double minOnHand, Double parLevel) {
+        // Validate subrecipe type
+        SubRecipe subRecipe = subRecipeRepository.findById(subRecipeId)
+                .orElseThrow(() -> new RuntimeException("SubRecipe not found"));
+        if (subRecipe.getType() != SubRecipeType.PREPARATION) {
+            throw new IllegalArgumentException("SubRecipe must be of type PREPARATION");
+        }
+
+        // Validate values
+        if (minOnHand != null && minOnHand < 0) {
+            throw new IllegalArgumentException("minOnHand cannot be negative");
+        }
+        if (parLevel != null && parLevel < 0) {
+            throw new IllegalArgumentException("parLevel cannot be negative");
+        }
+
+        PrepItemLocation prepLocation = prepItemLocationRepository
+                .findBySubRecipeIdAndLocationId(subRecipeId, locationId)
+                .orElseThrow(() -> new RuntimeException("PrepItemLocation not found"));
+
+        if (minOnHand != null) prepLocation.setMinOnHand(minOnHand);
+        if (parLevel != null) prepLocation.setPar(parLevel);
+
+        prepItemLocationRepository.save(prepLocation);
+    }
+
+    @Override
+    public void bulkSetThresholdsForCompany(Long companyId, Long subRecipeId, Double minOnHand, Double parLevel) {
+        // Validate subrecipe type
+        SubRecipe subRecipe = subRecipeRepository.findById(subRecipeId)
+                .orElseThrow(() -> new RuntimeException("SubRecipe not found"));
+        if (subRecipe.getType() != SubRecipeType.PREPARATION) {
+            throw new IllegalArgumentException("SubRecipe must be of type PREPARATION");
+        }
+
+        List<Location> companyLocations = locationRepository.findByCompanyId(companyId);
+
+        companyLocations.forEach(location -> {
+            PrepItemLocationDTO dto = PrepItemLocationDTO.builder()
+                    .subRecipeId(subRecipeId)
+                    .locationId(location.getId())
+                    .minOnHand(minOnHand)
+                    .par(parLevel)
+                    .build();
+
+            createOrUpdate(dto);
+        });
     }
 
 }

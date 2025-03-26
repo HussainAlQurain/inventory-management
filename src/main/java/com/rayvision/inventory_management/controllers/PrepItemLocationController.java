@@ -81,4 +81,26 @@ public class PrepItemLocationController {
         return ResponseEntity.ok(dtoList);
     }
 
+    @PutMapping("/subrecipes/{subRecipeId}/locations/{locationId}/thresholds")
+    public ResponseEntity<Void> setThresholdsForLocation(
+            @PathVariable Long subRecipeId,
+            @PathVariable Long locationId,
+            @RequestBody ThresholdUpdateRequest request
+    ) {
+        service.setThresholdsForLocation(subRecipeId, locationId, request.minOnHand(), request.parLevel());
+        return ResponseEntity.ok().build();
+    }
+
+    @PutMapping("/subrecipes/{subRecipeId}/companies/{companyId}/thresholds")
+    public ResponseEntity<Void> bulkSetThresholdsForCompany(
+            @PathVariable Long subRecipeId,
+            @PathVariable Long companyId,
+            @RequestBody ThresholdUpdateRequest request
+    ) {
+        service.bulkSetThresholdsForCompany(companyId, subRecipeId, request.minOnHand(), request.parLevel());
+        return ResponseEntity.ok().build();
+    }
+
+    public record ThresholdUpdateRequest(Double minOnHand, Double parLevel) {}
+
 }

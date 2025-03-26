@@ -23,4 +23,6 @@ public interface PrepItemLocationService {
     List<PrepItemLocation> getBySubRecipe(Long subRecipeId);
     List<PrepItemLocation> getByLocation(Long locationId);
 
+    void setThresholdsForLocation(Long subRecipeId, Long locationId, Double minOnHand, Double parLevel);
+    void bulkSetThresholdsForCompany(Long companyId, Long subRecipeId, Double minOnHand, Double parLevel);
 }

@@ -5,6 +5,7 @@ import com.rayvision.inventory_management.model.SubRecipe;
 import com.rayvision.inventory_management.model.dto.SubRecipeCreateDTO;
 import com.rayvision.inventory_management.model.dto.SubRecipeDTO;
 import com.rayvision.inventory_management.service.SubRecipeService;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -62,15 +63,13 @@ public class SubRecipeController {
 
     // UPDATE (full replace) using the new DTO
     @PutMapping("/{subRecipeId}/company/{companyId}")
-    public ResponseEntity<SubRecipeDTO> updateSubRecipe(@PathVariable Long companyId,
-                                                     @PathVariable Long subRecipeId,
-                                                     @RequestBody SubRecipeCreateDTO dto) {
-        try {
-            SubRecipe updated = subRecipeService.updateSubRecipe(companyId, subRecipeId, dto);
-            return ResponseEntity.ok(subRecipeMapper.toDto(updated));
-        } catch (RuntimeException e) {
-            return ResponseEntity.notFound().build();
-        }
+    public ResponseEntity<SubRecipeDTO> updateSubRecipe(
+            @PathVariable Long companyId,
+            @PathVariable Long subRecipeId,
+            @Valid @RequestBody SubRecipeCreateDTO dto) {
+
+        SubRecipe updated = subRecipeService.updateSubRecipe(companyId, subRecipeId, dto);
+        return ResponseEntity.ok(subRecipeMapper.toDto(updated));
     }
 
     // PARTIAL update

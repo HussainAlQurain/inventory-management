@@ -1,6 +1,8 @@
 package com.rayvision.inventory_management.service.impl;
 
 import com.rayvision.inventory_management.enums.OrderStatus;
+import com.rayvision.inventory_management.exceptions.InvalidOperationException;
+import com.rayvision.inventory_management.exceptions.ResourceNotFoundException;
 import com.rayvision.inventory_management.model.*;
 import com.rayvision.inventory_management.model.dto.OrderCreateDTO;
 import com.rayvision.inventory_management.model.dto.OrderItemDTO;
@@ -97,7 +99,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
     @Override
     public Orders sendOrder(Long orderId, String comments) {
         Orders order = ordersRepository.findById(orderId)
-                .orElseThrow(() -> new RuntimeException("Order not found: " + orderId));
+                .orElseThrow(() -> new InvalidOperationException("Order not found: " + orderId));
         if (order.getStatus() != OrderStatus.DRAFT) {
             throw new RuntimeException("Order must be in DRAFT to send");
         }
@@ -113,10 +115,10 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
      */
     @Override
     public Orders receiveOrder(Long orderId) {
-        Orders order = ordersRepository.findById(orderId)
-                .orElseThrow(() -> new RuntimeException("Order not found: " + orderId));
-        if (order.getStatus() != OrderStatus.SENT && order.getStatus() != OrderStatus.DRAFT) {
-            throw new RuntimeException("Order must be SENT or DRAFT to receive");
+        Orders order = getOrderById(orderId);
+
+        if (order.getStatus() != OrderStatus.DRAFT) {
+            throw new InvalidOperationException("Only draft orders can be sent");
         }
 
         // Mark as RECEIVED
@@ -139,6 +141,11 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         }
 
         return ordersRepository.save(order);
+    }
+
+    private Orders getOrderById(Long orderId) {
+        return ordersRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId));
     }
 
 }

@@ -26,9 +26,11 @@ public class PurchaseOrderController {
 
     // SEND
     @PatchMapping("/{orderId}/send")
-    public ResponseEntity<Orders> sendOrder(@PathVariable Long companyId,
-                                            @PathVariable Long orderId,
-                                            @RequestParam(required=false) String comments) {
+    public ResponseEntity<Orders> sendOrder(
+            @PathVariable Long companyId,
+            @PathVariable Long orderId,
+            @RequestParam(required=false) String comments) {
+
         Orders updated = purchaseOrderService.sendOrder(orderId, comments);
         return ResponseEntity.ok(updated);
     }

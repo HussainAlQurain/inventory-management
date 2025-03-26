@@ -57,10 +57,9 @@ public class InventoryItemController {
     // GET a single inventory item by id
     @GetMapping("/{id}/company/{companyId}")
     public ResponseEntity<InventoryItemResponseDTO> getInventoryItemById(@PathVariable Long id, @PathVariable Long companyId) {
-        InventoryItem item = inventoryItemService.getInventoryItemById(companyId, id)
+        return inventoryItemService.getInventoryItemById(companyId, id)
+                .map(item -> ResponseEntity.ok(inventoryItemResponseMapper.toInventoryItemResponseDTO(item)))
                 .orElseThrow(() -> new ResourceNotFoundException("InventoryItem", "id", id));
-        InventoryItemResponseDTO response = inventoryItemResponseMapper.toInventoryItemResponseDTO(item);
-        return ResponseEntity.ok(response);
     }
 
     // POST a new inventory item

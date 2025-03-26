@@ -10,6 +10,7 @@ import com.rayvision.inventory_management.model.dto.*;
 import com.rayvision.inventory_management.service.SupplierEmailService;
 import com.rayvision.inventory_management.service.SupplierPhoneService;
 import com.rayvision.inventory_management.service.SupplierService;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -101,8 +102,7 @@ public class SupplierController {
     public ResponseEntity<SupplierResponseDTO> partialUpdateSupplier(
             @PathVariable Long id,
             @PathVariable Long companyId,
-            @RequestBody SupplierPartialUpdateDTO patchDto
-    ) {
+            @Valid @RequestBody SupplierPartialUpdateDTO patchDto) {
         // Build a minimal Supplier entity with the ID
         Supplier patchEntity = new Supplier();
         patchEntity.setId(id);

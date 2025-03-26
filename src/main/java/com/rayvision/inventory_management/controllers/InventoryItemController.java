@@ -1,5 +1,6 @@
 package com.rayvision.inventory_management.controllers;
 
+import com.rayvision.inventory_management.exceptions.ResourceNotFoundException;
 import com.rayvision.inventory_management.facade.InventoryItemFacade;
 import com.rayvision.inventory_management.mappers.InventoryItemResponseMapper;
 import com.rayvision.inventory_management.model.InventoryItem;
@@ -7,6 +8,7 @@ import com.rayvision.inventory_management.model.dto.InventoryItemCreateDTO;
 import com.rayvision.inventory_management.model.dto.InventoryItemPartialUpdateDTO;
 import com.rayvision.inventory_management.model.dto.InventoryItemResponseDTO;
 import com.rayvision.inventory_management.service.InventoryItemService;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -55,18 +57,18 @@ public class InventoryItemController {
     // GET a single inventory item by id
     @GetMapping("/{id}/company/{companyId}")
     public ResponseEntity<InventoryItemResponseDTO> getInventoryItemById(@PathVariable Long id, @PathVariable Long companyId) {
-        Optional<InventoryItem> itemOpt = inventoryItemService.getInventoryItemById(companyId, id);
-        if (itemOpt.isEmpty()) {
-            return ResponseEntity.notFound().build();
-        }
-        InventoryItemResponseDTO response = inventoryItemResponseMapper.toInventoryItemResponseDTO(itemOpt.get());
+        InventoryItem item = inventoryItemService.getInventoryItemById(companyId, id)
+                .orElseThrow(() -> new ResourceNotFoundException("InventoryItem", "id", id));
+        InventoryItemResponseDTO response = inventoryItemResponseMapper.toInventoryItemResponseDTO(item);
         return ResponseEntity.ok(response);
     }
 
     // POST a new inventory item
     @PostMapping("company/{companyId}")
-    public ResponseEntity<InventoryItemResponseDTO> createInventoryItem(@PathVariable Long companyId, @RequestBody InventoryItemCreateDTO inventoryItemCreateDTO) {
-        // consider returning inventoryitemdto
+    public ResponseEntity<InventoryItemResponseDTO> createInventoryItem(
+            @PathVariable Long companyId,
+            @Valid @RequestBody InventoryItemCreateDTO inventoryItemCreateDTO) {
+
         InventoryItem savedItem = inventoryItemFacade.createInventoryItem(companyId, inventoryItemCreateDTO);
         InventoryItemResponseDTO responseDto = inventoryItemResponseMapper.toInventoryItemResponseDTO(savedItem);
         return ResponseEntity.status(HttpStatus.CREATED).body(responseDto);

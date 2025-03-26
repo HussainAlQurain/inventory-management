@@ -99,4 +99,43 @@ public class InventoryItemLocationController {
     }
 
 
+    @PutMapping("/items/{itemId}/locations/{locationId}/thresholds")
+    public ResponseEntity<Void> setThresholdsForLocation(
+            @PathVariable Long itemId,
+            @PathVariable Long locationId,
+            @RequestBody ThresholdUpdateRequest request
+    ) {
+        service.setThresholdsForLocation(itemId, locationId, request.minOnHand(), request.parLevel());
+        return ResponseEntity.ok().build();
+    }
+
+    // 2. Bulk set thresholds for all locations in company
+    @PutMapping("/items/{itemId}/companies/{companyId}/thresholds")
+    public ResponseEntity<Void> bulkSetThresholdsForCompany(
+            @PathVariable Long itemId,
+            @PathVariable Long companyId,
+            @RequestBody ThresholdUpdateRequest request
+    ) {
+        service.bulkSetThresholdsForCompany(companyId, itemId, request.minOnHand(), request.parLevel());
+        return ResponseEntity.ok().build();
+    }
+
+    // 3. Partial update for thresholds (PATCH)
+    @PatchMapping("/items/{itemId}/locations/{locationId}/thresholds")
+    public ResponseEntity<Void> patchThresholds(
+            @PathVariable Long itemId,
+            @PathVariable Long locationId,
+            @RequestBody ThresholdUpdateRequest request
+    ) {
+        service.patchThresholds(itemId, locationId, request.minOnHand(), request.parLevel());
+        return ResponseEntity.ok().build();
+    }
+
+    // ... existing endpoints ...
+
+    // Add this record at the bottom of the file
+    public record ThresholdUpdateRequest(Double minOnHand, Double parLevel) {}
+
+
+
 }

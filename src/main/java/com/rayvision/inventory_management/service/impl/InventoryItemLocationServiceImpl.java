@@ -83,6 +83,15 @@ public class InventoryItemLocationServiceImpl implements InventoryItemLocationSe
 
     @Override
     public InventoryItemLocation createOrUpdateByItemAndLocation(InventoryItemLocationDTO dto) {
+        // Validate minOnHand (if provided)
+        if (dto.getMinOnHand() != null && dto.getMinOnHand() < 0) {
+            throw new IllegalArgumentException("minOnHand cannot be negative");
+        }
+
+        // Validate parLevel (if provided)
+        if (dto.getParLevel() != null && dto.getParLevel() < 0) {
+            throw new IllegalArgumentException("parLevel cannot be negative");
+        }
         // see if bridging already exists
         Optional<InventoryItemLocation> existingOpt =
                 repository.findByInventoryItemIdAndLocationId(dto.getInventoryItemId(), dto.getLocationId());
@@ -132,4 +141,64 @@ public class InventoryItemLocationServiceImpl implements InventoryItemLocationSe
         return repository.findByInventoryItemId(itemId);
     }
 
+
+    @Override
+    public void setThresholdsForLocation(Long itemId, Long locationId, Double minOnHand, Double parLevel) {
+        // Validate minOnHand (if provided)
+        if (minOnHand != null && minOnHand < 0) {
+            throw new IllegalArgumentException("minOnHand cannot be negative");
+        }
+
+        // Validate parLevel (if provided)
+        if (parLevel != null && parLevel < 0) {
+            throw new IllegalArgumentException("parLevel cannot be negative");
+        }
+
+        InventoryItemLocation itemLocation = repository.findByInventoryItemIdAndLocationId(itemId, locationId)
+                .orElseThrow(() -> new RuntimeException("Item-location relationship not found"));
+
+        if (minOnHand != null) itemLocation.setMinOnHand(minOnHand);
+        if (parLevel != null) itemLocation.setParLevel(parLevel);
+
+        repository.save(itemLocation);
+    }
+
+    @Override
+    public void bulkSetThresholdsForCompany(Long companyId, Long itemId, Double minOnHand, Double parLevel) {
+        // Get all locations in the company
+        List<Location> companyLocations = locationRepository.findByCompanyId(companyId);
+
+        companyLocations.forEach(location -> {
+            // Use existing createOrUpdate logic to handle missing entries
+            InventoryItemLocationDTO dto = InventoryItemLocationDTO.builder()
+                    .inventoryItemId(itemId)
+                    .locationId(location.getId())
+                    .minOnHand(minOnHand)
+                    .parLevel(parLevel)
+                    .build();
+
+            createOrUpdateByItemAndLocation(dto);
+        });
+    }
+
+    @Override
+    public void patchThresholds(Long itemId, Long locationId, Double minOnHand, Double parLevel) {
+        // Validate minOnHand (if provided)
+        if (minOnHand != null && minOnHand < 0) {
+            throw new IllegalArgumentException("minOnHand cannot be negative");
+        }
+
+        // Validate parLevel (if provided)
+        if (parLevel != null && parLevel < 0) {
+            throw new IllegalArgumentException("parLevel cannot be negative");
+        }
+
+        InventoryItemLocation itemLocation = repository.findByInventoryItemIdAndLocationId(itemId, locationId)
+                .orElseThrow(() -> new RuntimeException("Item-location relationship not found"));
+
+        if (minOnHand != null) itemLocation.setMinOnHand(minOnHand);
+        if (parLevel != null) itemLocation.setParLevel(parLevel);
+
+        repository.save(itemLocation);
+    }
 }

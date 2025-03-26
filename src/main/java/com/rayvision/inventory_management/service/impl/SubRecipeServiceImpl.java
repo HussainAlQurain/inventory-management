@@ -317,36 +317,58 @@ public class SubRecipeServiceImpl implements SubRecipeService {
 
         if (subRecipe.getSubRecipeLines() != null) {
             for (SubRecipeLine line : subRecipe.getSubRecipeLines()) {
-
                 double lineCost = 0.0;
                 double netQty = line.getQuantity() != null ? line.getQuantity() : 0.0;
                 double wastage = line.getWastagePercent() != null ? (line.getWastagePercent() / 100) : 0.0;
                 double grossQty = netQty * (1.0 + wastage);
 
                 if (line.getInventoryItem() != null) {
-                    // This line references a raw InventoryItem
-                    double itemPrice = Optional.ofNullable(line.getInventoryItem().getCurrentPrice()).orElse(0.0);
-                    lineCost = itemPrice * grossQty;
-                }
-                else if (line.getChildSubRecipe() != null) {
-                    // This line references another (child) SubRecipe
-                    SubRecipe child = line.getChildSubRecipe();
-                    // Ensure child’s cost is up-to-date (depending on your logic)
-                    recalcSubRecipeCost(child);
+                    // Handle InventoryItem line with UOM conversion
+                    InventoryItem item = line.getInventoryItem();
+                    UnitOfMeasure lineUom = line.getUnitOfMeasure();
+                    UnitOfMeasure itemUom = item.getInventoryUom();
 
-                    double childCost = Optional.ofNullable(child.getCost()).orElse(0.0);
+                    // Validate UOMs and conversion factors
+                    if (lineUom == null || itemUom == null) {
+                        throw new IllegalStateException("UOM must be specified for line and item.");
+                    }
+                    if (lineUom.getConversionFactor() <= 0 || itemUom.getConversionFactor() <= 0) {
+                        throw new IllegalStateException("UOM conversion factors must be positive.");
+                    }
+
+                    // Convert gross quantity to item's UOM
+                    double convertedQty = grossQty * (lineUom.getConversionFactor() / itemUom.getConversionFactor());
+                    double itemPrice = Optional.ofNullable(item.getCurrentPrice()).orElse(0.0);
+                    lineCost = convertedQty * itemPrice;
+
+                } else if (line.getChildSubRecipe() != null) {
+                    // Handle Child SubRecipe line with UOM conversion
+                    SubRecipe child = line.getChildSubRecipe();
+                    recalcSubRecipeCost(child); // Ensure child cost is up-to-date
+
+                    UnitOfMeasure lineUom = line.getUnitOfMeasure();
+                    UnitOfMeasure childUom = child.getUom();
+
+                    // Validate UOMs and conversion factors
+                    if (lineUom == null || childUom == null) {
+                        throw new IllegalStateException("UOM must be specified for line and child subrecipe.");
+                    }
+                    if (lineUom.getConversionFactor() <= 0 || childUom.getConversionFactor() <= 0) {
+                        throw new IllegalStateException("UOM conversion factors must be positive.");
+                    }
+
+                    // Convert gross quantity to child's yield UOM
+                    double convertedQty = grossQty * (lineUom.getConversionFactor() / childUom.getConversionFactor());
                     double childYield = Optional.ofNullable(child.getYieldQty()).orElse(1.0);
 
-                    if (childYield > 0.0) {
-                        // portion ratio * child's total cost
-                        lineCost = (grossQty / childYield) * childCost;
-                    } else {
-                        // fallback
-                        lineCost = childCost;
+                    if (childYield <= 0) {
+                        throw new IllegalStateException("Child subrecipe yield must be positive.");
                     }
+
+                    lineCost = (convertedQty / childYield) * Optional.ofNullable(child.getCost()).orElse(0.0);
                 }
 
-                line.setLineCost(lineCost); // if you want to store it per line
+                line.setLineCost(lineCost);
                 totalCost += lineCost;
             }
         }

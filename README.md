@@ -33,3 +33,4 @@ private LocalDateTime lastModifiedDate;
 - Liter
 - Each
 - Meter
+## IMPORTANT, currently there is no base units and it might cause error calculating the cost. MAR 27 updated the cost calculation to use uom.

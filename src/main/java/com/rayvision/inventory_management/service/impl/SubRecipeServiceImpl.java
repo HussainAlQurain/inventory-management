@@ -1,5 +1,6 @@
 package com.rayvision.inventory_management.service.impl;
 
+import com.rayvision.inventory_management.exceptions.ResourceNotFoundException;
 import com.rayvision.inventory_management.model.*;
 import com.rayvision.inventory_management.model.dto.SubRecipeCreateDTO;
 import com.rayvision.inventory_management.model.dto.SubRecipeItemLineDTO;
@@ -150,8 +151,7 @@ public class SubRecipeServiceImpl implements SubRecipeService {
         // 1) Find existing
         SubRecipe existing = subRecipeRepository.findById(subRecipeId)
                 .filter(sr -> sr.getCompany().getId().equals(companyId))
-                .orElseThrow(() -> new RuntimeException(
-                        "SubRecipe not found or not in this company: " + subRecipeId));
+                .orElseThrow(() -> new ResourceNotFoundException("SubRecipe", "id", subRecipeId));
 
         // 2) Update main fields
         existing.setName(dto.getName());

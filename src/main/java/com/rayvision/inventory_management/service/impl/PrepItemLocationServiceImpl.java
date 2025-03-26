@@ -13,7 +13,6 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 @Service
 public class PrepItemLocationServiceImpl implements PrepItemLocationService {
@@ -21,22 +20,22 @@ public class PrepItemLocationServiceImpl implements PrepItemLocationService {
     private final PrepItemLocationRepository prepItemLocationRepository;
     private final SubRecipeRepository subRecipeRepository;
     private final LocationRepository locationRepository;
-    private final PrepItemLocationMapper mapper;
+    private final PrepItemLocationMapper prepItemLocationMapper;
 
     public PrepItemLocationServiceImpl(PrepItemLocationRepository repo,
                                        SubRecipeRepository subRecipeRepo,
                                        LocationRepository locRepo,
-                                       PrepItemLocationMapper mapper) {
+                                       PrepItemLocationMapper prepItemLocationMapper) {
         this.prepItemLocationRepository = repo;
         this.subRecipeRepository = subRecipeRepo;
         this.locationRepository = locRepo;
-        this.mapper = mapper;
+        this.prepItemLocationMapper = prepItemLocationMapper;
     }
 
     @Override
     public PrepItemLocation create(PrepItemLocationDTO dto) {
         // 1) Convert DTO -> Entity (initially)
-        PrepItemLocation entity = mapper.toEntity(dto);
+        PrepItemLocation entity = prepItemLocationMapper.toEntity(dto);
 
         // 2) But we must verify subRecipeId + locationId
         Long subRecipeId = dto.getSubRecipeId();

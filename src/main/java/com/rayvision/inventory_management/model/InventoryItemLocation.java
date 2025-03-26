@@ -11,6 +11,9 @@ import java.time.LocalDate;
 @NoArgsConstructor
 @Builder
 @Entity
+@Table(uniqueConstraints = {
+        @UniqueConstraint(columnNames = {"inventory_item_id", "location_id"})
+})
 public class InventoryItemLocation {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -37,4 +40,6 @@ public class InventoryItemLocation {
     private Double lastCount;
     private LocalDate lastCountDate;
 
+    @Version
+    private Long version;
 }

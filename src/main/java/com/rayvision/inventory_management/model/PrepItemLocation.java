@@ -3,12 +3,17 @@ package com.rayvision.inventory_management.model;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.LocalDate;
+
 @Entity
 @AllArgsConstructor
 @NoArgsConstructor
 @Setter
 @Getter
 @Builder
+@Table(uniqueConstraints = {
+        @UniqueConstraint(columnNames = {"sub_recipe_id", "location_id"})
+})
 public class PrepItemLocation {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -29,4 +34,8 @@ public class PrepItemLocation {
     private Double par;
     private Double lastCount;
 
+    private LocalDate lastCountDate; // Add this to match InventoryItemLocation
+
+    @Version
+    private Long version; // prevent race conditions
 }

@@ -28,10 +28,6 @@ public interface SubRecipeService {
 
     void deleteSubRecipeById(Long companyId, Long subRecipeId);
 
-    /**
-     * Recompute cost from bridging lines (inventory items)
-     */
-    SubRecipe recalcSubRecipeCost(SubRecipe subRecipe);
 
     List<SubRecipe> searchSubRecipes(Long companyId, String searchTerm);
 }

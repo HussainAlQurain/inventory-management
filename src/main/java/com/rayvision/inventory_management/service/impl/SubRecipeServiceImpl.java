@@ -24,19 +24,22 @@ public class SubRecipeServiceImpl implements SubRecipeService {
     private final UnitOfMeasureRepository unitOfMeasureRepository;
     private final InventoryItemRepository inventoryItemRepository;
     private final SubRecipeItemRepository subRecipeItemRepository;
+    private final SubRecipeCostCalculationService subRecipeCostCalculationService;
 
     public SubRecipeServiceImpl(SubRecipeRepository subRecipeRepository,
                                 CompanyRepository companyRepository,
                                 CategoryRepository categoryRepository,
                                 UnitOfMeasureRepository unitOfMeasureRepository,
                                 InventoryItemRepository inventoryItemRepository,
-                                SubRecipeItemRepository subRecipeItemRepository) {
+                                SubRecipeItemRepository subRecipeItemRepository,
+                                SubRecipeCostCalculationService subRecipeCostCalculationService) {
         this.subRecipeRepository = subRecipeRepository;
         this.companyRepository = companyRepository;
         this.categoryRepository = categoryRepository;
         this.unitOfMeasureRepository = unitOfMeasureRepository;
         this.inventoryItemRepository = inventoryItemRepository;
         this.subRecipeItemRepository = subRecipeItemRepository;
+        this.subRecipeCostCalculationService = subRecipeCostCalculationService;
     }
 
     @Override
@@ -131,6 +134,7 @@ public class SubRecipeServiceImpl implements SubRecipeService {
                     throw new RuntimeException("Must provide a UOM for each line");
                 }
 
+                line.setLineCost(subRecipeCostCalculationService.calculateLineCost(line));
                 lineSet.add(line);
             }
         }
@@ -138,10 +142,15 @@ public class SubRecipeServiceImpl implements SubRecipeService {
         // 3) Attach lines to the subRecipe
         subRecipe.setSubRecipeLines(lineSet);
 
-        // 4) Save the SubRecipe and recalc cost
+        // 4) Save the SubRecipe first to persist lines
         SubRecipe saved = subRecipeRepository.save(subRecipe);
-        saved = recalcSubRecipeCost(saved);
+
+        // 5) Recalculate costs (modifies the saved entity in-place)
+        subRecipeCostCalculationService.recalculateSubRecipeCost(saved);
+
+        // 6) Save again to persist cost updates
         return subRecipeRepository.save(saved);
+
     }
 
 
@@ -212,12 +221,13 @@ public class SubRecipeServiceImpl implements SubRecipeService {
                     throw new RuntimeException("Must provide a UOM for each line");
                 }
 
+                line.setLineCost(subRecipeCostCalculationService.calculateLineCost(line));
                 existing.getSubRecipeLines().add(line);
             }
         }
 
         // 4) Recompute cost
-        existing = recalcSubRecipeCost(existing);
+        subRecipeCostCalculationService.recalculateSubRecipeCost(existing);
 
         // 5) Save
         return subRecipeRepository.save(existing);
@@ -292,11 +302,12 @@ public class SubRecipeServiceImpl implements SubRecipeService {
                     throw new RuntimeException("Must provide a UOM for each line");
                 }
 
+                subRecipeCostCalculationService.recalculateSubRecipeCost(existing);
                 existing.getSubRecipeLines().add(line);
             }
         }
 
-        existing = recalcSubRecipeCost(existing);
+        subRecipeCostCalculationService.recalculateSubRecipeCost(existing);
         return subRecipeRepository.save(existing);
     }
 
@@ -310,72 +321,6 @@ public class SubRecipeServiceImpl implements SubRecipeService {
         subRecipeRepository.delete(existing);
     }
 
-    @Override
-    @Transactional
-    public SubRecipe recalcSubRecipeCost(SubRecipe subRecipe) {
-        double totalCost = 0.0;
-
-        if (subRecipe.getSubRecipeLines() != null) {
-            for (SubRecipeLine line : subRecipe.getSubRecipeLines()) {
-                double lineCost = 0.0;
-                double netQty = line.getQuantity() != null ? line.getQuantity() : 0.0;
-                double wastage = line.getWastagePercent() != null ? (line.getWastagePercent() / 100) : 0.0;
-                double grossQty = netQty * (1.0 + wastage);
-
-                if (line.getInventoryItem() != null) {
-                    // Handle InventoryItem line with UOM conversion
-                    InventoryItem item = line.getInventoryItem();
-                    UnitOfMeasure lineUom = line.getUnitOfMeasure();
-                    UnitOfMeasure itemUom = item.getInventoryUom();
-
-                    // Validate UOMs and conversion factors
-                    if (lineUom == null || itemUom == null) {
-                        throw new IllegalStateException("UOM must be specified for line and item.");
-                    }
-                    if (lineUom.getConversionFactor() <= 0 || itemUom.getConversionFactor() <= 0) {
-                        throw new IllegalStateException("UOM conversion factors must be positive.");
-                    }
-
-                    // Convert gross quantity to item's UOM
-                    double convertedQty = grossQty * (lineUom.getConversionFactor() / itemUom.getConversionFactor());
-                    double itemPrice = Optional.ofNullable(item.getCurrentPrice()).orElse(0.0);
-                    lineCost = convertedQty * itemPrice;
-
-                } else if (line.getChildSubRecipe() != null) {
-                    // Handle Child SubRecipe line with UOM conversion
-                    SubRecipe child = line.getChildSubRecipe();
-                    recalcSubRecipeCost(child); // Ensure child cost is up-to-date
-
-                    UnitOfMeasure lineUom = line.getUnitOfMeasure();
-                    UnitOfMeasure childUom = child.getUom();
-
-                    // Validate UOMs and conversion factors
-                    if (lineUom == null || childUom == null) {
-                        throw new IllegalStateException("UOM must be specified for line and child subrecipe.");
-                    }
-                    if (lineUom.getConversionFactor() <= 0 || childUom.getConversionFactor() <= 0) {
-                        throw new IllegalStateException("UOM conversion factors must be positive.");
-                    }
-
-                    // Convert gross quantity to child's yield UOM
-                    double convertedQty = grossQty * (lineUom.getConversionFactor() / childUom.getConversionFactor());
-                    double childYield = Optional.ofNullable(child.getYieldQty()).orElse(1.0);
-
-                    if (childYield <= 0) {
-                        throw new IllegalStateException("Child subrecipe yield must be positive.");
-                    }
-
-                    lineCost = (convertedQty / childYield) * Optional.ofNullable(child.getCost()).orElse(0.0);
-                }
-
-                line.setLineCost(lineCost);
-                totalCost += lineCost;
-            }
-        }
-
-        subRecipe.setCost(totalCost);
-        return subRecipe;
-    }
 
     @Override
     public List<SubRecipe> searchSubRecipes(Long companyId, String searchTerm) {

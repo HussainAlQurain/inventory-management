@@ -20,15 +20,18 @@ public class SubRecipeLineServiceImpl implements SubRecipeLineService {
     private final SubRecipeRepository subRecipeRepository;
     private final InventoryItemRepository inventoryItemRepository;
     private final UnitOfMeasureRepository unitOfMeasureRepository;
+    private final SubRecipeCostCalculationService subRecipeCostCalculationService;
 
     public SubRecipeLineServiceImpl(SubRecipeLineRepository subRecipeLineRepository,
                                     SubRecipeRepository subRecipeRepository,
                                     InventoryItemRepository inventoryItemRepository,
-                                    UnitOfMeasureRepository unitOfMeasureRepository) {
+                                    UnitOfMeasureRepository unitOfMeasureRepository,
+                                    SubRecipeCostCalculationService subRecipeCostCalculationService) {
         this.subRecipeLineRepository = subRecipeLineRepository;
         this.subRecipeRepository = subRecipeRepository;
         this.inventoryItemRepository = inventoryItemRepository;
         this.unitOfMeasureRepository = unitOfMeasureRepository;
+        this.subRecipeCostCalculationService = subRecipeCostCalculationService;
     }
 
     @Override
@@ -78,8 +81,16 @@ public class SubRecipeLineServiceImpl implements SubRecipeLineService {
                             "UOM not found: " + line.getUnitOfMeasure().getId()));
             line.setUnitOfMeasure(uom);
         }
+        // Calculate and set line cost
+        line.setLineCost(subRecipeCostCalculationService.calculateLineCost(line));
+        SubRecipeLine savedLine = subRecipeLineRepository.save(line);
 
-        return subRecipeLineRepository.save(line);
+        // Recalculate parent's total cost
+        subRecipeCostCalculationService.recalculateSubRecipeCost(parent);
+        subRecipeRepository.save(parent);
+
+        return savedLine;
+
     }
 
     @Override
@@ -122,7 +133,15 @@ public class SubRecipeLineServiceImpl implements SubRecipeLineService {
             existing.setUnitOfMeasure(uom);
         }
 
-        return subRecipeLineRepository.save(existing);
+        existing.setLineCost(subRecipeCostCalculationService.calculateLineCost(existing));
+        SubRecipeLine updatedLine = subRecipeLineRepository.save(existing);
+
+        // Recalculate parent's total cost
+        SubRecipe parent = subRecipeRepository.findById(subRecipeId).orElseThrow();
+        subRecipeCostCalculationService.recalculateSubRecipeCost(parent);
+        subRecipeRepository.save(parent);
+
+        return updatedLine;
     }
 
     @Override
@@ -132,12 +151,17 @@ public class SubRecipeLineServiceImpl implements SubRecipeLineService {
                 .orElseThrow(() -> new RuntimeException(
                         "Line not found or not in subRecipe: " + subRecipeId));
 
+        // Track if any cost-affecting field changes
+        boolean costAffectingChange = false;
+
         // Only update fields if not null
         if (line.getQuantity() != null) {
             existing.setQuantity(line.getQuantity());
+            costAffectingChange = true;
         }
         if (line.getWastagePercent() != null) {
             existing.setWastagePercent(line.getWastagePercent());
+            costAffectingChange = true;
         }
         if (line.getInventoryItem() != null && line.getInventoryItem().getId() != null) {
             InventoryItem inv = inventoryItemRepository.findById(line.getInventoryItem().getId())
@@ -145,6 +169,7 @@ public class SubRecipeLineServiceImpl implements SubRecipeLineService {
                             "InventoryItem not found: " + line.getInventoryItem().getId()));
             existing.setInventoryItem(inv);
             existing.setChildSubRecipe(null);
+            costAffectingChange = true;
         }
         if (line.getChildSubRecipe() != null && line.getChildSubRecipe().getId() != null) {
             SubRecipe child = subRecipeRepository.findById(line.getChildSubRecipe().getId())
@@ -152,15 +177,30 @@ public class SubRecipeLineServiceImpl implements SubRecipeLineService {
                             "Child SubRecipe not found: " + line.getChildSubRecipe().getId()));
             existing.setChildSubRecipe(child);
             existing.setInventoryItem(null);
+            costAffectingChange = true;
         }
         if (line.getUnitOfMeasure() != null && line.getUnitOfMeasure().getId() != null) {
             UnitOfMeasure uom = unitOfMeasureRepository.findById(line.getUnitOfMeasure().getId())
                     .orElseThrow(() -> new RuntimeException(
                             "UOM not found: " + line.getUnitOfMeasure().getId()));
             existing.setUnitOfMeasure(uom);
+            costAffectingChange = true;
         }
 
-        return subRecipeLineRepository.save(existing);
+        // Only recalculate if relevant fields changed
+        if (costAffectingChange) {
+            existing.setLineCost(subRecipeCostCalculationService.calculateLineCost(existing));
+        }
+
+        SubRecipeLine updatedLine = subRecipeLineRepository.save(existing);
+
+        // Always recalculate parent cost (even if line cost didn't change, other lines might have)
+        SubRecipe parent = subRecipeRepository.findById(subRecipeId).orElseThrow();
+        subRecipeCostCalculationService.recalculateSubRecipeCost(parent);
+        subRecipeRepository.save(parent);
+
+        return updatedLine;
+
     }
 
     @Override
@@ -170,6 +210,10 @@ public class SubRecipeLineServiceImpl implements SubRecipeLineService {
                 .orElseThrow(() -> new RuntimeException(
                         "Line not found or not in subRecipe: " + subRecipeId));
         subRecipeLineRepository.delete(existing);
+
+        SubRecipe parent = subRecipeRepository.findById(subRecipeId).orElseThrow();
+        subRecipeCostCalculationService.recalculateSubRecipeCost(parent);
+        subRecipeRepository.save(parent);
     }
 
 }

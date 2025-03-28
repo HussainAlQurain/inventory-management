@@ -201,4 +201,10 @@ public class InventoryItemLocationServiceImpl implements InventoryItemLocationSe
 
         repository.save(itemLocation);
     }
+
+    @Override
+    public Optional<InventoryItemLocation> findByInventoryItemIdAndLocationId(Long itemId, Long locationId) {
+        return repository.findByInventoryItemIdAndLocationId(itemId, locationId);
+    }
+
 }

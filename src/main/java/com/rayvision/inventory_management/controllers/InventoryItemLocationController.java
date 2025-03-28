@@ -131,6 +131,29 @@ public class InventoryItemLocationController {
         return ResponseEntity.ok().build();
     }
 
+    // GET all InventoryItemLocations by itemId
+    @GetMapping("/item/{itemId}")
+    public ResponseEntity<List<InventoryItemLocationDTO>> getByItemId(@PathVariable Long itemId) {
+        List<InventoryItemLocation> locations = service.findByItemId(itemId);
+        List<InventoryItemLocationDTO> dtos = locations.stream()
+                .map(inventoryItemLocationMapper::toDto)
+                .toList();
+        return ResponseEntity.ok(dtos);
+    }
+
+    // GET InventoryItemLocation by itemId AND locationId
+    @GetMapping("/item/{itemId}/location/{locationId}")
+    public ResponseEntity<InventoryItemLocationDTO> getByItemIdAndLocationId(
+            @PathVariable Long itemId,
+            @PathVariable Long locationId
+    ) {
+        InventoryItemLocation entity = service.findByInventoryItemIdAndLocationId(itemId, locationId)
+                .orElseThrow(() -> new RuntimeException(
+                        "InventoryItemLocation not found for itemId=" + itemId + " and locationId=" + locationId
+                ));
+        return ResponseEntity.ok(inventoryItemLocationMapper.toDto(entity));
+    }
+
     public record ThresholdUpdateRequest(Double minOnHand, Double parLevel) {}
 
 

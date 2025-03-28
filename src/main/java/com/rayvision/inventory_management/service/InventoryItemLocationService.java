@@ -27,4 +27,5 @@ public interface InventoryItemLocationService {
     void bulkSetThresholdsForCompany(Long companyId, Long itemId, Double minOnHand, Double parLevel);
     void patchThresholds(Long itemId, Long locationId, Double minOnHand, Double parLevel);
 
+    Optional<InventoryItemLocation> findByInventoryItemIdAndLocationId(Long itemId, Long locationId);
 }

@@ -7,7 +7,7 @@ public class MenuItemLineResponseDTO {
     private Long id;
     private Long inventoryItemId;
     private Long subRecipeId;
-    private Long childMenuItem;
+    private Long childMenuItemId;
     private Double quantity;
     private Double wastagePercent;
     private Long unitOfMeasureId;

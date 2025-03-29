@@ -11,9 +11,10 @@ import java.util.List;
 
 @Mapper(componentModel = "spring")
 public interface MenuItemLineMapper {
-    @Mapping(source = "inventoryItem.id", target = "inventoryItemId", qualifiedByName = "mapId")
-    @Mapping(source = "subRecipe.id", target = "subRecipeId", qualifiedByName = "mapId")
-    @Mapping(source = "childMenuItem.id", target = "childMenuItem", qualifiedByName = "mapId")
+    @Mapping(source = "id",               target = "id")
+    @Mapping(source = "inventoryItem.id", target = "inventoryItemId")
+    @Mapping(source = "subRecipe.id",     target = "subRecipeId")
+    @Mapping(source = "childMenuItem.id", target = "childMenuItemId")  // match the field in your DTO
     @Mapping(source = "unitOfMeasure.id", target = "unitOfMeasureId")
     MenuItemLineResponseDTO toDto(MenuItemLine entity);
 

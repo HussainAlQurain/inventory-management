@@ -3,6 +3,7 @@ package com.rayvision.inventory_management.model;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.util.HashSet;
 import java.util.Set;
 
 
@@ -73,17 +74,8 @@ public class MenuItem {
      */
     private String modifierGroups; // or consider separate table/JSON, etc.
 
-    /**
-     * Link to bridging for raw inventory items (with quantity/wastage).
-     */
-    @OneToMany(mappedBy = "menuItem", cascade = CascadeType.ALL, orphanRemoval = true)
-    private Set<MenuItemInventoryItem> menuItemInventoryItems;
-
-    /**
-     * Link to bridging for subRecipes (with quantity/wastage).
-     */
-    @OneToMany(mappedBy = "menuItem", cascade = CascadeType.ALL, orphanRemoval = true)
-    private Set<MenuItemSubRecipe> menuItemSubRecipes;
+    @OneToMany(mappedBy = "parentMenuItem", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<MenuItemLine> menuItemLines = new HashSet<>();
 
     /**
      * If needed, track which company this belongs to.

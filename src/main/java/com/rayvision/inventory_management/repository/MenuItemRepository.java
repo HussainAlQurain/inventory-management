@@ -7,6 +7,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface MenuItemRepository extends JpaRepository<MenuItem, Long> {
@@ -21,4 +22,7 @@ public interface MenuItemRepository extends JpaRepository<MenuItem, Long> {
             @Param("companyId") Long companyId,
             @Param("searchTerm") String searchTerm
     );
+
+    List<MenuItem> findByCompanyId(Long companyId);
+    Optional<MenuItem>  findByIdAndCompanyId(Long id, Long companyId);
 }

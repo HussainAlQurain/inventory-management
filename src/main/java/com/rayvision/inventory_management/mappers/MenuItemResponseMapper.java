@@ -14,8 +14,7 @@ import org.mapstruct.factory.Mappers;
 @Mapper(componentModel = "spring", uses = {
         // If you have other mapper classes for category or line DTOs, list them here
         CategoryResponseMapper.class,
-        MenuItemInventoryLineMapper.class,
-        MenuItemSubRecipeLineMapper.class
+        MenuItemLineMapper.class  // Add this
 })
 public interface MenuItemResponseMapper {
     MenuItemResponseMapper INSTANCE = Mappers.getMapper(MenuItemResponseMapper.class);
@@ -28,8 +27,7 @@ public interface MenuItemResponseMapper {
      *  • menuItemSubRecipes → subRecipeLines
      */
     @Mapping(source = "category", target = "category")
-    @Mapping(source = "menuItemInventoryItems", target = "inventoryLines")
-    @Mapping(source = "menuItemSubRecipes", target = "subRecipeLines")
+    @Mapping(source = "menuItemLines", target = "menuItemLines")
     MenuItemResponseDTO toDto(MenuItem entity);
 
 }

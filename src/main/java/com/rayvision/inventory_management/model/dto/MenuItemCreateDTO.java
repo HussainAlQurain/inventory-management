@@ -1,5 +1,6 @@
 package com.rayvision.inventory_management.model.dto;
 
+import jakarta.validation.Valid;
 import lombok.Data;
 
 import java.util.List;
@@ -17,14 +18,7 @@ public class MenuItemCreateDTO {
     private Double cost; // or you can compute
     private Double foodCostPercentage;
 
-    /**
-     * If the user wants to attach bridging lines to raw InventoryItems:
-     */
-    private List<MenuItemInventoryLineDTO> inventoryLines;
-
-    /**
-     * If the user wants bridging lines to subRecipes:
-     */
-    private List<MenuItemSubRecipeLineDTO> subRecipeLines;
+    @Valid
+    private List<MenuItemLineDTO> menuItemLines;
 
 }

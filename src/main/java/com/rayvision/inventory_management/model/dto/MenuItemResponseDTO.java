@@ -15,6 +15,5 @@ public class MenuItemResponseDTO {
     private Double maxAllowedFoodCostPct;
     private String modifierGroups;
     private CategoryResponseDTO category;
-    private List<MenuItemInventoryLineDTO> inventoryLines;
-    private List<MenuItemSubRecipeLineDTO> subRecipeLines;
+    private List<MenuItemLineResponseDTO> menuItemLines;
 }

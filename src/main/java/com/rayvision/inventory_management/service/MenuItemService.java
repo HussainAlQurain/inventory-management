@@ -43,5 +43,6 @@ public interface MenuItemService {
 
     MenuItem addLineToMenuItem(Long companyId, Long menuItemId, MenuItemLineDTO lineDTO);
     MenuItem removeLineFromMenuItem(Long companyId, Long menuItemId, Long lineId);
+    MenuItem updateLine(Long companyId, Long menuItemId, MenuItemLineDTO dto);
 
 }

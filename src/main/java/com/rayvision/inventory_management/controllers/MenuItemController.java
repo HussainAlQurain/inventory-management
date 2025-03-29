@@ -1,10 +1,11 @@
 package com.rayvision.inventory_management.controllers;
 
+import com.rayvision.inventory_management.mappers.MenuItemLineMapper;
+import com.rayvision.inventory_management.mappers.MenuItemLineMapperImpl;
 import com.rayvision.inventory_management.mappers.MenuItemResponseMapper;
 import com.rayvision.inventory_management.model.MenuItem;
-import com.rayvision.inventory_management.model.dto.MenuItemCreateDTO;
-import com.rayvision.inventory_management.model.dto.MenuItemInventoryLineDTO;
-import com.rayvision.inventory_management.model.dto.MenuItemResponseDTO;
+import com.rayvision.inventory_management.model.MenuItemLine;
+import com.rayvision.inventory_management.model.dto.*;
 import com.rayvision.inventory_management.service.MenuItemService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -18,10 +19,12 @@ public class MenuItemController {
 
     private final MenuItemService menuItemService;
     private final MenuItemResponseMapper menuItemResponseMapper;
+    private final MenuItemLineMapper menuItemLineMapper;
 
-    public MenuItemController(MenuItemService menuItemService, MenuItemResponseMapper menuItemResponseMapper) {
+    public MenuItemController(MenuItemService menuItemService, MenuItemResponseMapper menuItemResponseMapper, MenuItemLineMapper menuItemLineMapper) {
         this.menuItemService = menuItemService;
         this.menuItemResponseMapper = menuItemResponseMapper;
+        this.menuItemLineMapper = menuItemLineMapper;
     }
 
     @GetMapping("/company/{companyId}")
@@ -91,4 +94,57 @@ public class MenuItemController {
             return ResponseEntity.notFound().build();
         }
     }
+
+
+    // Line management endpoints
+    @GetMapping("/{menuItemId}/company/{companyId}/lines")
+    public ResponseEntity<List<MenuItemLineResponseDTO>> getMenuItemLines(
+            @PathVariable Long companyId,
+            @PathVariable Long menuItemId) {
+        MenuItem menuItem = menuItemService.getMenuItemById(companyId, menuItemId)
+                .orElseThrow(() -> new RuntimeException("Menu item not found"));
+        return ResponseEntity.ok(menuItemLineMapper.toDtoList(menuItem.getMenuItemLines()));
+    }
+
+    @PostMapping("/{menuItemId}/company/{companyId}/lines")
+    public ResponseEntity<MenuItemLineResponseDTO> addLineToMenuItem(
+            @PathVariable Long companyId,
+            @PathVariable Long menuItemId,
+            @RequestBody MenuItemLineDTO dto) {
+        MenuItem updated = menuItemService.addLineToMenuItem(companyId, menuItemId, dto);
+        MenuItemLine newLine = updated.getMenuItemLines().stream()
+                .filter(line -> line.getId() != null)
+                .reduce((first, second) -> second)
+                .orElseThrow();
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(menuItemLineMapper.toDto(newLine));
+    }
+
+    @PutMapping("/{menuItemId}/company/{companyId}/lines/{lineId}")
+    public ResponseEntity<MenuItemLineResponseDTO> updateLine(
+            @PathVariable Long companyId,
+            @PathVariable Long menuItemId,
+            @PathVariable Long lineId,
+            @RequestBody MenuItemLineDTO dto) {
+        dto.setId(lineId);
+        MenuItem updated = menuItemService.updateLine(companyId, menuItemId, dto);
+        return ResponseEntity.ok(menuItemLineMapper.toDto(findLine(updated, lineId)));
+    }
+
+    @DeleteMapping("/{menuItemId}/company/{companyId}/lines/{lineId}")
+    public ResponseEntity<Void> removeLineFromMenuItem(
+            @PathVariable Long companyId,
+            @PathVariable Long menuItemId,
+            @PathVariable Long lineId) {
+        menuItemService.removeLineFromMenuItem(companyId, menuItemId, lineId);
+        return ResponseEntity.noContent().build();
+    }
+
+    private MenuItemLine findLine(MenuItem menuItem, Long lineId) {
+        return menuItem.getMenuItemLines().stream()
+                .filter(line -> line.getId().equals(lineId))
+                .findFirst()
+                .orElseThrow(() -> new RuntimeException("Line not found"));
+    }
+
 }

@@ -311,6 +311,31 @@ public class MenuItemServiceImpl implements MenuItemService {
         return menuItemRepository.save(menuItem);
     }
     @Override
+    @Transactional
+    public MenuItem updateLine(Long companyId, Long menuItemId, MenuItemLineDTO dto) {
+        MenuItem menuItem = menuItemRepository.findByIdAndCompanyId(menuItemId, companyId)
+                .orElseThrow(() -> new RuntimeException("Menu item not found"));
+
+        MenuItemLine line = menuItem.getMenuItemLines().stream()
+                .filter(l -> l.getId().equals(dto.getId()))
+                .findFirst()
+                .orElseThrow(() -> new RuntimeException("Line not found"));
+
+        // Update line fields
+        line.setQuantity(dto.getQuantity());
+        line.setWastagePercent(dto.getWastagePercent());
+
+        // Handle UOM update
+        UnitOfMeasure uom = unitOfMeasureRepository.findById(dto.getUnitOfMeasureId())
+                .orElseThrow(() -> new RuntimeException("UOM not found"));
+        line.setUnitOfMeasure(uom);
+
+        // Handle reference updates if needed
+        // (similar logic to createMenuItemLine)
+
+        return recalcMenuItemCost(menuItemRepository.save(menuItem));
+    }
+    @Override
     public List<MenuItem> searchMenuItems(Long companyId, String searchTerm) {
         return menuItemRepository.searchMenuItems(companyId, searchTerm);
     }

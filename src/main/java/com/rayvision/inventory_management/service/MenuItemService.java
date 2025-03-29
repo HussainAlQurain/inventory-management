@@ -2,6 +2,7 @@ package com.rayvision.inventory_management.service;
 
 import com.rayvision.inventory_management.model.MenuItem;
 import com.rayvision.inventory_management.model.dto.MenuItemCreateDTO;
+import com.rayvision.inventory_management.model.dto.MenuItemLineDTO;
 
 import java.util.List;
 import java.util.Optional;
@@ -39,5 +40,8 @@ public interface MenuItemService {
 
 
     List<MenuItem> searchMenuItems(Long companyId, String searchTerm);
+
+    MenuItem addLineToMenuItem(Long companyId, Long menuItemId, MenuItemLineDTO lineDTO);
+    MenuItem removeLineFromMenuItem(Long companyId, Long menuItemId, Long lineId);
 
 }

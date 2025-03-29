@@ -11,4 +11,5 @@ import java.util.Optional;
 public interface UnitOfMeasureRepository extends JpaRepository<UnitOfMeasure, Long> {
     List<UnitOfMeasure> findByCompanyId(Long companyId);
     Optional<UnitOfMeasure> findByCompanyIdAndId(Long companyId, Long id);
+    Optional<UnitOfMeasure> findByCompanyIdAndAbbreviation(Long companyId, String abbreviation);
 }

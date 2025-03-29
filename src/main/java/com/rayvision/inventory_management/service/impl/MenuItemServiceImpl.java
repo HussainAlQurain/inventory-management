@@ -187,7 +187,107 @@ public class MenuItemServiceImpl implements MenuItemService {
         menuItemRepository.delete(existing);
     }
 
+    @Override
+    @Transactional
+    public MenuItem addLineToMenuItem(Long companyId, Long menuItemId, MenuItemLineDTO lineDTO) {
+        MenuItem menuItem = menuItemRepository.findByIdAndCompanyId(menuItemId, companyId)
+                .orElseThrow(() -> new RuntimeException("MenuItem not found"));
 
+        MenuItemLine line = createMenuItemLine(menuItem, lineDTO);
+        menuItem.getMenuItemLines().add(line);
+        return recalcMenuItemCost(menuItemRepository.save(menuItem));
+    }
+
+    @Override
+    @Transactional
+    public MenuItem removeLineFromMenuItem(Long companyId, Long menuItemId, Long lineId) {
+        MenuItem menuItem = menuItemRepository.findByIdAndCompanyId(menuItemId, companyId)
+                .orElseThrow(() -> new RuntimeException("MenuItem not found"));
+
+        menuItem.getMenuItemLines().removeIf(line -> line.getId().equals(lineId));
+        return recalcMenuItemCost(menuItemRepository.save(menuItem));
+    }
+
+
+
+    private double calculateInventoryItemCost(MenuItemLine line) {
+        InventoryItem item = line.getInventoryItem();
+        UnitOfMeasure lineUom = line.getUnitOfMeasure();
+        UnitOfMeasure itemUom = item.getInventoryUom();
+
+        validateUOMs(lineUom, itemUom);
+
+        double grossQty = line.getQuantity() * (1.0 + Optional.ofNullable(line.getWastagePercent()).orElse(0.0));
+        double convertedQty = grossQty * (lineUom.getConversionFactor() / itemUom.getConversionFactor());
+
+        return convertedQty * item.getCurrentPrice();
+    }
+
+    private double calculateSubRecipeCost(MenuItemLine line) {
+        SubRecipe subRecipe = line.getSubRecipe();
+        UnitOfMeasure lineUom = line.getUnitOfMeasure();
+        UnitOfMeasure recipeUom = subRecipe.getUom();
+
+        validateUOMs(lineUom, recipeUom);
+
+        double grossQty = line.getQuantity() * (1.0 + Optional.ofNullable(line.getWastagePercent()).orElse(0.0));
+        double convertedQty = grossQty * (lineUom.getConversionFactor() / recipeUom.getConversionFactor());
+
+        // Consider sub-recipe yield
+        double yield = subRecipe.getYieldQty() != null ? subRecipe.getYieldQty() : 1.0;
+        return (convertedQty / yield) * subRecipe.getCost();
+    }
+
+
+    private void validateUOMs(UnitOfMeasure uom1, UnitOfMeasure uom2) {
+        if (uom1 == null || uom2 == null) {
+            throw new IllegalStateException("Both UOMs must be specified");
+        }
+        if (uom1.getConversionFactor() <= 0 || uom2.getConversionFactor() <= 0) {
+            throw new IllegalStateException("UOM conversion factors must be positive");
+        }
+        if (!uom1.getCategory().getId().equals(uom2.getCategory().getId())) {
+            throw new IllegalStateException("UOM categories must match for conversion");
+        }
+    }
+
+    private double calculateChildMenuItemCost(MenuItemLine line, Long companyId) {
+        MenuItem child = line.getChildMenuItem();
+        UnitOfMeasure lineUom = line.getUnitOfMeasure();
+
+        // Try to find EA UOM, or create a temporary one with conversion factor 1
+        UnitOfMeasure childUom = unitOfMeasureRepository.findByCompanyIdAndAbbreviation(companyId, "EA")
+                .orElseGet(() -> {
+                    UnitOfMeasure tempUom = new UnitOfMeasure();
+                    tempUom.setAbbreviation("EA");
+                    tempUom.setName("Each");
+                    tempUom.setConversionFactor(1.0);
+                    tempUom.setCategory(lineUom.getCategory()); // Use line UOM's category
+                    return tempUom;
+                });
+
+        validateUOMs(lineUom, childUom);
+
+        double convertedQty = line.getQuantity() *
+                (lineUom.getConversionFactor() / childUom.getConversionFactor());
+        return convertedQty * child.getCost();
+    }
+
+    private double calculateLineCost(MenuItemLine line) {
+        // Get company ID from the parent menu item
+        Long companyId = line.getParentMenuItem().getCompany().getId();
+
+        if (line.getInventoryItem() != null) {
+            return calculateInventoryItemCost(line);
+        } else if (line.getSubRecipe() != null) {
+            return calculateSubRecipeCost(line);
+        } else if (line.getChildMenuItem() != null) {
+            return calculateChildMenuItemCost(line, companyId);
+        }
+        throw new IllegalStateException("Invalid line reference type");
+    }
+
+    // Modified recalc method to save line costs
     @Override
     @Transactional
     public MenuItem recalcMenuItemCost(MenuItem menuItem) {
@@ -201,44 +301,15 @@ public class MenuItemServiceImpl implements MenuItemService {
 
         menuItem.setCost(totalCost);
 
-        if (menuItem.getRetailPriceExclTax() != null && menuItem.getRetailPriceExclTax() > 0.0) {
-            double foodCostPct = (totalCost / menuItem.getRetailPriceExclTax()) * 100.0;
+        if (menuItem.getRetailPriceExclTax() != null && menuItem.getRetailPriceExclTax() > 0) {
+            double foodCostPct = (totalCost / menuItem.getRetailPriceExclTax()) * 100;
             menuItem.setFoodCostPercentage(foodCostPct);
         } else {
             menuItem.setFoodCostPercentage(null);
         }
 
-        return menuItem;
+        return menuItemRepository.save(menuItem);
     }
-
-    private double calculateLineCost(MenuItemLine line) {
-        if (line.getInventoryItem() != null) {
-            return calculateInventoryItemCost(line);
-        } else if (line.getSubRecipe() != null) {
-            return calculateSubRecipeCost(line);
-        } else if (line.getChildMenuItem() != null) {
-            return calculateChildMenuItemCost(line);
-        }
-        throw new IllegalStateException("Invalid line reference type");
-    }
-
-    private double calculateInventoryItemCost(MenuItemLine line) {
-        Double itemCost = Optional.ofNullable(line.getInventoryItem().getCurrentPrice()).orElse(0.0);
-        double grossQty = line.getQuantity() * (1.0 + Optional.ofNullable(line.getWastagePercent()).orElse(0.0));
-        return itemCost * grossQty;
-    }
-
-    private double calculateSubRecipeCost(MenuItemLine line) {
-        Double subRecCost = Optional.ofNullable(line.getSubRecipe().getCost()).orElse(0.0);
-        double grossQty = line.getQuantity() * (1.0 + Optional.ofNullable(line.getWastagePercent()).orElse(0.0));
-        return subRecCost * grossQty;
-    }
-
-    private double calculateChildMenuItemCost(MenuItemLine line) {
-        Double childCost = Optional.ofNullable(line.getChildMenuItem().getCost()).orElse(0.0);
-        return childCost * line.getQuantity();
-    }
-
     @Override
     public List<MenuItem> searchMenuItems(Long companyId, String searchTerm) {
         return menuItemRepository.searchMenuItems(companyId, searchTerm);

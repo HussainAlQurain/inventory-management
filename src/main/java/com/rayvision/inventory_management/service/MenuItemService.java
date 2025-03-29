@@ -37,4 +37,7 @@ public interface MenuItemService {
      */
     MenuItem recalcMenuItemCost(MenuItem menuItem);
 
+
+    List<MenuItem> searchMenuItems(Long companyId, String searchTerm);
+
 }

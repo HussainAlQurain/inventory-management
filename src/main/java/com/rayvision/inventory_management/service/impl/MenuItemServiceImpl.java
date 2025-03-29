@@ -331,4 +331,9 @@ public class MenuItemServiceImpl implements MenuItemService {
         return menuItem;
     }
 
+    @Override
+    public List<MenuItem> searchMenuItems(Long companyId, String searchTerm) {
+        return menuItemRepository.searchMenuItems(companyId, searchTerm);
+    }
+
 }

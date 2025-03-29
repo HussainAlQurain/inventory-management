@@ -25,8 +25,11 @@ public class MenuItemController {
     }
 
     @GetMapping("/company/{companyId}")
-    public ResponseEntity<List<MenuItemResponseDTO>> getAllMenuItems(@PathVariable Long companyId) {
-        List<MenuItem> items = menuItemService.getAllMenuItems(companyId);
+    public ResponseEntity<List<MenuItemResponseDTO>> getAllMenuItems(
+            @PathVariable Long companyId,
+            @RequestParam(name = "search", required = false, defaultValue = "") String searchTerm
+    ) {
+        List<MenuItem> items = menuItemService.searchMenuItems(companyId, searchTerm);
         List<MenuItemResponseDTO> dtoList = items.stream()
                 .map(menuItemResponseMapper::toDto)
                 .toList();

@@ -102,6 +102,14 @@ public class MenuItemServiceImpl implements MenuItemService {
             MenuItem child = menuItemRepository.findById(lineDTO.getChildMenuItemId())
                     .orElseThrow(() -> new RuntimeException("Menu item not found: " + lineDTO.getChildMenuItemId()));
             line.setChildMenuItem(child);
+
+            UnitOfMeasure fakeUom = new UnitOfMeasure();
+            fakeUom.setName("Each (in-memory)");
+            fakeUom.setAbbreviation("EA");
+            fakeUom.setConversionFactor(1.0);
+            // No database ID, and no category, to keep it purely ephemeral
+            line.setUnitOfMeasure(fakeUom);
+
         } else {
             throw new RuntimeException("Line must reference an inventory item, subrecipe, or child menu item");
         }
@@ -217,7 +225,8 @@ public class MenuItemServiceImpl implements MenuItemService {
 
         validateUOMs(lineUom, itemUom);
 
-        double grossQty = line.getQuantity() * (1.0 + Optional.ofNullable(line.getWastagePercent()).orElse(0.0));
+        double wastageFraction = Optional.ofNullable(line.getWastagePercent()).orElse(0.0) / 100.0;
+        double grossQty = line.getQuantity() * (1.0 + wastageFraction);
         double convertedQty = grossQty * (lineUom.getConversionFactor() / itemUom.getConversionFactor());
 
         return convertedQty * item.getCurrentPrice();
@@ -229,8 +238,8 @@ public class MenuItemServiceImpl implements MenuItemService {
         UnitOfMeasure recipeUom = subRecipe.getUom();
 
         validateUOMs(lineUom, recipeUom);
-
-        double grossQty = line.getQuantity() * (1.0 + Optional.ofNullable(line.getWastagePercent()).orElse(0.0));
+        double wastageFraction = Optional.ofNullable(line.getWastagePercent()).orElse(0.0) / 100.0;
+        double grossQty = line.getQuantity() * (1.0 + wastageFraction);
         double convertedQty = grossQty * (lineUom.getConversionFactor() / recipeUom.getConversionFactor());
 
         // Consider sub-recipe yield
@@ -255,22 +264,11 @@ public class MenuItemServiceImpl implements MenuItemService {
         MenuItem child = line.getChildMenuItem();
         UnitOfMeasure lineUom = line.getUnitOfMeasure();
 
-        // Try to find EA UOM, or create a temporary one with conversion factor 1
-        UnitOfMeasure childUom = unitOfMeasureRepository.findByCompanyIdAndAbbreviation(companyId, "EA")
-                .orElseGet(() -> {
-                    UnitOfMeasure tempUom = new UnitOfMeasure();
-                    tempUom.setAbbreviation("EA");
-                    tempUom.setName("Each");
-                    tempUom.setConversionFactor(1.0);
-                    tempUom.setCategory(lineUom.getCategory()); // Use line UOM's category
-                    return tempUom;
-                });
 
-        validateUOMs(lineUom, childUom);
-
-        double convertedQty = line.getQuantity() *
-                (lineUom.getConversionFactor() / childUom.getConversionFactor());
-        return convertedQty * child.getCost();
+        double wastageFraction = Optional.ofNullable(line.getWastagePercent()).orElse(0.0) / 100.0;
+        double grossQty = line.getQuantity() * (1 + wastageFraction);
+        // Because conversion factor is 1.0, the child cost = grossQty * child.getCost() Might add a way to change this later.
+        return grossQty * child.getCost();
     }
 
     private double calculateLineCost(MenuItemLine line) {

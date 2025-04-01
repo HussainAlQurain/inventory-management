@@ -1,10 +1,12 @@
 package com.rayvision.inventory_management.controllers;
 
 import com.rayvision.inventory_management.mappers.InventoryItemResponseMapper;
+import com.rayvision.inventory_management.mappers.PurchaseOptionSummaryMapper;
 import com.rayvision.inventory_management.model.PurchaseOption;
 import com.rayvision.inventory_management.model.dto.PurchaseOptionCreateDTO;
 import com.rayvision.inventory_management.model.dto.PurchaseOptionPartialUpdateDTO;
 import com.rayvision.inventory_management.model.dto.PurchaseOptionResponseDTO;
+import com.rayvision.inventory_management.model.dto.PurchaseOptionSummaryDTO;
 import com.rayvision.inventory_management.service.PurchaseOptionService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -20,11 +22,13 @@ public class PurchaseOptionController {
     private final PurchaseOptionService purchaseOptionService;
     // used for mapping po to podto
     private final InventoryItemResponseMapper inventoryItemResponseMapper;
+    private final PurchaseOptionSummaryMapper purchaseOptionSummaryMapper;
 
     @Autowired
-    public PurchaseOptionController(InventoryItemResponseMapper inventoryItemResponseMapper, PurchaseOptionService purchaseOptionService) {
+    public PurchaseOptionController(InventoryItemResponseMapper inventoryItemResponseMapper, PurchaseOptionService purchaseOptionService, PurchaseOptionSummaryMapper purchaseOptionSummaryMapper) {
         this.inventoryItemResponseMapper = inventoryItemResponseMapper;
         this.purchaseOptionService = purchaseOptionService;
+        this.purchaseOptionSummaryMapper = purchaseOptionSummaryMapper;
     }
 
     /**
@@ -123,6 +127,16 @@ public class PurchaseOptionController {
     ) {
         purchaseOptionService.setAsMain(companyId, purchaseOptionId);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/company/{companyId}")
+    public ResponseEntity<List<PurchaseOptionSummaryDTO>> getAllPurchaseOptionsForCompany(
+            @PathVariable Long companyId) {
+
+        List<PurchaseOption> pos = purchaseOptionService.getAllForCompany(companyId);
+        List<PurchaseOptionSummaryDTO> dtos = purchaseOptionSummaryMapper.toDtoList(pos);
+
+        return ResponseEntity.ok(dtos);
     }
 
 }

@@ -16,4 +16,6 @@ public interface PurchaseOptionService {
     void deletePurchaseOption(Long companyId, Long purchaseOptionId);
 
     void setAsMain(Long companyId, Long purchaseOptionId);
+
+    List<PurchaseOption> getAllForCompany(Long companyId);
 }

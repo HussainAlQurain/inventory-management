@@ -235,5 +235,7 @@ public class PurchaseOptionServiceImpl implements PurchaseOptionService {
         }
     }
 
-
+    public List<PurchaseOption> getAllForCompany(Long companyId) {
+        return purchaseOptionRepository.findAllByCompanyId(companyId);
+    }
 }

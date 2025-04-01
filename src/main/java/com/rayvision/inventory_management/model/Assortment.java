@@ -3,6 +3,7 @@ package com.rayvision.inventory_management.model;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.util.HashSet;
 import java.util.Set;
 
 @AllArgsConstructor
@@ -32,7 +33,7 @@ public class Assortment {
 
     // Many-to-Many relationship with Location (through AssortmentLocation)
     @OneToMany(mappedBy = "assortment", cascade = CascadeType.ALL, orphanRemoval = true)
-    private Set<AssortmentLocation> assortmentLocations;
+    private Set<AssortmentLocation> assortmentLocations = new HashSet<>();
 
     // Many-to-Many relationship with SubRecipe
     @ManyToMany
@@ -41,5 +42,14 @@ public class Assortment {
             joinColumns = @JoinColumn(name = "assortment_id"),
             inverseJoinColumns = @JoinColumn(name = "sub_recipe_id")
     )
-    private Set<SubRecipe> subRecipes;
+    private Set<SubRecipe> subRecipes = new HashSet<>();
+
+
+    @ManyToMany
+    @JoinTable(
+            name = "assortment_purchase_option",
+            joinColumns = @JoinColumn(name = "assortment_id"),
+            inverseJoinColumns = @JoinColumn(name = "purchase_option_id")
+    )
+    private Set<PurchaseOption> purchaseOptions = new HashSet<>();
 }

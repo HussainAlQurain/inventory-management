@@ -14,5 +14,6 @@ public class AssortmentDTO {
     private Set<Long> itemIds;        // references InventoryItem.id
     private Set<Long> subRecipeIds;   // references SubRecipe.id
     private Set<Long> locationIds;    // references Location.id
+    private Set<Long> purchaseOptionIds;   // references PurchaseOption.id
 
 }

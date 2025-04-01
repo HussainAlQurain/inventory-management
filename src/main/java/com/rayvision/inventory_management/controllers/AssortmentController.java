@@ -1,5 +1,6 @@
 package com.rayvision.inventory_management.controllers;
 
+import com.rayvision.inventory_management.mappers.AssortmentMapper;
 import com.rayvision.inventory_management.model.Assortment;
 import com.rayvision.inventory_management.model.dto.AssortmentDTO;
 import com.rayvision.inventory_management.model.dto.BulkIdRequest;
@@ -14,57 +15,72 @@ import java.util.List;
 @RestController
 public class AssortmentController {
     private final AssortmentService assortmentService;
+    private final AssortmentMapper assortmentMapper;
 
-    public AssortmentController(AssortmentService assortmentService) {
+    public AssortmentController(AssortmentService assortmentService, AssortmentMapper assortmentMapper) {
         this.assortmentService = assortmentService;
+        this.assortmentMapper = assortmentMapper;
     }
 
     // ---------------------------------------------------------
     // GET all for a company
     // ---------------------------------------------------------
     @GetMapping
-    public ResponseEntity<List<Assortment>> getAll(@PathVariable Long companyId) {
+    public ResponseEntity<List<AssortmentDTO>> getAll(@PathVariable Long companyId) {
         List<Assortment> list = assortmentService.getAll(companyId);
-        return ResponseEntity.ok(list);
+        // Convert each to DTO
+        List<AssortmentDTO> dtoList = list.stream()
+                .map(assortmentMapper::toDto)
+                .toList();
+        return ResponseEntity.ok(dtoList);
     }
 
     // ---------------------------------------------------------
     // GET one
     // ---------------------------------------------------------
     @GetMapping("/{assortmentId}")
-    public ResponseEntity<Assortment> getOne(@PathVariable Long companyId,
-                                             @PathVariable Long assortmentId) {
+    public ResponseEntity<AssortmentDTO> getOne(@PathVariable Long companyId,
+                                                @PathVariable Long assortmentId) {
         Assortment assortment = assortmentService.getOne(companyId, assortmentId);
-        return ResponseEntity.ok(assortment);
+        AssortmentDTO dto = assortmentMapper.toDto(assortment);
+        return ResponseEntity.ok(dto);
     }
 
+    // ---------------------------------------------------------
+    // CREATE a “simple” one with just name
+    // ---------------------------------------------------------
     @PostMapping("/simple")
-    public ResponseEntity<Assortment> createSimple(@PathVariable Long companyId,
-                                                   @RequestParam String name) {
+    public ResponseEntity<AssortmentDTO> createSimple(@PathVariable Long companyId,
+                                                      @RequestParam String name) {
         Assortment created = assortmentService.create(companyId, name);
-        return new ResponseEntity<>(created, HttpStatus.CREATED);
+        // convert to dto
+        AssortmentDTO dto = assortmentMapper.toDto(created);
+        return new ResponseEntity<>(dto, HttpStatus.CREATED);
     }
+
 
     // ---------------------------------------------------------
     // UPDATE (full)
     // ---------------------------------------------------------
     @PutMapping("/{assortmentId}")
-    public ResponseEntity<Assortment> update(@PathVariable Long companyId,
-                                             @PathVariable Long assortmentId,
-                                             @RequestBody AssortmentDTO dto) {
-        Assortment updated = assortmentService.update(companyId, assortmentId, dto);
-        return ResponseEntity.ok(updated);
+    public ResponseEntity<AssortmentDTO> update(@PathVariable Long companyId,
+                                                @PathVariable Long assortmentId,
+                                                @RequestBody AssortmentDTO body) {
+        Assortment updated = assortmentService.update(companyId, assortmentId, body);
+        AssortmentDTO dto = assortmentMapper.toDto(updated);
+        return ResponseEntity.ok(dto);
     }
 
     // ---------------------------------------------------------
     // PARTIAL
     // ---------------------------------------------------------
     @PatchMapping("/{assortmentId}")
-    public ResponseEntity<Assortment> partialUpdate(@PathVariable Long companyId,
-                                                    @PathVariable Long assortmentId,
-                                                    @RequestBody AssortmentDTO dto) {
-        Assortment updated = assortmentService.partialUpdate(companyId, assortmentId, dto);
-        return ResponseEntity.ok(updated);
+    public ResponseEntity<AssortmentDTO> partialUpdate(@PathVariable Long companyId,
+                                                       @PathVariable Long assortmentId,
+                                                       @RequestBody AssortmentDTO body) {
+        Assortment updated = assortmentService.partialUpdate(companyId, assortmentId, body);
+        AssortmentDTO dto = assortmentMapper.toDto(updated);
+        return ResponseEntity.ok(dto);
     }
 
     // ---------------------------------------------------------
@@ -81,76 +97,76 @@ public class AssortmentController {
     // BULK ADD/REMOVE: ITEMS
     // ---------------------------------------------------------
     @PostMapping("/{assortmentId}/items/add")
-    public ResponseEntity<Assortment> addItems(@PathVariable Long companyId,
-                                               @PathVariable Long assortmentId,
-                                               @RequestBody BulkIdRequest request) {
+    public ResponseEntity<AssortmentDTO> addItems(@PathVariable Long companyId,
+                                                  @PathVariable Long assortmentId,
+                                                  @RequestBody BulkIdRequest request) {
         Assortment updated = assortmentService.addInventoryItems(companyId, assortmentId, request.getIds());
-        return ResponseEntity.ok(updated);
+        return ResponseEntity.ok(assortmentMapper.toDto(updated));
     }
 
     @PostMapping("/{assortmentId}/items/remove")
-    public ResponseEntity<Assortment> removeItems(@PathVariable Long companyId,
-                                                  @PathVariable Long assortmentId,
-                                                  @RequestBody BulkIdRequest request) {
+    public ResponseEntity<AssortmentDTO> removeItems(@PathVariable Long companyId,
+                                                     @PathVariable Long assortmentId,
+                                                     @RequestBody BulkIdRequest request) {
         Assortment updated = assortmentService.removeInventoryItems(companyId, assortmentId, request.getIds());
-        return ResponseEntity.ok(updated);
+        return ResponseEntity.ok(assortmentMapper.toDto(updated));
     }
 
     // ---------------------------------------------------------
     // BULK ADD/REMOVE: SUBRECIPES
     // ---------------------------------------------------------
     @PostMapping("/{assortmentId}/subrecipes/add")
-    public ResponseEntity<Assortment> addSubRecipes(@PathVariable Long companyId,
-                                                    @PathVariable Long assortmentId,
-                                                    @RequestBody BulkIdRequest request) {
+    public ResponseEntity<AssortmentDTO> addSubRecipes(@PathVariable Long companyId,
+                                                       @PathVariable Long assortmentId,
+                                                       @RequestBody BulkIdRequest request) {
         Assortment updated = assortmentService.addSubRecipes(companyId, assortmentId, request.getIds());
-        return ResponseEntity.ok(updated);
+        return ResponseEntity.ok(assortmentMapper.toDto(updated));
     }
 
     @PostMapping("/{assortmentId}/subrecipes/remove")
-    public ResponseEntity<Assortment> removeSubRecipes(@PathVariable Long companyId,
-                                                       @PathVariable Long assortmentId,
-                                                       @RequestBody BulkIdRequest request) {
+    public ResponseEntity<AssortmentDTO> removeSubRecipes(@PathVariable Long companyId,
+                                                          @PathVariable Long assortmentId,
+                                                          @RequestBody BulkIdRequest request) {
         Assortment updated = assortmentService.removeSubRecipes(companyId, assortmentId, request.getIds());
-        return ResponseEntity.ok(updated);
+        return ResponseEntity.ok(assortmentMapper.toDto(updated));
     }
 
     // ---------------------------------------------------------
     // BULK ADD/REMOVE: PURCHASE OPTIONS
     // ---------------------------------------------------------
     @PostMapping("/{assortmentId}/purchaseoptions/add")
-    public ResponseEntity<Assortment> addPurchaseOptions(@PathVariable Long companyId,
-                                                         @PathVariable Long assortmentId,
-                                                         @RequestBody BulkIdRequest request) {
+    public ResponseEntity<AssortmentDTO> addPurchaseOptions(@PathVariable Long companyId,
+                                                            @PathVariable Long assortmentId,
+                                                            @RequestBody BulkIdRequest request) {
         Assortment updated = assortmentService.addPurchaseOptions(companyId, assortmentId, request.getIds());
-        return ResponseEntity.ok(updated);
+        return ResponseEntity.ok(assortmentMapper.toDto(updated));
     }
 
     @PostMapping("/{assortmentId}/purchaseoptions/remove")
-    public ResponseEntity<Assortment> removePurchaseOptions(@PathVariable Long companyId,
-                                                            @PathVariable Long assortmentId,
-                                                            @RequestBody BulkIdRequest request) {
+    public ResponseEntity<AssortmentDTO> removePurchaseOptions(@PathVariable Long companyId,
+                                                               @PathVariable Long assortmentId,
+                                                               @RequestBody BulkIdRequest request) {
         Assortment updated = assortmentService.removePurchaseOptions(companyId, assortmentId, request.getIds());
-        return ResponseEntity.ok(updated);
+        return ResponseEntity.ok(assortmentMapper.toDto(updated));
     }
 
     // ---------------------------------------------------------
     // BULK ADD/REMOVE: LOCATIONS
     // ---------------------------------------------------------
     @PostMapping("/{assortmentId}/locations/add")
-    public ResponseEntity<Assortment> addLocations(@PathVariable Long companyId,
-                                                   @PathVariable Long assortmentId,
-                                                   @RequestBody BulkIdRequest request) {
+    public ResponseEntity<AssortmentDTO> addLocations(@PathVariable Long companyId,
+                                                      @PathVariable Long assortmentId,
+                                                      @RequestBody BulkIdRequest request) {
         Assortment updated = assortmentService.addLocations(companyId, assortmentId, request.getIds());
-        return ResponseEntity.ok(updated);
+        return ResponseEntity.ok(assortmentMapper.toDto(updated));
     }
 
     @PostMapping("/{assortmentId}/locations/remove")
-    public ResponseEntity<Assortment> removeLocations(@PathVariable Long companyId,
-                                                      @PathVariable Long assortmentId,
-                                                      @RequestBody BulkIdRequest request) {
+    public ResponseEntity<AssortmentDTO> removeLocations(@PathVariable Long companyId,
+                                                         @PathVariable Long assortmentId,
+                                                         @RequestBody BulkIdRequest request) {
         Assortment updated = assortmentService.removeLocations(companyId, assortmentId, request.getIds());
-        return ResponseEntity.ok(updated);
+        return ResponseEntity.ok(assortmentMapper.toDto(updated));
     }
 
 

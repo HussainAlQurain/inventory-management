@@ -5,12 +5,15 @@ import com.rayvision.inventory_management.model.InventoryCountLine;
 import com.rayvision.inventory_management.model.InventoryCountSession;
 import com.rayvision.inventory_management.model.dto.InventoryCountLineDTO;
 import com.rayvision.inventory_management.model.dto.InventoryCountSessionDTO;
+import com.rayvision.inventory_management.model.dto.InventoryCountSessionSummaryDTO;
 import com.rayvision.inventory_management.service.InventoryCountSessionService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @RestController
@@ -149,4 +152,23 @@ public class InventoryCountSessionController {
                 .collect(Collectors.toList());
         return ResponseEntity.ok(lineDTOs);
     }
+
+
+    /**
+     * GET /inventory-count-sessions/company/{companyId}?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD
+     *
+     * Return a list of InventoryCountSessionSummaryDTO
+     */
+    @GetMapping("/company/{companyId}")
+    public ResponseEntity<List<InventoryCountSessionSummaryDTO>> getSessionsByCompany(
+            @PathVariable Long companyId,
+            @RequestParam(required = false) LocalDate startDate,
+            @RequestParam(required = false) LocalDate endDate
+    ) {
+        List<InventoryCountSessionSummaryDTO> dtos =
+                sessionService.findByCompanyAndDateRange(companyId, startDate, endDate);
+        return ResponseEntity.ok(dtos);
+    }
+
+
 }

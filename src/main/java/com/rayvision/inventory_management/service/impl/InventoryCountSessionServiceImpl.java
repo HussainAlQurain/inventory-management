@@ -2,10 +2,7 @@ package com.rayvision.inventory_management.service.impl;
 
 import com.rayvision.inventory_management.mappers.InventoryCountSessionMapper;
 import com.rayvision.inventory_management.model.*;
-import com.rayvision.inventory_management.model.dto.InventoryCountSessionDTO;
-import com.rayvision.inventory_management.model.dto.InventoryCountLineDTO;
-import com.rayvision.inventory_management.model.dto.InventoryItemLocationDTO;
-import com.rayvision.inventory_management.model.dto.PrepItemLocationDTO;
+import com.rayvision.inventory_management.model.dto.*;
 import com.rayvision.inventory_management.repository.*;
 import com.rayvision.inventory_management.service.InventoryCountSessionService;
 import com.rayvision.inventory_management.service.StockTransactionService;
@@ -413,4 +410,49 @@ public class InventoryCountSessionServiceImpl implements InventoryCountSessionSe
         }
         lineRepository.delete(existing);
     }
+
+    @Override
+    public List<InventoryCountSessionSummaryDTO> findByCompanyAndDateRange(Long companyId,
+                                                                 LocalDate startDate,
+                                                                 LocalDate endDate) {
+        // If null checks are needed:
+        if (startDate == null) startDate = LocalDate.of(1970,1,1); // or some default
+        if (endDate == null)   endDate   = LocalDate.now();
+
+        // 1) fetch
+        List<InventoryCountSession> sessions =
+                sessionRepository.findByCompanyAndDateRange(companyId, startDate, endDate);
+
+        // 2) convert
+        return sessions.stream()
+                .map(this::toSummaryDTO)   // call the private method
+                .toList();
+
+    }
+
+    public double computeSessionValue(InventoryCountSession session) {
+        if (session.getLines() == null) return 0.0;
+        return session.getLines().stream()
+                .mapToDouble(line -> Optional.ofNullable(line.getLineTotalValue()).orElse(0.0))
+                .sum();
+    }
+
+    private InventoryCountSessionSummaryDTO toSummaryDTO(InventoryCountSession session) {
+        InventoryCountSessionSummaryDTO dto = new InventoryCountSessionSummaryDTO();
+        dto.setId(session.getId());
+        dto.setCountDate(session.getCountDate());
+        dto.setDayPart(session.getDayPart());
+        dto.setDescription(session.getDescription());
+
+        if (session.getLocation() != null) {
+            dto.setLocationName(session.getLocation().getName());
+        }
+
+        // sum of lineTotalValue
+        double totalValue = computeSessionValue(session);
+        dto.setValueOfCount(totalValue);
+
+        return dto;
+    }
+
 }

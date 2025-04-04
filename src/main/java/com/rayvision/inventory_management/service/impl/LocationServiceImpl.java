@@ -108,7 +108,7 @@ public class LocationServiceImpl implements LocationService {
 
     @Override
     public List<Location> findByCompanyIdAndUserId(Long companyId, Long userId) {
-        return null;
+        return locationRepository.findByCompanyIdAndUserId(companyId, userId);
     }
 
     @Override

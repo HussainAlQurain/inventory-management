@@ -83,4 +83,22 @@ public class LocationController {
         return new ResponseEntity<>(HttpStatus.NO_CONTENT);
     }
 
+    @GetMapping("/company/{companyId}/user/{userId}")
+    public ResponseEntity<List<LocationDTO>> getLocationsForUserInCompany(
+            @PathVariable Long companyId,
+            @PathVariable Long userId
+    ) {
+        // 1) Fetch matching locations from the service
+        List<Location> locations =
+                locationService.findByCompanyIdAndUserId(companyId, userId);
+
+        // 2) Convert to DTO
+        List<LocationDTO> dtos = locations.stream()
+                .map(locationMapper::toDTO)
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(dtos);
+    }
+
+
 }

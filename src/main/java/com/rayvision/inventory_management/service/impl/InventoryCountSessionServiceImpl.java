@@ -1,5 +1,6 @@
 package com.rayvision.inventory_management.service.impl;
 
+import com.rayvision.inventory_management.enums.SubRecipeType;
 import com.rayvision.inventory_management.mappers.InventoryCountSessionMapper;
 import com.rayvision.inventory_management.model.*;
 import com.rayvision.inventory_management.model.dto.*;
@@ -32,6 +33,7 @@ public class InventoryCountSessionServiceImpl implements InventoryCountSessionSe
     // bridging services to update onHand after lock
     private final InventoryItemLocationService inventoryItemLocationService;
     private final PrepItemLocationService prepItemLocationService;
+    private final CountUomPreferenceRepository countUomPreferenceRepository;
 
     public InventoryCountSessionServiceImpl(
             InventoryCountSessionRepository sessionRepository,
@@ -45,7 +47,8 @@ public class InventoryCountSessionServiceImpl implements InventoryCountSessionSe
             AssortmentLocationRepository assortmentLocationRepository,
             StockTransactionService stockTransactionService,
             InventoryItemLocationService inventoryItemLocationService,
-            PrepItemLocationService prepItemLocationService
+            PrepItemLocationService prepItemLocationService,
+            CountUomPreferenceRepository countUomPreferenceRepository
     ) {
         this.sessionRepository = sessionRepository;
         this.lineRepository = lineRepository;
@@ -59,21 +62,19 @@ public class InventoryCountSessionServiceImpl implements InventoryCountSessionSe
         this.stockTransactionService = stockTransactionService;
         this.inventoryItemLocationService = inventoryItemLocationService;
         this.prepItemLocationService = prepItemLocationService;
+        this.countUomPreferenceRepository = countUomPreferenceRepository;
     }
 
     @Override
     public InventoryCountSession createSession(Long locationId, InventoryCountSessionDTO dto) {
-        // 0) PREVENT MULTIPLE OPEN SESSIONS
-        List<InventoryCountSession> open = sessionRepository.findOpenSessionsByLocationId(locationId);
-        if (!open.isEmpty()) {
-            throw new RuntimeException("Cannot create a new session: another unlocked session exists for location " + locationId);
-        }
+        // 0) Remove logic preventing multiple open sessions
+        //    (We no longer throw if there's an existing unlocked session.)
 
         // 1) Validate location
-        var location = locationRepository.findById(locationId)
+        Location location = locationRepository.findById(locationId)
                 .orElseThrow(() -> new RuntimeException("Location not found: " + locationId));
 
-        // 2) Convert top-level fields
+        // 2) Convert top-level fields from DTO
         InventoryCountSession sessionEntity = inventoryCountSessionMapper.toEntity(dto);
         sessionEntity.setLocation(location);
         sessionEntity.setLocked(false);
@@ -81,98 +82,202 @@ public class InventoryCountSessionServiceImpl implements InventoryCountSessionSe
             sessionEntity.setCountDate(LocalDate.now());
         }
 
-        // 3) Build lines from the DTO
-        Map<String, InventoryCountLine> linesFromDto = new HashMap<>();
-        // We'll use a key that indicates whether it's item-based or subRecipe-based, e.g. "item-123" or "sub-456"
+        // 3) Convert lines from the DTO
+        //    We store them in a map to avoid duplicates: "item-123-uom-456" or "sub-789-uom-456"
+        Map<String, InventoryCountLine> linesMap = new HashMap<>();
+
         if (dto.getLines() != null) {
             for (InventoryCountLineDTO lineDto : dto.getLines()) {
                 InventoryCountLine lineEntity = inventoryCountSessionMapper.toLineEntity(lineDto);
 
                 // EITHER item or subRecipe
                 if (lineDto.getInventoryItemId() != null) {
-                    InventoryItem item = inventoryItemRepository.findById(lineDto.getInventoryItemId())
-                            .orElseThrow(() -> new RuntimeException("Item not found: " + lineDto.getInventoryItemId()));
+                    InventoryItem item = inventoryItemRepository
+                            .findById(lineDto.getInventoryItemId())
+                            .orElseThrow(() -> new RuntimeException(
+                                    "Item not found: " + lineDto.getInventoryItemId()));
                     lineEntity.setInventoryItem(item);
+
                 } else if (lineDto.getSubRecipeId() != null) {
-                    SubRecipe sub = subRecipeRepository.findById(lineDto.getSubRecipeId())
-                            .orElseThrow(() -> new RuntimeException("SubRecipe not found: " + lineDto.getSubRecipeId()));
+                    SubRecipe sub = subRecipeRepository
+                            .findById(lineDto.getSubRecipeId())
+                            .orElseThrow(() -> new RuntimeException(
+                                    "SubRecipe not found: " + lineDto.getSubRecipeId()));
                     lineEntity.setSubRecipe(sub);
                 }
 
-                // fetch optional storageArea
+                // optional storageArea
                 if (lineDto.getStorageAreaId() != null) {
                     StorageArea sa = storageAreaRepository.findById(lineDto.getStorageAreaId())
-                            .orElseThrow(() -> new RuntimeException("StorageArea not found: " + lineDto.getStorageAreaId()));
+                            .orElseThrow(() -> new RuntimeException(
+                                    "StorageArea not found: " + lineDto.getStorageAreaId()));
                     lineEntity.setStorageArea(sa);
                 }
 
                 // countUom
                 if (lineDto.getCountUomId() != null) {
-                    UnitOfMeasure uom = uomRepository.findById(lineDto.getCountUomId())
-                            .orElseThrow(() -> new RuntimeException("UOM not found: " + lineDto.getCountUomId()));
+                    UnitOfMeasure uom = uomRepository
+                            .findById(lineDto.getCountUomId())
+                            .orElseThrow(() -> new RuntimeException(
+                                    "UOM not found: " + lineDto.getCountUomId()));
                     lineEntity.setCountUom(uom);
                 }
 
+                // compute base qty
                 Double qty = Optional.ofNullable(lineDto.getCountedQuantity()).orElse(0.0);
-                double conv = Optional.ofNullable(lineEntity.getCountUom()).map(UnitOfMeasure::getConversionFactor).orElse(1.0);
+                double conv = Optional.ofNullable(lineEntity.getCountUom())
+                        .map(UnitOfMeasure::getConversionFactor)
+                        .orElse(1.0);
                 double baseQty = qty * conv;
                 lineEntity.setConvertedQuantityInBaseUom(baseQty);
 
                 // set cost if it's an item
                 double price = 0.0;
                 if (lineEntity.getInventoryItem() != null) {
-                    price = Optional.ofNullable(lineEntity.getInventoryItem().getCurrentPrice()).orElse(0.0);
+                    price = Optional.ofNullable(lineEntity.getInventoryItem().getCurrentPrice())
+                            .orElse(0.0);
                 }
                 lineEntity.setLineTotalValue(baseQty * price);
 
                 lineEntity.setCountSession(sessionEntity);
 
-                // Key: "item-123" or "sub-456"
-                String key;
-                if (lineEntity.getInventoryItem() != null) {
-                    key = "item-" + lineEntity.getInventoryItem().getId();
-                } else {
-                    key = "sub-" + lineEntity.getSubRecipe().getId();
-                }
-                linesFromDto.put(key, lineEntity);
+                // Build the key
+                String key = buildLineKey(lineEntity);
+                linesMap.put(key, lineEntity);
             }
         }
 
-        // 4) find items via assortments (or fallback)
+        // 4) Find union of Items & (optionally) SubRecipes from the location’s assortments
         Long companyId = location.getCompany().getId();
+
+        // get all assortments for this location
         List<AssortmentLocation> bridgingList = assortmentLocationRepository.findByLocationId(locationId);
 
         // union of InventoryItems
         Set<InventoryItem> unionItems = new HashSet<>();
         if (bridgingList.isEmpty()) {
+            // fallback to all items in the company
             unionItems.addAll(inventoryItemRepository.findByCompanyId(companyId));
         } else {
             for (AssortmentLocation al : bridgingList) {
                 unionItems.addAll(al.getAssortment().getInventoryItems());
             }
         }
-        // If you also want subRecipes in the same session, you might do something similar for subRecipes, or handle them differently.
 
-        // 5) If not in linesFromDto, create a 0.0 line
+        // union of SubRecipes (only if you want them)
+        // e.g. sub recipes of type PREPARATION
+        Set<SubRecipe> unionPreps = new HashSet<>();
+        // if bridgingList empty -> fallback to all preps for the company
+        // or do bridging logic if your assortments also have sub recipes
+        // (example snippet)
+        if (bridgingList.isEmpty()) {
+            // fetch all sub recipes of type PREPARATION from this company
+            unionPreps.addAll(subRecipeRepository.findByCompanyIdAndType(
+                    companyId, SubRecipeType.PREPARATION));
+        } else {
+            for (AssortmentLocation al : bridgingList) {
+                unionPreps.addAll(al.getAssortment().getSubRecipes());
+            }
+            // You might filter them to type=PREPARATION, if you only want that type.
+        }
+
+        // 5) Create lines for each item based on CountUomPreference
         for (InventoryItem item : unionItems) {
-            String key = "item-" + item.getId();
-            if (!linesFromDto.containsKey(key)) {
-                InventoryCountLine newLine = new InventoryCountLine();
-                newLine.setInventoryItem(item);
-                newLine.setCountedQuantity(0.0);
-                newLine.setCountUom(item.getInventoryUom());
-                newLine.setConvertedQuantityInBaseUom(0.0);
-                newLine.setLineTotalValue(0.0);
-                newLine.setCountSession(sessionEntity);
-                linesFromDto.put(key, newLine);
+            // find all preferences for this item
+            List<CountUomPreference> prefs = countUomPreferenceRepository.findByInventoryItemId(item.getId());
+
+            if (prefs.isEmpty()) {
+                // No preferences => create one line with the item’s inventoryUom (if not already in the map)
+                addLineIfNotPresent(linesMap, sessionEntity, item, null, item.getInventoryUom());
+            } else {
+                // For each preference, create a line if not in the map
+                for (CountUomPreference pref : prefs) {
+                    addLineIfNotPresent(
+                            linesMap, sessionEntity,
+                            item, null,
+                            pref.getCountUom()
+                    );
+                }
             }
         }
 
-        // If you also want to auto-add subRecipes from an “assortment of subRecipes,” do it here
+        // 6) Create lines for each subRecipe (if you want them in the same count session)
+        for (SubRecipe prep : unionPreps) {
+            List<CountUomPreference> prefs = countUomPreferenceRepository.findBySubRecipeId(prep.getId());
 
-        sessionEntity.getLines().addAll(linesFromDto.values());
+            if (prefs.isEmpty()) {
+                // no preference => use subRecipe’s base “uom”
+                addLineIfNotPresent(linesMap, sessionEntity, null, prep, prep.getUom());
+            } else {
+                for (CountUomPreference pref : prefs) {
+                    addLineIfNotPresent(
+                            linesMap, sessionEntity,
+                            null, prep,
+                            pref.getCountUom()
+                    );
+                }
+            }
+        }
+
+        // 7) Final: put all lines into session
+        sessionEntity.getLines().addAll(linesMap.values());
+
+        // Save
         return sessionRepository.save(sessionEntity);
     }
+
+    /**
+     * Helper method to create a line (if it doesn't already exist)
+     * Key is "item-123-uom-45" or "sub-678-uom-45"
+     */
+    private void addLineIfNotPresent(
+            Map<String, InventoryCountLine> linesMap,
+            InventoryCountSession session,
+            InventoryItem item,
+            SubRecipe sub,
+            UnitOfMeasure uom
+    ) {
+        // Build the key
+        String key;
+        if (item != null) {
+            key = "item-" + item.getId() + "-uom-" + (uom != null ? uom.getId() : 0);
+        } else {
+            key = "sub-" + sub.getId() + "-uom-" + (uom != null ? uom.getId() : 0);
+        }
+
+        if (!linesMap.containsKey(key)) {
+            InventoryCountLine newLine = new InventoryCountLine();
+            newLine.setCountSession(session);
+            newLine.setInventoryItem(item);
+            newLine.setSubRecipe(sub);
+            newLine.setCountUom(uom);
+
+            // defaulted to zero until user enters a count
+            newLine.setCountedQuantity(0.0);
+
+            // compute base
+            double convFactor = (uom != null && uom.getConversionFactor() != null)
+                    ? uom.getConversionFactor() : 1.0;
+            newLine.setConvertedQuantityInBaseUom(0.0);
+            newLine.setLineTotalValue(0.0);  // user will fill
+
+            linesMap.put(key, newLine);
+        }
+    }
+
+    /** Build a line key from an existing line. */
+    private String buildLineKey(InventoryCountLine line) {
+        Long itemId = (line.getInventoryItem() != null) ? line.getInventoryItem().getId() : null;
+        Long subId  = (line.getSubRecipe() != null) ? line.getSubRecipe().getId() : null;
+        Long uomId  = (line.getCountUom() != null)  ? line.getCountUom().getId() : 0;
+
+        if (itemId != null) {
+            return "item-" + itemId + "-uom-" + uomId;
+        } else {
+            return "sub-" + subId + "-uom-" + uomId;
+        }
+    }
+
 
     @Override
     public InventoryCountSession getSession(Long sessionId) {

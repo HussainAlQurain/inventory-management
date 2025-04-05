@@ -1,5 +1,6 @@
 package com.rayvision.inventory_management.repository;
 
+import com.rayvision.inventory_management.enums.SubRecipeType;
 import com.rayvision.inventory_management.model.SubRecipe;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -23,5 +24,7 @@ public interface SubRecipeRepository extends JpaRepository<SubRecipe, Long> {
             @Param("companyId") Long companyId,
             @Param("searchTerm") String searchTerm
     );
+
+    List<SubRecipe> findByCompanyIdAndType(Long companyId, SubRecipeType type);
 
 }

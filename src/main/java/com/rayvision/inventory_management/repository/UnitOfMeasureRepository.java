@@ -2,6 +2,8 @@ package com.rayvision.inventory_management.repository;
 
 import com.rayvision.inventory_management.model.UnitOfMeasure;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -12,4 +14,14 @@ public interface UnitOfMeasureRepository extends JpaRepository<UnitOfMeasure, Lo
     List<UnitOfMeasure> findByCompanyId(Long companyId);
     Optional<UnitOfMeasure> findByCompanyIdAndId(Long companyId, Long id);
     Optional<UnitOfMeasure> findByCompanyIdAndAbbreviation(Long companyId, String abbreviation);
+
+    @Query("""
+       SELECT u
+         FROM UnitOfMeasure u
+         WHERE u.category.id = :categoryId
+         AND u.company.id = :companyId
+    """)
+    List<UnitOfMeasure> findByCategoryAndCompany(@Param("categoryId") Long categoryId,
+                                                 @Param("companyId") Long companyId);
+
 }

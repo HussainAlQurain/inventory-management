@@ -4,6 +4,7 @@ import com.rayvision.inventory_management.mappers.CountUomPreferenceMapper;
 import com.rayvision.inventory_management.model.CountUomPreference;
 import com.rayvision.inventory_management.model.UnitOfMeasure;
 import com.rayvision.inventory_management.model.dto.CountUomPreferenceDTO;
+import com.rayvision.inventory_management.model.dto.UomResponseDTO;
 import com.rayvision.inventory_management.service.CountUomPreferenceService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -70,14 +71,14 @@ public class CountUomPreferenceController {
      * e.g. GET /count-uom-preferences/items/100/available-uoms
      */
     @GetMapping("/items/{itemId}/available-uoms")
-    public ResponseEntity<List<String>> getAvailableUomsForItem(@PathVariable Long itemId) {
+    public ResponseEntity<List<UomResponseDTO>> getAvailableUomsForItem(@PathVariable Long itemId) {
         // We'll return a simple list of UOM "name (abbreviation)" or something
         List<UnitOfMeasure> uoms = preferenceService.getAvailableUomsForItem(itemId);
-        List<String> result = uoms.stream()
-                .map(u -> u.getName() + " (" + u.getAbbreviation() + ")")
+        List<UomResponseDTO> dtos = uoms.stream()
+                .map(this::toUomDto)
                 .toList();
 
-        return ResponseEntity.ok(result);
+        return ResponseEntity.ok(dtos);
     }
 
     // ------------------------------------------
@@ -136,4 +137,17 @@ public class CountUomPreferenceController {
 
         return ResponseEntity.ok(result);
     }
+
+    private UomResponseDTO toUomDto(UnitOfMeasure uom) {
+        UomResponseDTO dto = new UomResponseDTO();
+        dto.setId(uom.getId());
+        dto.setName(uom.getName());
+        dto.setAbbreviation(uom.getAbbreviation());
+        if (uom.getCategory() != null) {
+            dto.setCategoryId(uom.getCategory().getId());
+            dto.setCategoryName(uom.getCategory().getName());
+        }
+        return dto;
+    }
+
 }

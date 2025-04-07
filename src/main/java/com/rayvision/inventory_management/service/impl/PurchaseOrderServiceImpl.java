@@ -12,6 +12,7 @@ import com.rayvision.inventory_management.service.StockTransactionService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -118,30 +119,33 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         Orders order = getOrderById(orderId);
 
         if (order.getStatus() != OrderStatus.DRAFT) {
-            throw new InvalidOperationException("Only draft orders can be sent");
+            throw new InvalidOperationException("Only draft orders can be received");
         }
 
-        // Mark as RECEIVED
+        // Mark as COMPLETED (or "RECEIVED")
         order.setStatus(OrderStatus.COMPLETED);
-        order.setDeliveryDate(java.time.LocalDate.now());
+        order.setDeliveryDate(LocalDate.now());
 
-        // For each item, record a PURCHASE transaction
-        // referencing the order's ID as sourceReferenceId
+        // For each order item, record a PURCHASE transaction with the user-chosen UOM
         for (OrderItem line : order.getOrderItems()) {
-            Double qty = line.getQuantity();
-            Double cost = line.getTotal(); // or line.getQuantity() * line.getPrice()
+            double qty = line.getQuantity() != null ? line.getQuantity() : 0.0;
+
+            // The user-chosen UOM
+            UnitOfMeasure countUom = line.getUnitOfOrdering(); // or fallback to item inventoryUom
+
             stockTransactionService.recordPurchase(
                     order.getBuyerLocation(),
                     line.getInventoryItem(),
                     qty,
-                    cost,
+                    countUom,
                     order.getId(),
-                    order.getDeliveryDate()  // date of receiving
+                    order.getDeliveryDate()
             );
         }
 
         return ordersRepository.save(order);
     }
+
 
     private Orders getOrderById(Long orderId) {
         return ordersRepository.findById(orderId)

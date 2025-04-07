@@ -1,12 +1,16 @@
 package com.rayvision.inventory_management.service.impl;
 
+import com.rayvision.inventory_management.model.InventoryItem;
+import com.rayvision.inventory_management.model.UnitOfMeasure;
 import org.springframework.stereotype.Service;
+
+import java.util.Optional;
 
 @Service
 public class ItemCostCalculator {
     /**
      * Return the cost for quantity `countQty` in `countUom`,
-     * given that item has a "base" inventoryUom + currentPrice.
+     * given that the item has a "base" inventoryUom + currentPrice.
      *
      * The item’s price is "cost per 1.0 base unit" (where base= item.getInventoryUom()).
      */

@@ -1,14 +1,12 @@
 package com.rayvision.inventory_management.service.impl;
 
-import com.rayvision.inventory_management.model.InventoryItem;
-import com.rayvision.inventory_management.model.Location;
-import com.rayvision.inventory_management.model.Transfer;
-import com.rayvision.inventory_management.model.TransferLine;
+import com.rayvision.inventory_management.model.*;
 import com.rayvision.inventory_management.model.dto.TransferCreateDTO;
 import com.rayvision.inventory_management.model.dto.TransferLineDTO;
 import com.rayvision.inventory_management.repository.InventoryItemRepository;
 import com.rayvision.inventory_management.repository.LocationRepository;
 import com.rayvision.inventory_management.repository.TransferRepository;
+import com.rayvision.inventory_management.repository.UnitOfMeasureRepository;
 import com.rayvision.inventory_management.service.StockTransactionService;
 import com.rayvision.inventory_management.service.TransferService;
 import org.springframework.stereotype.Service;
@@ -24,34 +22,34 @@ public class TransferServiceImpl implements TransferService {
     private final TransferRepository transferRepository;
     private final LocationRepository locationRepository;
     private final InventoryItemRepository inventoryItemRepository;
+    private final UnitOfMeasureRepository uomRepository;   // so we can fetch the user’s chosen UOM
     private final StockTransactionService stockTransactionService;
 
     public TransferServiceImpl(TransferRepository transferRepository,
                                LocationRepository locationRepository,
                                InventoryItemRepository inventoryItemRepository,
-                               StockTransactionService stockTransactionService) {
+                               StockTransactionService stockTransactionService,
+                               UnitOfMeasureRepository uomRepository) {
         this.transferRepository = transferRepository;
         this.locationRepository = locationRepository;
         this.inventoryItemRepository = inventoryItemRepository;
         this.stockTransactionService = stockTransactionService;
+        this.uomRepository = uomRepository;
     }
 
     @Override
     public Transfer createTransfer(TransferCreateDTO dto) {
-        // 1) fetch fromLocation, toLocation
         Location fromLoc = locationRepository.findById(dto.getFromLocationId())
                 .orElseThrow(() -> new RuntimeException("From location not found"));
         Location toLoc = locationRepository.findById(dto.getToLocationId())
                 .orElseThrow(() -> new RuntimeException("To location not found"));
 
-        // 2) build Transfer in DRAFT
         Transfer transfer = new Transfer();
         transfer.setCreationDate(LocalDate.now());
         transfer.setStatus("DRAFT");
         transfer.setFromLocation(fromLoc);
         transfer.setToLocation(toLoc);
 
-        // 3) build lines
         List<TransferLine> lines = new ArrayList<>();
         for (TransferLineDTO lineDto : dto.getLines()) {
             InventoryItem item = inventoryItemRepository.findById(lineDto.getInventoryItemId())
@@ -61,6 +59,8 @@ public class TransferServiceImpl implements TransferService {
             line.setTransfer(transfer);
             line.setItem(item);
             line.setQuantity(lineDto.getQuantity());
+
+            // optional cost
             line.setCostPerUnit(lineDto.getCostPerUnit());
             if (lineDto.getCostPerUnit() != null && lineDto.getQuantity() != null) {
                 line.setTotalCost(lineDto.getQuantity() * lineDto.getCostPerUnit());
@@ -83,33 +83,37 @@ public class TransferServiceImpl implements TransferService {
             throw new RuntimeException("Only DRAFT transfers can be completed");
         }
 
-        // 1) set status=COMPLETED, completionDate
         transfer.setStatus("COMPLETED");
         transfer.setCompletionDate(LocalDate.now());
 
-        // 2) record stock transactions:
-        //  - recordTransferOut(fromLocation, item, quantity, cost, transferId, date)
-        //  - recordTransferIn(toLocation, item, quantity, cost, transferId, date)
+        // Record stock transactions for each line
         for (TransferLine line : transfer.getLines()) {
-            double qty = line.getQuantity() != null ? line.getQuantity() : 0.0;
-            double cost = (line.getTotalCost() != null) ? line.getTotalCost() : 0.0;
+            double qty = (line.getQuantity() != null) ? line.getQuantity() : 0.0;
 
-            // negative from fromLocation
+            // Now we also need the user’s chosen UOM ID to do the conversion.
+            // You might store it in TransferLine if you want. For example:
+            //   lineDto had "unitOfMeasureId"
+            //   or line has a field 'uomId' or something
+            // But in your code snippet, it doesn't exist. So:
+            // EITHER we assume the line's itemUom is the chosen UOM:
+            UnitOfMeasure defaultUom = line.getItem().getInventoryUom();
+
+            // Outflow from fromLocation
             stockTransactionService.recordTransferOut(
                     transfer.getFromLocation(),
                     line.getItem(),
                     qty,
-                    cost,
+                    defaultUom,       // user-chosen or item default
                     transfer.getId(),
                     transfer.getCompletionDate()
             );
 
-            // positive to toLocation
+            // Inflow to toLocation
             stockTransactionService.recordTransferIn(
                     transfer.getToLocation(),
                     line.getItem(),
                     qty,
-                    cost,
+                    defaultUom,
                     transfer.getId(),
                     transfer.getCompletionDate()
             );
@@ -127,13 +131,12 @@ public class TransferServiceImpl implements TransferService {
     @Override
     public void deleteTransfer(Long transferId) {
         Transfer transfer = getTransfer(transferId);
-        // If it's COMPLETED, we might want to remove the stock transactions or throw an error
         if ("COMPLETED".equalsIgnoreCase(transfer.getStatus())) {
-            // revert transactions
+            // remove the stock transactions
             stockTransactionService.deleteBySourceReferenceId(transferId);
         }
-
         transferRepository.delete(transfer);
     }
+
 
 }

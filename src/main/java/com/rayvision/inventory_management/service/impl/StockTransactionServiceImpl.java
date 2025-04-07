@@ -1,9 +1,6 @@
 package com.rayvision.inventory_management.service.impl;
 
-import com.rayvision.inventory_management.model.InventoryItem;
-import com.rayvision.inventory_management.model.Location;
-import com.rayvision.inventory_management.model.StockTransaction;
-import com.rayvision.inventory_management.model.SubRecipe;
+import com.rayvision.inventory_management.model.*;
 import com.rayvision.inventory_management.model.dto.StockLevelDTO;
 import com.rayvision.inventory_management.repository.InventoryItemRepository;
 import com.rayvision.inventory_management.repository.StockTransactionRepository;
@@ -20,160 +17,254 @@ public class StockTransactionServiceImpl implements StockTransactionService {
     private final StockTransactionRepository stockTransactionRepository;
     private final InventoryItemRepository inventoryItemRepository;
     private final SubRecipeRepository subRecipeRepository;
+    private final ItemCostCalculator itemCostCalculator;
 
-    public StockTransactionServiceImpl(StockTransactionRepository stockTransactionRepository, InventoryItemRepository inventoryItemRepository, SubRecipeRepository subRecipeRepository) {
+    public StockTransactionServiceImpl(
+            StockTransactionRepository stockTransactionRepository,
+            InventoryItemRepository inventoryItemRepository,
+            SubRecipeRepository subRecipeRepository,
+            ItemCostCalculator itemCostCalculator
+    ) {
         this.stockTransactionRepository = stockTransactionRepository;
         this.inventoryItemRepository = inventoryItemRepository;
         this.subRecipeRepository = subRecipeRepository;
+        this.itemCostCalculator = itemCostCalculator;
     }
 
-    // -------------------------------------------------------------------------
-    // ITEM-based methods (existing)
-    // -------------------------------------------------------------------------
+    // =========================================================================
+    // ITEM-based
+    // =========================================================================
+
     @Override
     public StockTransaction recordPurchase(Location location,
                                            InventoryItem item,
-                                           Double qty,
-                                           Double cost,
+                                           Double countQty,
+                                           UnitOfMeasure countUom,
                                            Long sourceReferenceId,
                                            LocalDate date) {
-        return recordTransaction(location, item, null, qty, cost, "PURCHASE", sourceReferenceId, date);
-    }
-
-    @Override
-    public StockTransaction recordTransferIn(Location location,
-                                             InventoryItem item,
-                                             Double qty,
-                                             Double cost,
-                                             Long sourceReferenceId,
-                                             LocalDate date) {
-        return recordTransaction(location, item, null, qty, cost, "TRANSFER_IN", sourceReferenceId, date);
-    }
-
-    @Override
-    public StockTransaction recordTransferOut(Location location,
-                                              InventoryItem item,
-                                              Double qty,
-                                              Double cost,
-                                              Long sourceReferenceId,
-                                              LocalDate date) {
-        // negative for outflow
-        return recordTransaction(location, item, null, -qty, -cost, "TRANSFER_OUT", sourceReferenceId, date);
+        // purchase => +countQty
+        return recordTransaction(location, item, null,
+                countQty, countUom,
+                "PURCHASE", sourceReferenceId, date);
     }
 
     @Override
     public StockTransaction recordUsage(Location location,
                                         InventoryItem item,
-                                        Double qty,
-                                        Double cost,
+                                        Double countQty,
+                                        UnitOfMeasure countUom,
                                         Long sourceReferenceId,
                                         LocalDate date) {
-        return recordTransaction(location, item, null, -qty, -cost, "USAGE", sourceReferenceId, date);
+        // usage => outflow => negative
+        return recordTransaction(location, item, null,
+                -countQty, countUom,
+                "USAGE", sourceReferenceId, date);
+    }
+
+    @Override
+    public StockTransaction recordTransferIn(Location location,
+                                             InventoryItem item,
+                                             Double countQty,
+                                             UnitOfMeasure countUom,
+                                             Long sourceReferenceId,
+                                             LocalDate date) {
+        // inflow => +countQty
+        return recordTransaction(location, item, null,
+                countQty, countUom,
+                "TRANSFER_IN", sourceReferenceId, date);
+    }
+
+    @Override
+    public StockTransaction recordTransferOut(Location location,
+                                              InventoryItem item,
+                                              Double countQty,
+                                              UnitOfMeasure countUom,
+                                              Long sourceReferenceId,
+                                              LocalDate date) {
+        // outflow => -countQty
+        return recordTransaction(location, item, null,
+                -countQty, countUom,
+                "TRANSFER_OUT", sourceReferenceId, date);
     }
 
     @Override
     public StockTransaction recordAdjustment(Location location,
                                              InventoryItem item,
-                                             Double qty,
-                                             Double cost,
+                                             Double countQty,
+                                             UnitOfMeasure countUom,
                                              Long sourceReferenceId,
                                              LocalDate date) {
-        return recordTransaction(location, item, null, qty, cost, "ADJUSTMENT", sourceReferenceId, date);
+        // adjustment => sign depends on the user’s input (could be + or -)
+        return recordTransaction(location, item, null,
+                countQty, countUom,
+                "ADJUSTMENT", sourceReferenceId, date);
     }
 
-    // -------------------------------------------------------------------------
-    // SUBRECIPE-based methods (NEW)
-    // -------------------------------------------------------------------------
+    // =========================================================================
+    // SUBRECIPE-based
+    // =========================================================================
+
     @Override
     public StockTransaction recordPurchase(Location location,
                                            SubRecipe sub,
-                                           Double qty,
-                                           Double cost,
+                                           Double countQty,
+                                           UnitOfMeasure countUom,
                                            Long sourceReferenceId,
                                            LocalDate date) {
-        return recordTransaction(location, null, sub, qty, cost, "PURCHASE", sourceReferenceId, date);
-    }
-
-    @Override
-    public StockTransaction recordTransferIn(Location location,
-                                             SubRecipe sub,
-                                             Double qty,
-                                             Double cost,
-                                             Long sourceReferenceId,
-                                             LocalDate date) {
-        return recordTransaction(location, null, sub, qty, cost, "TRANSFER_IN", sourceReferenceId, date);
-    }
-
-    @Override
-    public StockTransaction recordTransferOut(Location location,
-                                              SubRecipe sub,
-                                              Double qty,
-                                              Double cost,
-                                              Long sourceReferenceId,
-                                              LocalDate date) {
-        return recordTransaction(location, null, sub, -qty, -cost, "TRANSFER_OUT", sourceReferenceId, date);
+        return recordTransaction(location, null, sub,
+                countQty, countUom,
+                "PURCHASE", sourceReferenceId, date);
     }
 
     @Override
     public StockTransaction recordUsage(Location location,
                                         SubRecipe sub,
-                                        Double qty,
-                                        Double cost,
+                                        Double countQty,
+                                        UnitOfMeasure countUom,
                                         Long sourceReferenceId,
                                         LocalDate date) {
-        return recordTransaction(location, null, sub, -qty, -cost, "USAGE", sourceReferenceId, date);
+        return recordTransaction(location, null, sub,
+                -countQty, countUom,
+                "USAGE", sourceReferenceId, date);
+    }
+
+    @Override
+    public StockTransaction recordTransferIn(Location location,
+                                             SubRecipe sub,
+                                             Double countQty,
+                                             UnitOfMeasure countUom,
+                                             Long sourceReferenceId,
+                                             LocalDate date) {
+        return recordTransaction(location, null, sub,
+                countQty, countUom,
+                "TRANSFER_IN", sourceReferenceId, date);
+    }
+
+    @Override
+    public StockTransaction recordTransferOut(Location location,
+                                              SubRecipe sub,
+                                              Double countQty,
+                                              UnitOfMeasure countUom,
+                                              Long sourceReferenceId,
+                                              LocalDate date) {
+        return recordTransaction(location, null, sub,
+                -countQty, countUom,
+                "TRANSFER_OUT", sourceReferenceId, date);
     }
 
     @Override
     public StockTransaction recordAdjustment(Location location,
                                              SubRecipe sub,
-                                             Double qty,
-                                             Double cost,
+                                             Double countQty,
+                                             UnitOfMeasure countUom,
                                              Long sourceReferenceId,
                                              LocalDate date) {
-        return recordTransaction(location, null, sub, qty, cost, "ADJUSTMENT", sourceReferenceId, date);
+        return recordTransaction(location, null, sub,
+                countQty, countUom,
+                "ADJUSTMENT", sourceReferenceId, date);
     }
 
-    // -------------------------------------------------------------------------
-    // A single private method that can handle item or subRecipe
-    // -------------------------------------------------------------------------
+    // =========================================================================
+    // Core "recordTransaction" method
+    // =========================================================================
     private StockTransaction recordTransaction(Location location,
                                                InventoryItem item,
                                                SubRecipe sub,
-                                               Double qtyChange,
-                                               Double costChange,
+                                               Double finalCountQty,   // might already be negative for outflow
+                                               UnitOfMeasure countUom,
                                                String transactionType,
                                                Long sourceReferenceId,
                                                LocalDate date) {
+
         StockTransaction tx = new StockTransaction();
         tx.setLocation(location);
-        tx.setItem(item);  // might be null if subRecipe is used
-        tx.setSubRecipe(sub); // might be null if item is used
-        tx.setQuantityChange(qtyChange);
-        tx.setCostChange(costChange);
+        tx.setItem(item);
+        tx.setSubRecipe(sub);
         tx.setTransactionType(transactionType);
         tx.setSourceReferenceId(sourceReferenceId);
-        tx.setDate(date != null ? date : LocalDate.now());
+        tx.setDate((date != null) ? date : LocalDate.now());
+
+        double baseQty;
+        double baseCost;
+
+        if (item != null) {
+            baseQty = convertQtyToItemBase(item, finalCountQty, countUom);
+            baseCost = computeItemCost(item, Math.abs(finalCountQty), countUom);
+
+            // if finalCountQty is negative => negative cost
+            if (finalCountQty < 0) {
+                baseCost = -baseCost;
+            }
+
+        } else if (sub != null) {
+            baseQty = convertQtyToSubBase(sub, finalCountQty, countUom);
+            baseCost = computeSubCost(sub, Math.abs(finalCountQty), countUom);
+
+            if (finalCountQty < 0) {
+                baseCost = -baseCost;
+            }
+
+        } else {
+            baseQty = 0.0;
+            baseCost = 0.0;
+        }
+
+        tx.setQuantityChange(baseQty);
+        tx.setCostChange(baseCost);
 
         return stockTransactionRepository.save(tx);
     }
 
-    // -------------------------------------------------------------------------
-    // For item-based back-compat
-    // -------------------------------------------------------------------------
-    @Override
-    public double calculateTheoreticalOnHand(Long locationId, Long itemId, LocalDate upToDate) {
-        // your existing logic
-        List<StockTransaction> txs = stockTransactionRepository
-                .findByLocationIdAndItemIdAndDateLessThanEqual(locationId, itemId, upToDate);
-        return txs.stream()
-                .mapToDouble(StockTransaction::getQuantityChange)
-                .sum();
+    private double convertQtyToItemBase(InventoryItem item,
+                                        double countQty,
+                                        UnitOfMeasure countUom) {
+        if (item.getInventoryUom() == null) {
+            throw new RuntimeException("Item base UOM not set.");
+        }
+        double ratio = countUom.getConversionFactor() / item.getInventoryUom().getConversionFactor();
+        return countQty * ratio;
     }
 
-    // -------------------------------------------------------------------------
-    // NEW: handle EITHER item or subRecipe
-    // -------------------------------------------------------------------------
+    private double computeItemCost(InventoryItem item,
+                                   double positiveQty,
+                                   UnitOfMeasure countUom) {
+        // uses your ItemCostCalculator
+        return ItemCostCalculator.computeCost(item, positiveQty, countUom);
+    }
+
+    private double convertQtyToSubBase(SubRecipe sub,
+                                       double countQty,
+                                       UnitOfMeasure countUom) {
+        if (sub.getUom() == null) {
+            throw new RuntimeException("SubRecipe base UOM not set.");
+        }
+        double ratio = countUom.getConversionFactor() / sub.getUom().getConversionFactor();
+        return countQty * ratio;
+    }
+
+    private double computeSubCost(SubRecipe sub,
+                                  double positiveQty,
+                                  UnitOfMeasure countUom) {
+        // if you want a separate “SubRecipeCostCalculator” do it here
+        if (sub.getUom() == null) {
+            return 0.0;
+        }
+        double ratio = countUom.getConversionFactor() / sub.getUom().getConversionFactor();
+        double baseQty = positiveQty * ratio;
+        double costPerBase = (sub.getCost() != null) ? sub.getCost() : 0.0;
+        return baseQty * costPerBase;
+    }
+
+    // =========================================================================
+    // Existing Methods
+    // =========================================================================
+    @Override
+    public double calculateTheoreticalOnHand(Long locationId, Long itemId, LocalDate upToDate) {
+        List<StockTransaction> txs = stockTransactionRepository
+                .findByLocationIdAndItemIdAndDateLessThanEqual(locationId, itemId, upToDate);
+        return txs.stream().mapToDouble(StockTransaction::getQuantityChange).sum();
+    }
+
     @Override
     public double calculateTheoreticalOnHandUnified(Long locationId,
                                                     Long itemId,
@@ -183,7 +274,7 @@ public class StockTransactionServiceImpl implements StockTransactionService {
             throw new RuntimeException("Cannot compute theoretical with both itemId and subRecipeId set");
         }
         if (itemId == null && subRecipeId == null) {
-            return 0.0; // or throw
+            return 0.0;
         }
 
         if (itemId != null) {
@@ -206,9 +297,7 @@ public class StockTransactionServiceImpl implements StockTransactionService {
     }
 
     @Override
-    public List<StockLevelDTO> getStockLevelsForLocation(Long locationId,
-                                                         LocalDate startDate,
-                                                         LocalDate endDate) {
+    public List<StockLevelDTO> getStockLevelsForLocation(Long locationId, LocalDate startDate, LocalDate endDate) {
         if (startDate == null) startDate = LocalDate.of(1970,1,1);
         if (endDate == null) endDate = LocalDate.now();
 
@@ -224,13 +313,13 @@ public class StockTransactionServiceImpl implements StockTransactionService {
         for (String key : allKeys) {
             double openQty  = openingMap.getOrDefault(key, 0.0);
             double closeQty = closingMap.getOrDefault(key, 0.0);
-            double finalQty = closeQty - openQty;  // net base quantity in that period
+            double finalQty = closeQty - openQty;  // net base quantity
 
             if (Math.abs(finalQty) < 0.000001) {
-                continue; // skip zero
+                continue;
             }
             StockLevelDTO dto = new StockLevelDTO();
-            dto.setOnHand(finalQty); // base units
+            dto.setOnHand(finalQty);
 
             if (key.startsWith("item-")) {
                 Long itemId = Long.valueOf(key.substring(5));
@@ -238,14 +327,10 @@ public class StockTransactionServiceImpl implements StockTransactionService {
                         .orElseThrow(() -> new RuntimeException("Item not found"));
                 dto.setItemId(itemId);
                 dto.setName(item.getName());
-
-                // The base UOM for item is item.getInventoryUom().
-                // You can store it in your StockLevelDTO if you want to display "g" or "ml".
                 dto.setUomName(item.getInventoryUom().getName());
                 dto.setUomAbbreviation(item.getInventoryUom().getAbbreviation());
 
-                // cost
-                Double costPerBaseUom = item.getCurrentPrice(); // cost per gram if base=grams
+                Double costPerBaseUom = item.getCurrentPrice();
                 if (costPerBaseUom != null) {
                     dto.setCost(costPerBaseUom * finalQty);
                 }
@@ -255,32 +340,21 @@ public class StockTransactionServiceImpl implements StockTransactionService {
                         .orElseThrow(() -> new RuntimeException("Sub not found"));
                 dto.setSubRecipeId(subId);
                 dto.setName(sub.getName());
-
-                // sub's base UOM is sub.getUom()
                 dto.setUomName(sub.getUom().getName());
                 dto.setUomAbbreviation(sub.getUom().getAbbreviation());
 
-                Double costPerBaseUom = sub.getCost(); // cost per liter if base=liters
-                if (costPerBaseUom != null) {
-                    dto.setCost(costPerBaseUom * finalQty);
+                Double costPerBase = sub.getCost();
+                if (costPerBase != null) {
+                    dto.setCost(costPerBase * finalQty);
                 }
             }
             result.add(dto);
         }
-
         return result;
     }
 
-
-    /**
-     * Sums all StockTransaction.quantityChange for a given location
-     * up to the given cutoff date, grouping by (itemId or subRecipeId).
-     * Returns a map: "item-123" -> sum, or "sub-456" -> sum.
-     */
     private Map<String, Double> buildQuantityMap(Long locationId, LocalDate cutoffDate) {
         Map<String, Double> qtyMap = new HashMap<>();
-
-        // fetch all transactions up to cutoffDate
         List<StockTransaction> txs = stockTransactionRepository
                 .findAllByLocationIdAndDateLessThanEqual(locationId, cutoffDate);
 

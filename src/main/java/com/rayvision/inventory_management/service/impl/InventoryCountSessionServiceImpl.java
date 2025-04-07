@@ -67,8 +67,7 @@ public class InventoryCountSessionServiceImpl implements InventoryCountSessionSe
 
     @Override
     public InventoryCountSession createSession(Long locationId, InventoryCountSessionDTO dto) {
-        // 0) Remove logic preventing multiple open sessions
-        //    (We no longer throw if there's an existing unlocked session.)
+        // 0) Remove logic preventing multiple open sessions (as you already did)
 
         // 1) Validate location
         Location location = locationRepository.findById(locationId)
@@ -123,21 +122,57 @@ public class InventoryCountSessionServiceImpl implements InventoryCountSessionSe
                     lineEntity.setCountUom(uom);
                 }
 
-                // compute base qty
-                Double qty = Optional.ofNullable(lineDto.getCountedQuantity()).orElse(0.0);
-                double conv = Optional.ofNullable(lineEntity.getCountUom())
-                        .map(UnitOfMeasure::getConversionFactor)
-                        .orElse(1.0);
-                double baseQty = qty * conv;
-                lineEntity.setConvertedQuantityInBaseUom(baseQty);
+                // =========== NEW LOGIC FOR COST & BASE QTY ===========
+                double countedQty = Optional.ofNullable(lineDto.getCountedQuantity()).orElse(0.0);
 
-                // set cost if it's an item
-                double price = 0.0;
                 if (lineEntity.getInventoryItem() != null) {
-                    price = Optional.ofNullable(lineEntity.getInventoryItem().getCurrentPrice())
-                            .orElse(0.0);
+                    // use ItemCostCalculator
+                    double cost = ItemCostCalculator.computeCost(
+                            lineEntity.getInventoryItem(),
+                            countedQty,
+                            lineEntity.getCountUom()
+                    );
+                    lineEntity.setLineTotalValue(cost);
+
+                    // also store the item’s base quantity
+                    double ratio = lineEntity.getCountUom().getConversionFactor()
+                            / lineEntity.getInventoryItem().getInventoryUom().getConversionFactor();
+                    double baseQty = countedQty * ratio;
+                    lineEntity.setConvertedQuantityInBaseUom(baseQty);
+
+                } else if (lineEntity.getSubRecipe() != null) {
+                    // ================= SUB-RECIPE LOGIC =================
+                    SubRecipe sub = lineEntity.getSubRecipe();
+                    UnitOfMeasure subBaseUom = sub.getUom();
+
+                    // Convert from line’s countUom to sub’s base:
+                    double ratio =
+                            (lineEntity.getCountUom() != null ? lineEntity.getCountUom().getConversionFactor() : 1.0)
+                                    /
+                                    (subBaseUom != null ? subBaseUom.getConversionFactor() : 1.0);
+
+                    countedQty = Optional.ofNullable(lineEntity.getCountedQuantity()).orElse(0.0);
+                    double subBaseQty = countedQty * ratio;
+
+                    // The subRecipe cost is “total cost for entire yieldQty”
+                    double totalBatchCost = Optional.ofNullable(sub.getCost()).orElse(0.0);
+                    double yieldQty       = Optional.ofNullable(sub.getYieldQty()).orElse(1.0);
+
+                    // cost per 1.0 sub base
+                    double costPerBaseUom = (yieldQty != 0.0) ? (totalBatchCost / yieldQty) : 0.0;
+
+// final line cost
+                    double cost = subBaseQty * costPerBaseUom;
+
+                    lineEntity.setConvertedQuantityInBaseUom(subBaseQty);
+                    lineEntity.setLineTotalValue(cost);
+
+                } else {
+                    // no item or sub? zero everything
+                    lineEntity.setLineTotalValue(0.0);
+                    lineEntity.setConvertedQuantityInBaseUom(0.0);
                 }
-                lineEntity.setLineTotalValue(baseQty * price);
+                // =========== END NEW LOGIC ===========
 
                 lineEntity.setCountSession(sessionEntity);
 
@@ -149,8 +184,6 @@ public class InventoryCountSessionServiceImpl implements InventoryCountSessionSe
 
         // 4) Find union of Items & (optionally) SubRecipes from the location’s assortments
         Long companyId = location.getCompany().getId();
-
-        // get all assortments for this location
         List<AssortmentLocation> bridgingList = assortmentLocationRepository.findByLocationId(locationId);
 
         // union of InventoryItems
@@ -164,33 +197,24 @@ public class InventoryCountSessionServiceImpl implements InventoryCountSessionSe
             }
         }
 
-        // union of SubRecipes (only if you want them)
-        // e.g. sub recipes of type PREPARATION
+        // union of SubRecipes (only if you want them in the same count session)
         Set<SubRecipe> unionPreps = new HashSet<>();
-        // if bridgingList empty -> fallback to all preps for the company
-        // or do bridging logic if your assortments also have sub recipes
-        // (example snippet)
         if (bridgingList.isEmpty()) {
-            // fetch all sub recipes of type PREPARATION from this company
             unionPreps.addAll(subRecipeRepository.findByCompanyIdAndType(
                     companyId, SubRecipeType.PREPARATION));
         } else {
             for (AssortmentLocation al : bridgingList) {
                 unionPreps.addAll(al.getAssortment().getSubRecipes());
             }
-            // You might filter them to type=PREPARATION, if you only want that type.
         }
 
         // 5) Create lines for each item based on CountUomPreference
         for (InventoryItem item : unionItems) {
-            // find all preferences for this item
             List<CountUomPreference> prefs = countUomPreferenceRepository.findByInventoryItemId(item.getId());
-
             if (prefs.isEmpty()) {
-                // No preferences => create one line with the item’s inventoryUom (if not already in the map)
+                // No preferences => create one line with the item’s inventoryUom (if not in map)
                 addLineIfNotPresent(linesMap, sessionEntity, item, null, item.getInventoryUom());
             } else {
-                // For each preference, create a line if not in the map
                 for (CountUomPreference pref : prefs) {
                     addLineIfNotPresent(
                             linesMap, sessionEntity,
@@ -201,12 +225,10 @@ public class InventoryCountSessionServiceImpl implements InventoryCountSessionSe
             }
         }
 
-        // 6) Create lines for each subRecipe (if you want them in the same count session)
+        // 6) Create lines for each subRecipe
         for (SubRecipe prep : unionPreps) {
             List<CountUomPreference> prefs = countUomPreferenceRepository.findBySubRecipeId(prep.getId());
-
             if (prefs.isEmpty()) {
-                // no preference => use subRecipe’s base “uom”
                 addLineIfNotPresent(linesMap, sessionEntity, null, prep, prep.getUom());
             } else {
                 for (CountUomPreference pref : prefs) {
@@ -225,6 +247,7 @@ public class InventoryCountSessionServiceImpl implements InventoryCountSessionSe
         // Save
         return sessionRepository.save(sessionEntity);
     }
+
 
     /**
      * Helper method to create a line (if it doesn't already exist)
@@ -346,19 +369,27 @@ public class InventoryCountSessionServiceImpl implements InventoryCountSessionSe
 
             // 1) Post ADJUSTMENT if the difference is significant
             if (Math.abs(diff) > 0.000001) {
-                double unitCost = 0.0;
                 if (item != null) {
-                    unitCost = Optional.ofNullable(item.getCurrentPrice()).orElse(0.0);
-                    // record item-based adjustment
-                    stockTransactionService.recordAdjustment(loc, item, diff, diff * unitCost,
-                            existing.getId(), countDate);
+                    // old code had “diff * unitCost” as cost, but now you pass `countQty=diff`
+                    // and `countUom=item.getInventoryUom()`
+                    stockTransactionService.recordAdjustment(
+                            loc,
+                            item,
+                            diff,
+                            item.getInventoryUom(),   // or line.getCountUom() if you prefer
+                            existing.getId(),
+                            countDate
+                    );
                 } else if (sub != null) {
-                    // Possibly you want subRecipe cost?
-                    // If you store cost in subRecipe, you can do:
-                    unitCost = Optional.ofNullable(sub.getCost()).orElse(0.0);
-                    // record subRecipe-based adjustment
-                    stockTransactionService.recordAdjustment(loc, sub, diff, diff * unitCost,
-                            existing.getId(), countDate);
+                    // sub’s base
+                    stockTransactionService.recordAdjustment(
+                            loc,
+                            sub,
+                            diff,
+                            sub.getUom(),
+                            existing.getId(),
+                            countDate
+                    );
                 }
             }
 
@@ -462,44 +493,81 @@ public class InventoryCountSessionServiceImpl implements InventoryCountSessionSe
         }
 
         InventoryCountLine existing = lineRepository.findById(lineId)
-                .orElseThrow(() -> new RuntimeException("Line not found"));
+                .orElseThrow(() -> new RuntimeException("Line not found: " + lineId));
+
         if (!existing.getCountSession().getId().equals(sessionId)) {
             throw new RuntimeException("Line does not belong to session " + sessionId);
         }
 
-        // update fields
+        // Update counted quantity
         if (patchLine.getCountedQuantity() != null) {
             existing.setCountedQuantity(patchLine.getCountedQuantity());
         }
 
+        // Update the countUom if it changed
         if (patchLine.getCountUom() != null && patchLine.getCountUom().getId() != null) {
             UnitOfMeasure newUom = uomRepository.findById(patchLine.getCountUom().getId())
-                    .orElseThrow(() -> new RuntimeException("UOM not found"));
+                    .orElseThrow(() -> new RuntimeException("UOM not found: " + patchLine.getCountUom().getId()));
             existing.setCountUom(newUom);
         }
 
+        // Update storage area if needed
         if (patchLine.getStorageArea() != null && patchLine.getStorageArea().getId() != null) {
             StorageArea sa = storageAreaRepository.findById(patchLine.getStorageArea().getId())
-                    .orElseThrow(() -> new RuntimeException("StorageArea not found"));
+                    .orElseThrow(() -> new RuntimeException("StorageArea not found: " + patchLine.getStorageArea().getId()));
             existing.setStorageArea(sa);
         }
 
-        // if patchLine's subRecipe or item is changed, that would be more advanced logic
-        // you can block it or allow it.
+        // Recompute cost & convertedQuantityInBaseUom
+        double countedQty = Optional.ofNullable(existing.getCountedQuantity()).orElse(0.0);
 
-        double convFactor = Optional.ofNullable(existing.getCountUom())
-                .map(UnitOfMeasure::getConversionFactor).orElse(1.0);
-        double baseQty = Optional.ofNullable(existing.getCountedQuantity()).orElse(0.0) * convFactor;
-        existing.setConvertedQuantityInBaseUom(baseQty);
-
-        double price = 0.0;
         if (existing.getInventoryItem() != null) {
-            price = Optional.ofNullable(existing.getInventoryItem().getCurrentPrice()).orElse(0.0);
+            // -- ITEM LOGIC (already done) --
+            double cost = ItemCostCalculator.computeCost(
+                    existing.getInventoryItem(),
+                    countedQty,
+                    existing.getCountUom()
+            );
+            existing.setLineTotalValue(cost);
+
+            // Store the item’s base quantity if you want
+            double ratio = existing.getCountUom().getConversionFactor()
+                    / existing.getInventoryItem().getInventoryUom().getConversionFactor();
+            double baseQty = countedQty * ratio;
+            existing.setConvertedQuantityInBaseUom(baseQty);
+
+        } else if (existing.getSubRecipe() != null) {
+            // SUB-RECIPE LOGIC
+            SubRecipe sub = existing.getSubRecipe();
+            UnitOfMeasure subBaseUom = sub.getUom();
+
+            // Convert from line’s countUom to sub’s base:
+            double ratio =
+                    (existing.getCountUom() != null ? existing.getCountUom().getConversionFactor() : 1.0)
+                            /
+                            (subBaseUom != null ? subBaseUom.getConversionFactor() : 1.0);
+
+            double subBaseQty = countedQty * ratio;   // countedQty is already declared above
+            double totalBatchCost = Optional.ofNullable(sub.getCost()).orElse(0.0);
+            double yieldQty       = Optional.ofNullable(sub.getYieldQty()).orElse(1.0);
+
+            // cost per 1 sub base UOM
+            double costPerBaseUom = (yieldQty != 0.0) ? (totalBatchCost / yieldQty) : 0.0;
+            double cost = subBaseQty * costPerBaseUom;
+
+            existing.setConvertedQuantityInBaseUom(subBaseQty);
+            existing.setLineTotalValue(cost);
+
+        } else {
+            // neither item nor sub => zero cost
+            existing.setLineTotalValue(0.0);
+            existing.setConvertedQuantityInBaseUom(0.0);
         }
-        existing.setLineTotalValue(baseQty * price);
 
         return lineRepository.save(existing);
     }
+
+
 
     @Override
     public void deleteLine(Long sessionId, Long lineId) {

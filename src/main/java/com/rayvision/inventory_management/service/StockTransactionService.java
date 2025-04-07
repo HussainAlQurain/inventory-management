@@ -4,8 +4,10 @@ import com.rayvision.inventory_management.model.InventoryItem;
 import com.rayvision.inventory_management.model.Location;
 import com.rayvision.inventory_management.model.StockTransaction;
 import com.rayvision.inventory_management.model.SubRecipe;
+import com.rayvision.inventory_management.model.dto.StockLevelDTO;
 
 import java.time.LocalDate;
+import java.util.List;
 
 public interface StockTransactionService {
 
@@ -102,4 +104,9 @@ public interface StockTransactionService {
                                              Long itemId,
                                              Long subRecipeId,
                                              LocalDate upToDate);
+
+    List<StockLevelDTO> getStockLevelsForLocation(Long locationId,
+                                                         LocalDate startDate,
+                                                         LocalDate endDate);
+
 }

@@ -7,6 +7,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
+import java.util.Date;
 import java.util.List;
 
 @Repository
@@ -51,5 +52,7 @@ public interface StockTransactionRepository extends JpaRepository<StockTransacti
             @Param("subRecipeId") Long subRecipeId,
             @Param("upToDate") LocalDate upToDate
     );
+
+    List<StockTransaction> findAllByLocationIdAndDateLessThanEqual(Long locationId, LocalDate date);
 
 }

@@ -12,4 +12,5 @@ public class InventoryCountSessionSummaryDTO {
     private String locationName;
     private Double valueOfCount;
     private String description;
+    private boolean locked;
 }

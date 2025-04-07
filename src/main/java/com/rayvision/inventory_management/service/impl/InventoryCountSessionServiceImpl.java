@@ -557,6 +557,8 @@ public class InventoryCountSessionServiceImpl implements InventoryCountSessionSe
         double totalValue = computeSessionValue(session);
         dto.setValueOfCount(totalValue);
 
+        dto.setLocked(session.isLocked());
+
         return dto;
     }
 

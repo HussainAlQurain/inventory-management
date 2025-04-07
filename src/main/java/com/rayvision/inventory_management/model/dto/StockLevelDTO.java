@@ -9,4 +9,7 @@ public class StockLevelDTO {
     private String name;          // e.g. “Tomatoes” or “Donut Dough”
     private Double onHand;        // The quantity on hand (theoretical)
     private Double cost;          // If you want average cost or total value, you can add more fields
+    private String uomName;         // e.g. “Gram,” “Liter”
+    private String uomAbbreviation; // e.g. “g,” “L”
+
 }

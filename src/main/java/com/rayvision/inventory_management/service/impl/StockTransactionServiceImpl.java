@@ -209,28 +209,14 @@ public class StockTransactionServiceImpl implements StockTransactionService {
     public List<StockLevelDTO> getStockLevelsForLocation(Long locationId,
                                                          LocalDate startDate,
                                                          LocalDate endDate) {
-        // 1) If null checks:
-        if (startDate == null) {
-            // e.g. set a default earliest date
-            startDate = LocalDate.of(1970,1,1);
-        }
-        if (endDate == null) {
-            // default to “today”
-            endDate = LocalDate.now();
-        }
+        if (startDate == null) startDate = LocalDate.of(1970,1,1);
+        if (endDate == null) endDate = LocalDate.now();
 
-        // 2) Build a map of "opening" sums = transactions up to startDate.minusDays(1)
         LocalDate openingCutoff = startDate.minusDays(1);
         Map<String, Double> openingMap = buildQuantityMap(locationId, openingCutoff);
-
-        // 3) Build a map of "closing" sums = transactions up to endDate
         Map<String, Double> closingMap = buildQuantityMap(locationId, endDate);
 
-        // 4) For each key in closingMap, subtract the opening. Then create a StockLevelDTO.
-        //    Key is "item-123" or "sub-456"
         List<StockLevelDTO> result = new ArrayList<>();
-
-        // We'll union the keys from both maps so we don't miss any
         Set<String> allKeys = new HashSet<>();
         allKeys.addAll(openingMap.keySet());
         allKeys.addAll(closingMap.keySet());
@@ -238,40 +224,53 @@ public class StockTransactionServiceImpl implements StockTransactionService {
         for (String key : allKeys) {
             double openQty  = openingMap.getOrDefault(key, 0.0);
             double closeQty = closingMap.getOrDefault(key, 0.0);
+            double finalQty = closeQty - openQty;  // net base quantity in that period
 
-            // The final on-hand for that period is (closeQty - openQty).
-            double finalQty = closeQty - openQty;
             if (Math.abs(finalQty) < 0.000001) {
-                // effectively zero; skip it if you want to filter out zero stocks
-                continue;
+                continue; // skip zero
             }
-
             StockLevelDTO dto = new StockLevelDTO();
-            dto.setOnHand(finalQty);
+            dto.setOnHand(finalQty); // base units
 
             if (key.startsWith("item-")) {
                 Long itemId = Long.valueOf(key.substring(5));
                 InventoryItem item = inventoryItemRepository.findById(itemId)
-                        .orElseThrow(() -> new RuntimeException("Item not found: " + itemId));
+                        .orElseThrow(() -> new RuntimeException("Item not found"));
                 dto.setItemId(itemId);
                 dto.setName(item.getName());
-                // If you want cost:
-                // dto.setCost(item.getCurrentPrice());
+
+                // The base UOM for item is item.getInventoryUom().
+                // You can store it in your StockLevelDTO if you want to display "g" or "ml".
+                dto.setUomName(item.getInventoryUom().getName());
+                dto.setUomAbbreviation(item.getInventoryUom().getAbbreviation());
+
+                // cost
+                Double costPerBaseUom = item.getCurrentPrice(); // cost per gram if base=grams
+                if (costPerBaseUom != null) {
+                    dto.setCost(costPerBaseUom * finalQty);
+                }
             } else {
                 Long subId = Long.valueOf(key.substring(4));
                 SubRecipe sub = subRecipeRepository.findById(subId)
-                        .orElseThrow(() -> new RuntimeException("SubRecipe not found: " + subId));
+                        .orElseThrow(() -> new RuntimeException("Sub not found"));
                 dto.setSubRecipeId(subId);
                 dto.setName(sub.getName());
-                // If you want cost:
-                // dto.setCost(sub.getCost());
-            }
 
+                // sub's base UOM is sub.getUom()
+                dto.setUomName(sub.getUom().getName());
+                dto.setUomAbbreviation(sub.getUom().getAbbreviation());
+
+                Double costPerBaseUom = sub.getCost(); // cost per liter if base=liters
+                if (costPerBaseUom != null) {
+                    dto.setCost(costPerBaseUom * finalQty);
+                }
+            }
             result.add(dto);
         }
 
         return result;
     }
+
 
     /**
      * Sums all StockTransaction.quantityChange for a given location

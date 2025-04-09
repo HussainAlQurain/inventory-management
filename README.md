@@ -33,4 +33,14 @@ private LocalDateTime lastModifiedDate;
 - Liter
 - Each
 - Meter
-## IMPORTANT, currently there is no base units and it might cause error calculating the cost. MAR 27 updated the cost calculation to use uom.
+## IMPORTANT, currently there is no base units and it might cause error calculating the cost. MAR 27 updated the cost calculation to use uom. Reversed this change
+
+
+### Ordering
+- Can order by filling to par for each supplier (which will add all items below par level to the carts)
+- Create a cart for each different supplier by selecting items and their quantities.
+- Send order with delivery date and sent date.
+- if user is not approver user, it will create order pending for approval. if there is approval list for the location based on predefined selected users to approve.
+- order list will display orders placed, orders pending and will allow to receive orders.
+- receiving orders will allow to change update the price, or create credit memo for one time extra charge for the price, update quantities to be received, and also update the price for the item fully so that next time it will be directly used.
+- User will also be able to receive invoices without orders, in case they didn't enter an order before.

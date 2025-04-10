@@ -55,3 +55,7 @@ SELECT 1, 3
 INSERT INTO company_user (id, company_id, users_id)
 SELECT 1, 1, 1
     WHERE NOT EXISTS (SELECT 1 FROM company_user WHERE company_id = 1 AND users_id = 1);
+
+INSERT INTO location_user (id, location_id, user_id)
+SELECT 1, 1, 1
+    WHERE NOT EXISTS (SELECT 1 FROM location_user WHERE location_id = 1 AND user_id = 1);

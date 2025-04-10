@@ -6,6 +6,6 @@ import lombok.Data;
 public class OrderItemDTO {
     private Long inventoryItemId;
     private Double quantity;
-    private Double price;
-    private Long unitOfMeasureId; // optional
+    // Price & unitOfMeasureId are removed or ignored here
+    // because we don't want them from the user
 }

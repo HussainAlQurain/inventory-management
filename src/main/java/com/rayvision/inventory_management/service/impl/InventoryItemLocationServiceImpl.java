@@ -207,4 +207,35 @@ public class InventoryItemLocationServiceImpl implements InventoryItemLocationSe
         return repository.findByInventoryItemIdAndLocationId(itemId, locationId);
     }
 
+    /**
+     * Add `deltaQty` to the bridging's onHand.
+     * If bridging does not exist, we create it (with onHand=deltaQty).
+     */
+    public void incrementOnHand(Long itemId, Long locationId, double deltaQty) {
+        if (Math.abs(deltaQty) < 0.000001) return;
+
+        Optional<InventoryItemLocation> opt =
+                repository.findByInventoryItemIdAndLocationId(itemId, locationId);
+
+        if (opt.isPresent()) {
+            InventoryItemLocation bridging = opt.get();
+            double oldVal = (bridging.getOnHand() != null) ? bridging.getOnHand() : 0.0;
+            bridging.setOnHand(oldVal + deltaQty);
+            repository.save(bridging);
+        } else {
+            // create new bridging
+            InventoryItem item = itemRepository.findById(itemId)
+                    .orElseThrow(() -> new RuntimeException("Item not found " + itemId));
+            Location loc = locationRepository.findById(locationId)
+                    .orElseThrow(() -> new RuntimeException("Location not found " + locationId));
+
+            InventoryItemLocation newBridging = new InventoryItemLocation();
+            newBridging.setInventoryItem(item);
+            newBridging.setLocation(loc);
+            newBridging.setOnHand(deltaQty);
+            repository.save(newBridging);
+        }
+    }
+
+
 }

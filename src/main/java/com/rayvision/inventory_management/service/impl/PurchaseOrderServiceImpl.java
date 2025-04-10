@@ -68,7 +68,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         Orders order = new Orders();
         order.setCompany(buyerLocation.getCompany());
         order.setBuyerLocation(buyerLocation);
-        order.setSentByLocation(buyerLocation);
+        order.setSentByLocation(buyerLocation);  // as requested
         order.setSentToSupplier(supplier);
         order.setCreatedByUser(user);
         order.setCreationDate(LocalDateTime.now());
@@ -76,26 +76,31 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         order.setComments(dto.getComments());
         order.setOrderNumber("PO-" + System.currentTimeMillis());
 
-        // 3) Build items
+        // 3) Build items (ignoring user-supplied price/UOM)
         List<OrderItem> orderItems = new ArrayList<>();
         for (OrderItemDTO itemDto : dto.getItems()) {
+            // find the InventoryItem
             InventoryItem invItem = inventoryItemRepository
                     .findById(itemDto.getInventoryItemId())
                     .orElseThrow(() -> new RuntimeException(
                             "InventoryItem not found: " + itemDto.getInventoryItemId()));
 
             // find a purchase option for this item that references the same supplier
+            // and also orderingEnabled = true
             Set<PurchaseOption> matchingOptions = new HashSet<>();
             for (PurchaseOption po : invItem.getPurchaseOptions()) {
-                if (po.getSupplier() != null && po.getSupplier().getId().equals(supplier.getId())) {
+                if (po.getSupplier() != null
+                        && po.getSupplier().getId().equals(supplier.getId())
+                        && po.isOrderingEnabled())
+                {
                     matchingOptions.add(po);
                 }
             }
             if (matchingOptions.isEmpty()) {
                 throw new RuntimeException(
-                        "No purchase option found for item '" + invItem.getName()
+                        "No *enabled* purchase option found for item '" + invItem.getName()
                                 + "' with supplier '" + supplier.getName()
-                                + "'. Please create a purchase option first."
+                                + "'. Please create/enable a purchase option first."
                 );
             }
 
@@ -105,40 +110,27 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
                     .findFirst()
                     .orElse(matchingOptions.iterator().next());
 
-            // Decide final price
-            Double finalPrice = itemDto.getPrice();
-            if (finalPrice == null) {
-                // fallback to the purchase option price
-                finalPrice = (chosenOption.getPrice() != null) ? chosenOption.getPrice() : 0.0;
-            }
+            // We'll use chosenOption.getPrice() as the price
+            Double finalPrice = (chosenOption.getPrice() != null) ? chosenOption.getPrice() : 0.0;
+            Double qty = (itemDto.getQuantity() != null) ? itemDto.getQuantity() : 0.0;
 
-            // Decide final UOM
-            UnitOfMeasure finalUom = null;
-            if (itemDto.getUnitOfMeasureId() != null) {
-                finalUom = uomRepository.findById(itemDto.getUnitOfMeasureId())
-                        .orElseThrow(() -> new RuntimeException(
-                                "UOM not found: " + itemDto.getUnitOfMeasureId()));
-            } else {
-                // fallback to the purchase option’s ordering UOM
-                if (chosenOption.getOrderingUom() != null) {
-                    finalUom = chosenOption.getOrderingUom();
-                } else {
-                    // fallback to item’s inventoryUom if purchase option’s is null
-                    finalUom = invItem.getInventoryUom();
-                }
-            }
+            // We'll use chosenOption.getOrderingUom() as the UOM if not null,
+            // fallback to item’s inventoryUom otherwise
+            UnitOfMeasure finalUom = (chosenOption.getOrderingUom() != null)
+                    ? chosenOption.getOrderingUom()
+                    : invItem.getInventoryUom();
 
             // create an OrderItem
             OrderItem oi = new OrderItem();
             oi.setOrders(order);
             oi.setInventoryItem(invItem);
-            oi.setQuantity(itemDto.getQuantity());
+            oi.setQuantity(qty);
             oi.setPrice(finalPrice);
             oi.setUnitOfOrdering(finalUom);
 
-            double total = itemDto.getQuantity() * finalPrice;
+            double total = qty * finalPrice;
             oi.setTotal(total);
-            oi.setExtendedQuantity(itemDto.getQuantity()); // optional
+            oi.setExtendedQuantity(qty); // optional
 
             orderItems.add(oi);
         }

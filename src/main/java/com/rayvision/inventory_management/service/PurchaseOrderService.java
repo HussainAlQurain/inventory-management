@@ -5,6 +5,7 @@ import com.rayvision.inventory_management.model.dto.NoOrderInvoiceDTO;
 import com.rayvision.inventory_management.model.dto.OrderCreateDTO;
 import com.rayvision.inventory_management.model.dto.ReceiveLineDTO;
 
+import java.time.LocalDate;
 import java.util.List;
 
 public interface PurchaseOrderService {
@@ -15,5 +16,9 @@ public interface PurchaseOrderService {
     List<Orders> fillToPar(Long locationId, Long userId);
     // or partialReceive
     // maybe more methods as needed
+    List<Orders> findByCompanyAndDateRange(Long companyId, LocalDate start, LocalDate end);
+
+    // ...
+    Orders getOrderById(Long companyId, Long orderId);
 
 }

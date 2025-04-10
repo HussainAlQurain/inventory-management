@@ -8,6 +8,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -19,6 +20,76 @@ public class PurchaseOrderController {
     public PurchaseOrderController(PurchaseOrderService purchaseOrderService) {
         this.purchaseOrderService = purchaseOrderService;
     }
+
+    // ----------------------------------------------------------------
+    // GET /companies/{companyId}/purchase-orders
+    //  => returns a list of OrderSummaryDTO
+    //
+    // Query params: ?startDate=YYYY-MM-DD & endDate=YYYY-MM-DD
+    // If not provided, default 1970-01-01 to 3000-01-01
+    // ----------------------------------------------------------------
+    @GetMapping
+    public ResponseEntity<List<OrderSummaryDTO>> getOrders(@PathVariable Long companyId,
+                                                           @RequestParam(required = false) String startDate,
+                                                           @RequestParam(required = false) String endDate) {
+        // 1) parse or default
+        LocalDate start = (startDate != null)
+                ? LocalDate.parse(startDate)
+                : LocalDate.of(1970, 1, 1);
+        LocalDate end = (endDate != null)
+                ? LocalDate.parse(endDate)
+                : LocalDate.of(3000, 1, 1);
+
+        // 2) fetch from service
+        List<Orders> ordersList = purchaseOrderService.findByCompanyAndDateRange(companyId, start, end);
+
+        // 3) map to summary DTO
+        List<OrderSummaryDTO> dtos = new ArrayList<>();
+        for (Orders o : ordersList) {
+            OrderSummaryDTO sumDto = new OrderSummaryDTO();
+            sumDto.setId(o.getId());
+            sumDto.setOrderNumber(o.getOrderNumber());
+            sumDto.setSentDate(o.getSentDate());
+            sumDto.setDeliveryDate(o.getDeliveryDate());
+            sumDto.setStatus((o.getStatus() != null) ? o.getStatus().name() : null);
+            sumDto.setComments(o.getComments());
+
+            if (o.getBuyerLocation() != null) {
+                sumDto.setBuyerLocationName(o.getBuyerLocation().getName());
+            }
+            if (o.getSentToSupplier() != null) {
+                sumDto.setSupplierName(o.getSentToSupplier().getName());
+            }
+
+            // If you want total price, sum the order items
+            double sum = 0.0;
+            if (o.getOrderItems() != null) {
+                for (OrderItem line : o.getOrderItems()) {
+                    sum += (line.getTotal() != null) ? line.getTotal() : 0.0;
+                }
+            }
+            sumDto.setTotal(sum);
+
+            dtos.add(sumDto);
+        }
+
+        return ResponseEntity.ok(dtos);
+    }
+
+    // ----------------------------------------------------------------
+    // GET /companies/{companyId}/purchase-orders/{orderId}
+    //  => returns the full detail (OrderResponseDTO)
+    // ----------------------------------------------------------------
+    @GetMapping("/{orderId}")
+    public ResponseEntity<OrderResponseDTO> getOrderDetails(@PathVariable Long companyId,
+                                                            @PathVariable Long orderId) {
+        // In the service, you'd load the order & ensure it belongs to companyId, etc.
+        Orders order = purchaseOrderService.getOrderById(companyId, orderId);
+
+        OrderResponseDTO dto = toOrderResponseDTO(order);
+        return ResponseEntity.ok(dto);
+    }
+
 
     // ----------------------------------------------------------------
     // 1) Create Order (POST)

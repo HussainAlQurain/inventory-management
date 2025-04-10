@@ -496,4 +496,22 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
                 .findFirst()
                 .orElseThrow(() -> new RuntimeException("OrderItem not found in this order"));
     }
+
+    @Override
+    public List<Orders> findByCompanyAndDateRange(Long companyId, LocalDate start, LocalDate end) {
+        // you can do a custom query in your repository or something simpler
+        return ordersRepository.findByCompanyIdAndDateRange(companyId, start, end);
+    }
+
+    @Override
+    public Orders getOrderById(Long companyId, Long orderId) {
+        Orders order = ordersRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Order not found: " + orderId));
+        // confirm same company
+        if (!order.getCompany().getId().equals(companyId)) {
+            throw new RuntimeException("Order does not belong to company " + companyId);
+        }
+        return order;
+    }
+
 }

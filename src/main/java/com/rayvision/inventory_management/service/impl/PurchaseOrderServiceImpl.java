@@ -188,74 +188,61 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
     // 3) RECEIVE ORDER (partial or full receiving with overrides)
     // -------------------------------------------------------------
     @Override
-    public Orders receiveOrder(Long orderId, List<ReceiveLineDTO> lines) {
+    public Orders receiveOrder(Long orderId, List<ReceiveLineDTO> lines, boolean updateOptionPrice) {
         Orders order = ordersRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Order not found: " + orderId));
 
-        // Suppose we only allow receiving if it's DRAFT or SENT
         if (order.getStatus() != OrderStatus.SENT && order.getStatus() != OrderStatus.DRAFT) {
-            throw new RuntimeException("Order must be in SENT (or DRAFT) to be received.");
+            throw new RuntimeException("Order must be SENT or DRAFT to be received.");
         }
 
         boolean allFullyReceived = true;
 
-        // For each line in the request
         for (ReceiveLineDTO lineDto : lines) {
-            // find the matching line in the order
-            OrderItem existingLine = order.getOrderItems().stream()
-                    .filter(oi -> oi.getId().equals(lineDto.getOrderItemId()))
-                    .findFirst()
-                    .orElseThrow(() -> new RuntimeException(
-                            "Line not found in this order: " + lineDto.getOrderItemId()));
+            // find the line, figure out finalQty, finalPrice, etc.
+            OrderItem existingLine = findLineInOrder(order, lineDto.getOrderItemId());
 
-            // Old requested quantity & price
             Double originalQty   = existingLine.getQuantity();
             Double originalPrice = existingLine.getPrice();
 
-            // Use finalQty and finalPrice if provided, otherwise fallback
-            Double finalQty   = (lineDto.getReceivedQty()  != null) ? lineDto.getReceivedQty()  : originalQty;
-            Double finalPrice = (lineDto.getFinalPrice()   != null) ? lineDto.getFinalPrice()   : originalPrice;
+            Double finalQty   = (lineDto.getReceivedQty() != null)
+                    ? lineDto.getReceivedQty() : originalQty;
+            Double finalPrice = (lineDto.getFinalPrice() != null)
+                    ? lineDto.getFinalPrice() : originalPrice;
 
-            // If finalQty < originally requested => partial
             if (finalQty < originalQty) {
                 allFullyReceived = false;
             }
 
-            // Update the line in the DB
+            // update the line
             existingLine.setQuantity(finalQty);
             existingLine.setPrice(finalPrice);
             existingLine.setTotal(finalQty * finalPrice);
 
-            // Record a purchase transaction for whatever we actually received
+            // record the stock transaction with overridePrice=finalPrice
             stockTransactionService.recordPurchase(
                     order.getBuyerLocation(),
                     existingLine.getInventoryItem(),
                     finalQty,
                     existingLine.getUnitOfOrdering(),
                     order.getId(),
-                    LocalDate.now()
-            );
-
-            // Possibly do a naive “moving average” update:
-            updateItemMovingAverageCost(
-                    existingLine.getInventoryItem(),
-                    order.getBuyerLocation(),
-                    finalQty,
-                    finalPrice
+                    LocalDate.now(),
+                    finalPrice,           // overridePrice
+                    updateOptionPrice     // if user said yes, update purchaseOption
             );
         }
 
-        // If everything fully received, mark COMPLETED
+        // update order status
         if (allFullyReceived) {
             order.setStatus(OrderStatus.COMPLETED);
         } else {
-            // otherwise mark “DELIVERED” or “PARTIALLY_RECEIVED”
             order.setStatus(OrderStatus.DELIVERED);
         }
-
         order.setDeliveryDate(LocalDate.now());
+
         return ordersRepository.save(order);
     }
+
 
     // -------------------------------------------------------------
     // 3a) Naive Moving-Average Cost Updating
@@ -503,4 +490,10 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
                 .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId));
     }
 
+    private OrderItem findLineInOrder(Orders order, Long orderItemId) {
+        return order.getOrderItems().stream()
+                .filter(oi -> oi.getId().equals(orderItemId))
+                .findFirst()
+                .orElseThrow(() -> new RuntimeException("OrderItem not found in this order"));
+    }
 }

@@ -211,6 +211,7 @@ public class InventoryItemLocationServiceImpl implements InventoryItemLocationSe
      * Add `deltaQty` to the bridging's onHand.
      * If bridging does not exist, we create it (with onHand=deltaQty).
      */
+    @Override
     public void incrementOnHand(Long itemId, Long locationId, double deltaQty) {
         if (Math.abs(deltaQty) < 0.000001) return;
 

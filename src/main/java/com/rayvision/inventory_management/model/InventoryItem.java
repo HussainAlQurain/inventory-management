@@ -76,4 +76,7 @@ public class InventoryItem {
 
     // Get rid of direct many‐to‐many with Allergen; use bridging if needed.
     // ...
+    private Double cumulativeQty = 0.0;
+    private Double cumulativeValue = 0.0;
+
 }

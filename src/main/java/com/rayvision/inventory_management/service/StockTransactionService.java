@@ -13,36 +13,50 @@ public interface StockTransactionService {
     // -------------------------------------------------------------------------
     StockTransaction recordPurchase(Location location,
                                     InventoryItem item,
-                                    Double countQty,
-                                    UnitOfMeasure countUom,
+                                    Double qty,
+                                    UnitOfMeasure uom,
                                     Long sourceReferenceId,
                                     LocalDate date);
+    /**
+     * Overloaded method: same as above, but you can specify
+     * overridePrice for cost calculations, and
+     * updateOptionPrice if you want to adopt that price in the PurchaseOption.
+     */
+    StockTransaction recordPurchase(Location location,
+                                    InventoryItem item,
+                                    Double qty,
+                                    UnitOfMeasure uom,
+                                    Long sourceReferenceId,
+                                    LocalDate date,
+                                    Double overridePrice,
+                                    boolean updateOptionPrice);
+
 
     StockTransaction recordUsage(Location location,
                                  InventoryItem item,
-                                 Double countQty,
-                                 UnitOfMeasure countUom,
+                                 Double qty,
+                                 UnitOfMeasure uom,
                                  Long sourceReferenceId,
                                  LocalDate date);
 
     StockTransaction recordTransferIn(Location location,
                                       InventoryItem item,
-                                      Double countQty,
-                                      UnitOfMeasure countUom,
+                                      Double qty,
+                                      UnitOfMeasure uom,
                                       Long sourceReferenceId,
                                       LocalDate date);
 
     StockTransaction recordTransferOut(Location location,
                                        InventoryItem item,
-                                       Double countQty,
-                                       UnitOfMeasure countUom,
+                                       Double qty,
+                                       UnitOfMeasure uom,
                                        Long sourceReferenceId,
                                        LocalDate date);
 
     StockTransaction recordAdjustment(Location location,
                                       InventoryItem item,
-                                      Double countQty,
-                                      UnitOfMeasure countUom,
+                                      Double qty,
+                                      UnitOfMeasure uom,
                                       Long sourceReferenceId,
                                       LocalDate date);
 
@@ -50,6 +64,9 @@ public interface StockTransactionService {
     // -------------------------------------------------------------------------
     // SUBRECIPE-based
     // -------------------------------------------------------------------------
+    // ---------------------------------------------------------
+    // SUBRECIPE-based (if you want them)
+    // ---------------------------------------------------------
     StockTransaction recordPurchase(Location location,
                                     SubRecipe sub,
                                     Double countQty,
@@ -84,6 +101,7 @@ public interface StockTransactionService {
                                       UnitOfMeasure countUom,
                                       Long sourceReferenceId,
                                       LocalDate date);
+
 
     // -------------------------------------------------------------------------
     // OTHER LEDGER QUERIES

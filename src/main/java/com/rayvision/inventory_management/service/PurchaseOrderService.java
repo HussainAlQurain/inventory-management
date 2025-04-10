@@ -10,7 +10,7 @@ import java.util.List;
 public interface PurchaseOrderService {
     Orders createOrder(Long companyId, OrderCreateDTO dto);
     Orders sendOrder(Long orderId, String comments);
-    Orders receiveOrder(Long orderId, List<ReceiveLineDTO> lines);
+    Orders receiveOrder(Long orderId, List<ReceiveLineDTO> lines, boolean updateOptionPrice);
     Orders receiveWithoutOrder(Long companyId, NoOrderInvoiceDTO dto);
     List<Orders> fillToPar(Long locationId, Long userId);
     // or partialReceive

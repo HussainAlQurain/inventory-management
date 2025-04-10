@@ -28,4 +28,6 @@ public interface InventoryItemLocationService {
     void patchThresholds(Long itemId, Long locationId, Double minOnHand, Double parLevel);
 
     Optional<InventoryItemLocation> findByInventoryItemIdAndLocationId(Long itemId, Long locationId);
+
+    void incrementOnHand(Long itemId, Long locationId, double deltaQty);
 }

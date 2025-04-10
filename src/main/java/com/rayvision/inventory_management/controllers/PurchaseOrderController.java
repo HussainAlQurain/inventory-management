@@ -20,42 +20,79 @@ public class PurchaseOrderController {
         this.purchaseOrderService = purchaseOrderService;
     }
 
+    // ----------------------------------------------------------------
+    // 1) Create Order (POST)
+    //    Request: OrderCreateDTO
+    //    Response: OrderResponseDTO
+    // ----------------------------------------------------------------
     @PostMapping
     public ResponseEntity<OrderResponseDTO> createOrder(@PathVariable Long companyId,
                                                         @RequestBody OrderCreateDTO dto) {
         Orders created = purchaseOrderService.createOrder(companyId, dto);
-
-        // Convert to a DTO
         OrderResponseDTO resultDto = toOrderResponseDTO(created);
-
         return new ResponseEntity<>(resultDto, HttpStatus.CREATED);
     }
 
-    // Similarly for sendOrder, receiveOrder, etc.
-    // e.g.:
+    // ----------------------------------------------------------------
+    // 2) Send Order (PATCH /{orderId}/send)
+    //    Optional query param "comments"
+    //    Return the updated OrderResponseDTO
+    // ----------------------------------------------------------------
     @PatchMapping("/{orderId}/send")
-    public ResponseEntity<OrderResponseDTO> sendOrder(
-            @PathVariable Long companyId,
-            @PathVariable Long orderId,
-            @RequestParam(required=false) String comments) {
+    public ResponseEntity<OrderResponseDTO> sendOrder(@PathVariable Long companyId,
+                                                      @PathVariable Long orderId,
+                                                      @RequestParam(required = false) String comments) {
         Orders updated = purchaseOrderService.sendOrder(orderId, comments);
         return ResponseEntity.ok(toOrderResponseDTO(updated));
     }
 
+    // ----------------------------------------------------------------
+    // 3) Receive Order (PATCH /{orderId}/receive)
+    //    Body: List<ReceiveLineDTO> => partial or full receiving lines
+    //    Query param: updateOptionPrice? (true/false)
+    // ----------------------------------------------------------------
     @PatchMapping("/{orderId}/receive")
-    public ResponseEntity<OrderResponseDTO> receiveOrder(
-            @PathVariable Long companyId,
-            @PathVariable Long orderId,
-            @RequestBody List<ReceiveLineDTO> lines) {
-        Orders updated = purchaseOrderService.receiveOrder(orderId, lines);
+    public ResponseEntity<OrderResponseDTO> receiveOrder(@PathVariable Long companyId,
+                                                         @PathVariable Long orderId,
+                                                         @RequestBody List<ReceiveLineDTO> lines,
+                                                         @RequestParam(defaultValue = "false") boolean updateOptionPrice) {
+        // Let the service handle the updateOptionPrice logic
+        Orders updated = purchaseOrderService.receiveOrder(orderId, lines, updateOptionPrice);
         return ResponseEntity.ok(toOrderResponseDTO(updated));
     }
 
-    // etc.
+    // ----------------------------------------------------------------
+    // 4) No-Order Invoice (POST /no-order-invoice)
+    //    Body: NoOrderInvoiceDTO
+    // ----------------------------------------------------------------
+    @PostMapping("/no-order-invoice")
+    public ResponseEntity<OrderResponseDTO> receiveWithoutOrder(@PathVariable Long companyId,
+                                                                @RequestBody NoOrderInvoiceDTO dto) {
+        Orders result = purchaseOrderService.receiveWithoutOrder(companyId, dto);
+        return new ResponseEntity<>(toOrderResponseDTO(result), HttpStatus.CREATED);
+    }
 
-    // ---------------------
-    // MAPPER / converter
-    // ---------------------
+    // ----------------------------------------------------------------
+    // 5) Fill to PAR (POST /fill-to-par?locationId=xxx&userId=yyy)
+    //    Return a list of newly created DRAFT orders
+    // ----------------------------------------------------------------
+    @PostMapping("/fill-to-par")
+    public ResponseEntity<List<OrderResponseDTO>> fillToPar(@PathVariable Long companyId,
+                                                            @RequestParam Long locationId,
+                                                            @RequestParam Long userId) {
+        List<Orders> createdDrafts = purchaseOrderService.fillToPar(locationId, userId);
+
+        // convert each to DTO
+        List<OrderResponseDTO> result = new ArrayList<>();
+        for (Orders o : createdDrafts) {
+            result.add(toOrderResponseDTO(o));
+        }
+        return ResponseEntity.ok(result);
+    }
+
+    // ----------------------------------------------------------------
+    // Internal Mapper from Orders -> OrderResponseDTO
+    // ----------------------------------------------------------------
     private OrderResponseDTO toOrderResponseDTO(Orders order) {
         if (order == null) {
             return null;
@@ -78,7 +115,7 @@ public class PurchaseOrderController {
             dto.setSupplierName(order.getSentToSupplier().getName());
         }
 
-        // lines
+        // Build line DTOs
         List<OrderItemResponseDTO> lineDtos = new ArrayList<>();
         if (order.getOrderItems() != null) {
             for (OrderItem oi : order.getOrderItems()) {
@@ -92,7 +129,6 @@ public class PurchaseOrderController {
                 lidto.setPrice(oi.getPrice());
                 lidto.setTotal(oi.getTotal());
 
-                // UOM name:
                 if (oi.getUnitOfOrdering() != null) {
                     lidto.setUomName(oi.getUnitOfOrdering().getName());
                 }

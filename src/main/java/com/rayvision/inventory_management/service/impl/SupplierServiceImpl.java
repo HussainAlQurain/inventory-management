@@ -128,4 +128,8 @@ public class SupplierServiceImpl implements SupplierService {
         return supplierRepository.findByCompanyIdAndNameContaining(companyId, searchTerm);
     }
 
+    public Optional<Supplier> findByCompanyIdAndId(Long companyId, Long id) {
+        return supplierRepository.findByCompanyIdAndId(companyId, id);
+    }
+
 }

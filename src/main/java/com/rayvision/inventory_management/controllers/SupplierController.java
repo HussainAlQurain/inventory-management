@@ -19,8 +19,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 @RestController
 @RequestMapping("/suppliers")
@@ -119,25 +118,44 @@ public class SupplierController {
             @PathVariable Long id,
             @PathVariable Long companyId,
             @Valid @RequestBody SupplierPartialUpdateDTO patchDto) {
-        // Build a minimal Supplier entity with the ID
-        Supplier patchEntity = new Supplier();
-        patchEntity.setId(id);
-        if (patchDto.getName() != null) patchEntity.setName(patchDto.getName());
-        if (patchDto.getCustomerNumber() != null) patchEntity.setCustomerNumber(patchDto.getCustomerNumber());
-        if (patchDto.getMinimumOrder() != null) patchEntity.setMinimumOrder(patchDto.getMinimumOrder());
-        if (patchDto.getTaxId() != null) patchEntity.setTaxId(patchDto.getTaxId());
-        if (patchDto.getTaxRate() != null) patchEntity.setTaxRate(patchDto.getTaxRate());
-        if (patchDto.getPaymentTerms() != null) patchEntity.setPaymentTerms(patchDto.getPaymentTerms());
-        if (patchDto.getComments() != null) patchEntity.setComments(patchDto.getComments());
-        if (patchDto.getAddress() != null) patchEntity.setAddress(patchDto.getAddress());
-        if (patchDto.getCity() != null) patchEntity.setCity(patchDto.getCity());
-        if (patchDto.getState() != null) patchEntity.setState(patchDto.getState());
-        if (patchDto.getZip() != null) patchEntity.setZip(patchDto.getZip());
-        if (patchDto.getCcEmails() != null) patchEntity.setCcEmails(patchDto.getCcEmails());
 
-        Supplier updated = supplierService.partialUpdate(companyId, patchEntity);
+        // 1) find existing from DB
+        Supplier existing = supplierService.findByCompanyIdAndId(companyId, id).orElseThrow(() -> new ResourceNotFoundException("Supplier with id " + id + " not found"));
+        // or something like: supplierService.getSupplier(companyId, id)
+
+        // 2) update top-level fields
+        if (patchDto.getName() != null) existing.setName(patchDto.getName());
+        if (patchDto.getCustomerNumber() != null) existing.setCustomerNumber(patchDto.getCustomerNumber());
+        if (patchDto.getMinimumOrder() != null) existing.setMinimumOrder(patchDto.getMinimumOrder());
+        if (patchDto.getTaxId() != null) existing.setTaxId(patchDto.getTaxId());
+        if (patchDto.getTaxRate() != null) existing.setTaxRate(patchDto.getTaxRate());
+        if (patchDto.getPaymentTerms() != null) existing.setPaymentTerms(patchDto.getPaymentTerms());
+        if (patchDto.getComments() != null) existing.setComments(patchDto.getComments());
+        if (patchDto.getAddress() != null) existing.setAddress(patchDto.getAddress());
+        if (patchDto.getCity() != null) existing.setCity(patchDto.getCity());
+        if (patchDto.getState() != null) existing.setState(patchDto.getState());
+        if (patchDto.getZip() != null) existing.setZip(patchDto.getZip());
+        if (patchDto.getCcEmails() != null) existing.setCcEmails(patchDto.getCcEmails());
+        // etc.
+
+        // 3) Merge emails if they are provided
+        if (patchDto.getEmails() != null) {
+            // the user is passing an array of e.g. SupplierEmailDTO with some ID or null
+            mergeSupplierEmails(existing, patchDto.getEmails());
+        }
+
+        // 4) Merge phones if they are provided
+        if (patchDto.getPhones() != null) {
+            mergeSupplierPhones(existing, patchDto.getPhones());
+        }
+
+        // 5) Now we pass the updated entity to the service to save
+        Supplier updated = supplierService.partialUpdate(companyId, existing);
+
+        // 6) Convert to response
         SupplierResponseDTO resp = supplierMapper.toSupplierResponseDTO(updated);
         return ResponseEntity.ok(resp);
+
     }
 
     // 5) DELETE Supplier
@@ -276,4 +294,99 @@ public class SupplierController {
         supplierPhoneService.deletePhone(companyId, supplierId, phoneId);
         return ResponseEntity.noContent().build();
     }
+
+    private void mergeSupplierEmails(Supplier existing, List<SupplierEmailDTO> newEmails) {
+        // 1) map existing set by ID
+        Map<Long, SupplierEmail> existingMap = new HashMap<>();
+        for (SupplierEmail e : existing.getOrderEmails()) {
+            existingMap.put(e.getId(), e);
+        }
+
+        // 2) build a new set that will replace the old set
+        Set<SupplierEmail> mergedSet = new HashSet<>();
+
+        for (SupplierEmailDTO dto : newEmails) {
+            // if dto.id != null => see if we have an existing
+            if (dto.getId() != null && existingMap.containsKey(dto.getId())) {
+                // update the existing record
+                SupplierEmail existingEmail = existingMap.get(dto.getId());
+                existingEmail.setEmail(dto.getEmail());
+                existingEmail.setDefault(dto.isDefault());
+                if (dto.getLocationId() != null) {
+                    // find or set the location object
+                    Location loc = locationService.findOne(dto.getLocationId())
+                            .orElseThrow(() -> new RuntimeException("Location not found " + dto.getLocationId()));
+                    existingEmail.setLocation(loc);
+                } else {
+                    existingEmail.setLocation(null);
+                }
+                mergedSet.add(existingEmail);
+            } else {
+                // create a new SupplierEmail
+                SupplierEmail newEmail = new SupplierEmail();
+                newEmail.setEmail(dto.getEmail());
+                newEmail.setDefault(dto.isDefault());
+                newEmail.setSupplier(existing);   // link back
+                if (dto.getLocationId() != null) {
+                    Location loc = locationService.findOne(dto.getLocationId())
+                            .orElseThrow(() -> new RuntimeException("Location not found " + dto.getLocationId()));
+                    newEmail.setLocation(loc);
+                }
+                mergedSet.add(newEmail);
+            }
+        }
+
+        // 3) set the new set on the supplier
+        // if you want to remove old emails that were not provided,
+        // this approach effectively does that by building a new set
+        existing.getOrderEmails().clear();
+        existing.getOrderEmails().addAll(mergedSet);
+    }
+
+    private void mergeSupplierPhones(Supplier existing, List<SupplierPhoneDTO> newPhones) {
+        // 1) Map existing phone records by ID
+        Map<Long, SupplierPhone> existingMap = new HashMap<>();
+        for (SupplierPhone p : existing.getOrderPhones()) {
+            existingMap.put(p.getId(), p);
+        }
+
+        // 2) Build a new set that will replace the old set
+        Set<SupplierPhone> mergedSet = new HashSet<>();
+
+        for (SupplierPhoneDTO dto : newPhones) {
+            // If the user-provided DTO has an ID that matches an existing phone, we update
+            if (dto.getId() != null && existingMap.containsKey(dto.getId())) {
+                SupplierPhone existingPhone = existingMap.get(dto.getId());
+                // update fields
+                existingPhone.setPhoneNumber(dto.getPhoneNumber());
+                existingPhone.setDefault(dto.isDefault());
+                if (dto.getLocationId() != null) {
+                    Location loc = locationService.findOne(dto.getLocationId())
+                            .orElseThrow(() -> new RuntimeException("Location not found: " + dto.getLocationId()));
+                    existingPhone.setLocation(loc);
+                } else {
+                    existingPhone.setLocation(null);
+                }
+                mergedSet.add(existingPhone);
+
+            } else {
+                // Create a brand-new phone
+                SupplierPhone newPhone = new SupplierPhone();
+                newPhone.setPhoneNumber(dto.getPhoneNumber());
+                newPhone.setDefault(dto.isDefault());
+                newPhone.setSupplier(existing);  // link to the same Supplier
+                if (dto.getLocationId() != null) {
+                    Location loc = locationService.findOne(dto.getLocationId())
+                            .orElseThrow(() -> new RuntimeException("Location not found: " + dto.getLocationId()));
+                    newPhone.setLocation(loc);
+                }
+                mergedSet.add(newPhone);
+            }
+        }
+
+        // 3) Clear the old set, then add the merged set
+        existing.getOrderPhones().clear();
+        existing.getOrderPhones().addAll(mergedSet);
+    }
+
 }

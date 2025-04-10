@@ -1,12 +1,18 @@
 package com.rayvision.inventory_management.service;
 
 import com.rayvision.inventory_management.model.Orders;
+import com.rayvision.inventory_management.model.dto.NoOrderInvoiceDTO;
 import com.rayvision.inventory_management.model.dto.OrderCreateDTO;
+import com.rayvision.inventory_management.model.dto.ReceiveLineDTO;
+
+import java.util.List;
 
 public interface PurchaseOrderService {
     Orders createOrder(Long companyId, OrderCreateDTO dto);
     Orders sendOrder(Long orderId, String comments);
-    Orders receiveOrder(Long orderId);  // fully receive
+    Orders receiveOrder(Long orderId, List<ReceiveLineDTO> lines);
+    Orders receiveWithoutOrder(Long companyId, NoOrderInvoiceDTO dto);
+    List<Orders> fillToPar(Long locationId, Long userId);
     // or partialReceive
     // maybe more methods as needed
 

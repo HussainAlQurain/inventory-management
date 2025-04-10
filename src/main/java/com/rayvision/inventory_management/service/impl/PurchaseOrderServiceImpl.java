@@ -68,6 +68,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         Orders order = new Orders();
         order.setCompany(buyerLocation.getCompany());
         order.setBuyerLocation(buyerLocation);
+        order.setSentByLocation(buyerLocation);
         order.setSentToSupplier(supplier);
         order.setCreatedByUser(user);
         order.setCreationDate(LocalDateTime.now());

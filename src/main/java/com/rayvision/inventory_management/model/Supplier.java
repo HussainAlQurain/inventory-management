@@ -18,6 +18,7 @@ public class Supplier {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Id
     private Long id;
+    //@Column(unique = true) need to ensure unique supplier name to differentiate between them.
     private String name;
 
     private String customerNumber;

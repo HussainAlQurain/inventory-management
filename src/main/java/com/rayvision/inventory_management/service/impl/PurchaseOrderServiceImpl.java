@@ -27,6 +27,8 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
     private final UnitOfMeasureRepository uomRepository;
     private final StockTransactionService stockTransactionService;
     private final EmailSenderService emailSenderService;
+    private final AssortmentLocationRepository assortmentLocationRepository;
+    private final InventoryItemLocationRepository inventoryItemLocationRepository;
 
     public PurchaseOrderServiceImpl(
             OrderRepository ordersRepository,
@@ -36,7 +38,9 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
             InventoryItemRepository inventoryItemRepository,
             UnitOfMeasureRepository uomRepository,
             StockTransactionService stockTransactionService,
-            EmailSenderService emailSenderService
+            EmailSenderService emailSenderService,
+            AssortmentLocationRepository assortmentLocationRepository,
+            InventoryItemLocationRepository inventoryItemLocationRepository
     ) {
         this.ordersRepository = ordersRepository;
         this.locationRepository = locationRepository;
@@ -46,6 +50,8 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         this.uomRepository = uomRepository;
         this.stockTransactionService = stockTransactionService;
         this.emailSenderService = emailSenderService;
+        this.assortmentLocationRepository = assortmentLocationRepository;
+        this.inventoryItemLocationRepository = inventoryItemLocationRepository;
     }
 
     // -------------------------------------------------------------
@@ -373,57 +379,93 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
     // -------------------------------------------------------------
     // 5) "FILL TO PAR" (auto-creating DRAFT Orders)
     // -------------------------------------------------------------
-    @Override
     public List<Orders> fillToPar(Long locationId, Long userId) {
         Location location = locationRepository.findById(locationId)
                 .orElseThrow(() -> new RuntimeException("Location not found: " + locationId));
         Users user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found: " + userId));
 
-        // 1) find all bridging rows for that location (with parLevel, onHand, etc.)
-        // In real code, you do:
-        //   List<InventoryItemLocation> bridgingList = inventoryItemLocationRepository.findByLocationId(locationId);
-        List<InventoryItemLocation> bridgingList = new ArrayList<>(); // placeholder
+        Long companyId = location.getCompany().getId();
 
-        // 2) We’ll group lines by the actual Supplier from each item’s “main” PurchaseOption
-        //    That way we create a separate DRAFT order for each distinct supplier.
-        Map<Supplier, List<OrderItem>> supplierToLines = new HashMap<>();
+        // ---------------------------------------------------------
+        // 1) Figure out which items are in scope for this location
+        //    using the "assortmentLocation" bridging
+        // ---------------------------------------------------------
+        List<AssortmentLocation> bridgingAssortments = assortmentLocationRepository.findByLocationId(locationId);
 
+        Set<InventoryItem> unionItems = new HashSet<>();
+        if (bridgingAssortments.isEmpty()) {
+            // fallback to ALL items in the company
+            unionItems.addAll(inventoryItemRepository.findByCompanyId(companyId));
+        } else {
+            // gather items from each assortment
+            for (AssortmentLocation al : bridgingAssortments) {
+                unionItems.addAll(al.getAssortment().getInventoryItems());
+            }
+        }
+
+        // ---------------------------------------------------------
+        // 2) Retrieve or create InventoryItemLocation bridging rows
+        //    to get parLevel & onHand for each item
+        // ---------------------------------------------------------
+        // We'll fetch all bridging rows in one pass from the DB
+        List<InventoryItemLocation> bridgingList = inventoryItemLocationRepository.findByLocationId(locationId);
+
+        // Convert bridgingList to a map: itemId -> bridging row
+        Map<Long, InventoryItemLocation> iilMap = new HashMap<>();
         for (InventoryItemLocation bil : bridgingList) {
-            double par = (bil.getParLevel() != null) ? bil.getParLevel() : 0.0;
-            if (par <= 0) continue;
+            iilMap.put(bil.getInventoryItem().getId(), bil);
+        }
 
-            // OnHand (or call stockTransactionService.calcTheoreticalOnHand).
-            double onHand = (bil.getOnHand() != null) ? bil.getOnHand() : 0.0;
+        // We'll store (supplier -> list of OrderItem) in a map
+        Map<Supplier, List<OrderItem>> supplierToOrderLines = new HashMap<>();
 
+        // ---------------------------------------------------------
+        // 3) For each item in unionItems, find bridging row (if any),
+        //    read parLevel & onHand, compute shortage
+        // ---------------------------------------------------------
+        for (InventoryItem item : unionItems) {
+            InventoryItemLocation bil = iilMap.get(item.getId());
+            if (bil == null) {
+                // If there's no bridging row, we can either:
+                // A) skip it
+                // B) create a default bridging with par=0 => skip
+                // For now, we skip if no bridging row is found,
+                // or define par=0, onHand=0
+                continue;
+            }
+
+            double par     = (bil.getParLevel() != null) ? bil.getParLevel() : 0.0;
+            double onHand  = (bil.getOnHand()   != null) ? bil.getOnHand()   : 0.0;
             double shortage = par - onHand;
-            if (shortage <= 0) continue; // no ordering needed
 
-            InventoryItem item = bil.getInventoryItem();
+            if (shortage <= 0) {
+                // no ordering needed
+                continue;
+            }
 
-            // 2a) Find the item’s “main or fallback” PurchaseOption
+            // We must pick a PurchaseOption from the item that is "main or fallback"
             PurchaseOption chosenPO = pickMainOrFallbackPurchaseOption(item);
             if (chosenPO == null) {
-                // If an item truly has no purchase options, skip or throw.
-                // Or we can’t know which supplier to use.
+                // can't place an order without a known supplier
                 continue;
             }
 
             Supplier sup = chosenPO.getSupplier();
             if (sup == null) {
-                // If the PO doesn’t have a supplier, skip or throw
+                // still can't place an order
                 continue;
             }
 
-            // 2b) Price from the PO, fallback 0
+            // Price from the PO, fallback 0
             Double price = (chosenPO.getPrice() != null) ? chosenPO.getPrice() : 0.0;
 
-            // 2c) Ordering UOM from the PO, fallback to item’s base
+            // Ordering UOM from the PO, fallback to item’s base
             UnitOfMeasure uom = (chosenPO.getOrderingUom() != null)
                     ? chosenPO.getOrderingUom()
                     : item.getInventoryUom();
 
-            // 3) Build an OrderItem
+            // Build an OrderItem
             OrderItem oi = new OrderItem();
             oi.setInventoryItem(item);
             oi.setQuantity(shortage);
@@ -432,20 +474,23 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
             oi.setExtendedQuantity(shortage);
             oi.setUnitOfOrdering(uom);
 
-            // 4) group by the supplier
-            supplierToLines.computeIfAbsent(sup, key -> new ArrayList<>()).add(oi);
+            // group by the supplier
+            supplierToOrderLines.computeIfAbsent(sup, key -> new ArrayList<>()).add(oi);
         }
 
-        // 5) For each supplier => create a DRAFT order with the lines
+        // ---------------------------------------------------------
+        // 4) Build one DRAFT order per Supplier
+        // ---------------------------------------------------------
         List<Orders> newDrafts = new ArrayList<>();
-        for (Map.Entry<Supplier, List<OrderItem>> e : supplierToLines.entrySet()) {
+        for (Map.Entry<Supplier, List<OrderItem>> e : supplierToOrderLines.entrySet()) {
             Supplier sup = e.getKey();
-            List<OrderItem> items = e.getValue();
-            if (items.isEmpty()) continue;
+            List<OrderItem> lines = e.getValue();
+            if (lines.isEmpty()) continue;
 
             Orders draft = new Orders();
             draft.setCompany(location.getCompany());
             draft.setBuyerLocation(location);
+            draft.setSentByLocation(location); // if needed
             draft.setSentToSupplier(sup);
             draft.setCreatedByUser(user);
             draft.setCreationDate(LocalDateTime.now());
@@ -453,10 +498,10 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
             draft.setOrderNumber("PO-" + System.currentTimeMillis());
 
             // link lines
-            for (OrderItem oi : items) {
+            for (OrderItem oi : lines) {
                 oi.setOrders(draft);
             }
-            draft.setOrderItems(items);
+            draft.setOrderItems(lines);
 
             ordersRepository.save(draft);
             newDrafts.add(draft);
@@ -465,22 +510,25 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         return newDrafts;
     }
 
-
+    /**
+     * If you want the same "main or fallback" logic
+     * used in your other code
+     */
     private PurchaseOption pickMainOrFallbackPurchaseOption(InventoryItem item) {
-        // If there are no purchase options, return null (or throw)
         if (item.getPurchaseOptions() == null || item.getPurchaseOptions().isEmpty()) {
             return null;
         }
-        // 1) Try to find the main
+        // find main
         Optional<PurchaseOption> mainOpt = item.getPurchaseOptions().stream()
                 .filter(PurchaseOption::isMainPurchaseOption)
                 .findFirst();
         if (mainOpt.isPresent()) {
             return mainOpt.get();
         }
-        // 2) fallback to the first
+        // else first
         return item.getPurchaseOptions().iterator().next();
     }
+
 
     // -------------------------------------------------------------
     // Utility to fetch order if you want

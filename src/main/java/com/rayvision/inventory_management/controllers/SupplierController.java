@@ -94,6 +94,16 @@ public class SupplierController {
         // A) Map the DTO to a new Supplier
         Supplier newSupplier = supplierMapper.fromSupplierCreateDTO(createDto);
 
+        // Ensure all emails have supplier reference set
+        if (newSupplier.getOrderEmails() != null) {
+            newSupplier.getOrderEmails().forEach(email -> email.setSupplier(newSupplier));
+        }
+
+        // Ensure all phones have supplier reference set
+        if (newSupplier.getOrderPhones() != null) {
+            newSupplier.getOrderPhones().forEach(phone -> phone.setSupplier(newSupplier));
+        }
+
         // B) Call service (which sets the company, fetches defaultCategory if needed, etc.)
         Supplier saved = supplierService.save(companyId, newSupplier);
 

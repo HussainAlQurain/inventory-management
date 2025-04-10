@@ -7,9 +7,9 @@ import org.modelmapper.PropertyMap;
 import org.springframework.stereotype.Component;
 
 @Component
-public class SupplierMapper extends AbstractMapper<Supplier, SupplierDTO> {
+public class SupplierModelMapper extends AbstractMapper<Supplier, SupplierDTO> {
 
-    public SupplierMapper(ModelMapper modelMapper) {
+    public SupplierModelMapper(ModelMapper modelMapper) {
         super(modelMapper);
         // Tell ModelMapper how to map SupplierDTO -> Supplier explicitly
         modelMapper.addMappings(new PropertyMap<SupplierDTO, Supplier>() {

@@ -11,6 +11,7 @@ import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
 
+import javax.xml.transform.Source;
 import java.util.List;
 
 /**
@@ -25,7 +26,10 @@ public interface SupplierMapper {
     @Mapping(target = "defaultCategory", ignore = true)
     @Mapping(target = "authorizedBuyers", ignore = true)
     @Mapping(source = "authorizedBuyerIds", target = "authorizedBuyerIds")
+    @Mapping(source = "emails", target = "orderEmails")
+    @Mapping(source = "phones", target = "orderPhones")
     Supplier fromSupplierCreateDTO(SupplierCreateDTO dto);
+
 
     // 2) Convert entity -> response DTO
     @Mapping(source = "orderEmails", target = "orderEmails")
@@ -40,18 +44,22 @@ public interface SupplierMapper {
     List<SupplierPhone> mapPhoneDTOs(List<SupplierPhoneDTO> dtos);
 
     // 4) Individual email mappings
+    @Mapping(source = "default", target = "isDefault")
     @Mapping(source = "locationId", target = "location")
     @Mapping(target = "supplier", ignore = true)
     SupplierEmail toEntity(SupplierEmailDTO dto);
 
+    @Mapping(source = "default", target = "default")
     @Mapping(source = "location", target = "locationId")
     SupplierEmailDTO toDTO(SupplierEmail entity);
 
     // 5) Individual phone mappings
+    @Mapping(source = "default", target = "isDefault")
     @Mapping(source = "locationId", target = "location")
     @Mapping(target = "supplier", ignore = true)
     SupplierPhone toEntity(SupplierPhoneDTO dto);
 
+    @Mapping(source = "default", target = "default")
     @Mapping(source = "location", target = "locationId")
     SupplierPhoneDTO toDTO(SupplierPhone entity);
 
@@ -75,8 +83,8 @@ public interface SupplierMapper {
     // 8) After mapping logic to set back-references
     @AfterMapping
     default void linkEmailsAndPhones(
-            @MappingTarget Supplier supplier,
-            SupplierCreateDTO dto
+            SupplierCreateDTO dto,
+            @MappingTarget Supplier supplier
     ) {
         if (supplier.getOrderEmails() != null) {
             supplier.getOrderEmails().forEach(e -> e.setSupplier(supplier));

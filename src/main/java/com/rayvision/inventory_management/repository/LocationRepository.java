@@ -24,4 +24,6 @@ public interface LocationRepository extends JpaRepository<Location, Long> {
     """)
     List<Location> findByCompanyIdAndUserId(@Param("companyId") Long companyId,
                                             @Param("userId") Long userId);
+
+    Optional<Location> findByIdAndCompanyId(Long locationId, Long companyId);
 }

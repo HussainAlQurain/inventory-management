@@ -171,6 +171,10 @@ public class LocationServiceImpl implements LocationService {
         else {
             throw new RuntimeException("User doesn't exist");
         }
+    }
 
+    @Override
+    public Optional<Location> findByIdAndCompanyId(Long locationId, Long companyId) {
+        return locationRepository.findByIdAndCompanyId(locationId, companyId);
     }
 }

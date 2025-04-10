@@ -1,12 +1,15 @@
 package com.rayvision.inventory_management.controllers;
 
 
+import com.rayvision.inventory_management.exceptions.ResourceNotFoundException;
 import com.rayvision.inventory_management.mappers.InventoryItemResponseMapper;
 import com.rayvision.inventory_management.mappers.SupplierMapper;
+import com.rayvision.inventory_management.model.Location;
 import com.rayvision.inventory_management.model.Supplier;
 import com.rayvision.inventory_management.model.SupplierEmail;
 import com.rayvision.inventory_management.model.SupplierPhone;
 import com.rayvision.inventory_management.model.dto.*;
+import com.rayvision.inventory_management.service.LocationService;
 import com.rayvision.inventory_management.service.SupplierEmailService;
 import com.rayvision.inventory_management.service.SupplierPhoneService;
 import com.rayvision.inventory_management.service.SupplierService;
@@ -27,18 +30,21 @@ public class SupplierController {
     private final SupplierEmailService supplierEmailService;
     private final SupplierPhoneService supplierPhoneService;
     private final SupplierMapper supplierMapper; // <--- The new dedicated mapper
+    private final LocationService locationService;
 
     @Autowired
     public SupplierController(
             SupplierService supplierService,
             SupplierEmailService supplierEmailService,
             SupplierPhoneService supplierPhoneService,
-            SupplierMapper supplierMapper
+            SupplierMapper supplierMapper,
+            LocationService locationService
     ) {
         this.supplierService = supplierService;
         this.supplierEmailService = supplierEmailService;
         this.supplierPhoneService = supplierPhoneService;
         this.supplierMapper = supplierMapper;
+        this.locationService = locationService;
     }
 
     // 1) GET all Suppliers
@@ -160,6 +166,10 @@ public class SupplierController {
         SupplierEmail email = new SupplierEmail();
         email.setEmail(dto.getEmail());
         email.setDefault(dto.isDefault());
+        if (dto.getLocationId() != null) {
+            Location location = locationService.findByIdAndCompanyId(dto.getLocationId(), companyId).orElseThrow(() -> new ResourceNotFoundException("Location not found"));
+            email.setLocation(location);
+        }
 
         SupplierEmail saved = supplierEmailService.saveEmail(companyId, supplierId, email);
         SupplierEmailResponseDTO resp = supplierMapper.toSupplierEmailResponseDTO(saved);
@@ -220,6 +230,10 @@ public class SupplierController {
         SupplierPhone phone = new SupplierPhone();
         phone.setPhoneNumber(dto.getPhoneNumber());
         phone.setDefault(dto.isDefault());
+        if (dto.getLocationId() != null) {
+            Location location = locationService.findByIdAndCompanyId(dto.getLocationId(), companyId).orElseThrow(() -> new ResourceNotFoundException("Location not found"));
+            phone.setLocation(location);
+        }
 
         SupplierPhone saved = supplierPhoneService.savePhone(companyId, supplierId, phone);
         SupplierPhoneResponseDTO resp = supplierMapper.toSupplierPhoneResponseDTO(saved);

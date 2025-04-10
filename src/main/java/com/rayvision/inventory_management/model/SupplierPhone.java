@@ -21,4 +21,8 @@ public class SupplierPhone {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "supplier_id", nullable = false)
     private Supplier supplier;
+
+    @ManyToOne
+    @JoinColumn(name = "location_id", nullable = true)
+    private Location location;
 }

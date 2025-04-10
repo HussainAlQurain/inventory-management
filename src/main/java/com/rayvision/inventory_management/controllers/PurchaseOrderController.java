@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -33,12 +34,17 @@ public class PurchaseOrderController {
                                                            @RequestParam(required = false) String startDate,
                                                            @RequestParam(required = false) String endDate) {
         // 1) parse or default
-        LocalDate start = (startDate != null)
+        LocalDate startDate2 = (startDate != null)
                 ? LocalDate.parse(startDate)
                 : LocalDate.of(1970, 1, 1);
-        LocalDate end = (endDate != null)
+        LocalDate endDate2 = (endDate != null)
                 ? LocalDate.parse(endDate)
                 : LocalDate.of(3000, 1, 1);
+
+        // Convert them to LocalDateTime:
+        LocalDateTime start = startDate2.atStartOfDay();
+        LocalDateTime end   = endDate2.atTime(23, 59, 59);
+
 
         // 2) fetch from service
         List<Orders> ordersList = purchaseOrderService.findByCompanyAndDateRange(companyId, start, end);

@@ -6,7 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Repository
@@ -17,7 +17,7 @@ public interface OrderRepository extends JpaRepository <Orders, Long> {
             + "AND o.creationDate <= :end "
             + "ORDER BY o.creationDate DESC")
     List<Orders> findByCompanyIdAndDateRange(@Param("companyId") Long companyId,
-                                             @Param("start") LocalDate start,
-                                             @Param("end") LocalDate end);
+                                             @Param("start") LocalDateTime start,
+                                             @Param("end") LocalDateTime end);
 
 }

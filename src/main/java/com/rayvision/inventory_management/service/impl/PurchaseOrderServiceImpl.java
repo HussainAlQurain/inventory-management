@@ -498,7 +498,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
     }
 
     @Override
-    public List<Orders> findByCompanyAndDateRange(Long companyId, LocalDate start, LocalDate end) {
+    public List<Orders> findByCompanyAndDateRange(Long companyId, LocalDateTime start, LocalDateTime end) {
         // you can do a custom query in your repository or something simpler
         return ordersRepository.findByCompanyIdAndDateRange(companyId, start, end);
     }

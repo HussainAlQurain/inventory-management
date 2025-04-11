@@ -90,7 +90,7 @@ public class AutoOrderScheduledService {
     }
 
     @Transactional
-    private void runAutoOrderLogic(AutoOrderSetting setting) {
+    public void runAutoOrderLogic(AutoOrderSetting setting) {
         Location loc = setting.getLocation();
         if (loc == null) {
             System.err.println("DEBUG: Location is null for setting ID: " + setting.getId());
@@ -135,6 +135,10 @@ public class AutoOrderScheduledService {
             iilMap.put(bil.getInventoryItem().getId(), bil);
         }
 
+        // 2.5) Get in-transit quantities from sent orders
+        Map<Long, Double> inTransitMap = purchaseOrderService.calculateInTransitQuantitiesByLocation(loc.getId());
+        System.out.println("DEBUG: Found " + inTransitMap.size() + " items with in-transit quantities");
+
         // 3) For each item in unionItems => compute shortage if par>0
         //    skip if both par & min are zero or null
         //    group by main/fallback purchase option's supplier
@@ -160,7 +164,15 @@ public class AutoOrderScheduledService {
 
             // compute shortage from par - onHand
             double onHand = (bil.getOnHand() != null) ? bil.getOnHand() : 0.0;
-            double shortage = par - onHand;
+            
+            // Account for in-transit quantities (already ordered but not received)
+            double inTransitQty = inTransitMap.getOrDefault(item.getId(), 0.0);
+            
+            // Total expected quantity = current on hand + in transit
+            double effectiveOnHand = onHand + inTransitQty;
+            
+            // Calculate shortage based on effective on-hand (including in-transit)
+            double shortage = par - effectiveOnHand;
             
             if (shortage <= 0) {
                 // no ordering needed
@@ -169,7 +181,8 @@ public class AutoOrderScheduledService {
             
             shortagesFound++;
             System.out.println("DEBUG: Item " + item.getId() + " - " + item.getName() + 
-                " has shortage of " + shortage + " (Par: " + par + ", OnHand: " + onHand + ", Min: " + min + ")");
+                " has shortage of " + shortage + " (Par: " + par + ", OnHand: " + onHand + 
+                ", In-transit: " + inTransitQty + ", Min: " + min + ")");
 
             // 4) pick an enabled purchase option => get supplier
             PurchaseOption po = pickEnabledMainOrFallbackPurchaseOption(item);

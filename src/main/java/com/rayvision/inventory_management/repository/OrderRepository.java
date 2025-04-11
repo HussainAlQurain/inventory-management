@@ -1,5 +1,6 @@
 package com.rayvision.inventory_management.repository;
 
+import com.rayvision.inventory_management.enums.OrderStatus;
 import com.rayvision.inventory_management.model.Orders;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -36,4 +37,9 @@ public interface OrderRepository extends JpaRepository <Orders, Long> {
             + "  AND o.createdByUser.id = 999999999")
     List<Orders> findAllDraftsBySupplierAndLocation(@Param("supplierId") Long supplierId,
                                                     @Param("locationId") Long locationId);
+                                                    
+    /**
+     * Find all orders with a specific status for a given buyer location
+     */
+    List<Orders> findByBuyerLocationIdAndStatus(Long buyerLocationId, OrderStatus status);
 }

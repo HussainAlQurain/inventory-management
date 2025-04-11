@@ -643,4 +643,34 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         // Return the draft without saving if nothing changed
         return draft;
     }
+
+    /**
+     * Calculates the quantity of each item that is currently in transit (ordered but not received)
+     * for a specific location.
+     * 
+     * @param locationId The location ID to check for in-transit items
+     * @return A map of inventory item IDs to their in-transit quantities
+     */
+    @Override
+    public Map<Long, Double> calculateInTransitQuantitiesByLocation(Long locationId) {
+        Map<Long, Double> inTransitMap = new HashMap<>();
+        
+        // Find all SENT orders for the location (orders that are sent but not delivered/completed)
+        List<Orders> sentOrders = ordersRepository.findByBuyerLocationIdAndStatus(locationId, OrderStatus.SENT);
+        
+        // For each sent order, accumulate the quantities by item ID
+        for (Orders order : sentOrders) {
+            for (OrderItem item : order.getOrderItems()) {
+                if (item.getInventoryItem() != null && item.getQuantity() != null) {
+                    Long itemId = item.getInventoryItem().getId();
+                    Double quantity = item.getQuantity();
+                    
+                    // Add to existing quantity or set new quantity
+                    inTransitMap.compute(itemId, (k, v) -> (v == null) ? quantity : v + quantity);
+                }
+            }
+        }
+        
+        return inTransitMap;
+    }
 }

@@ -8,6 +8,7 @@ import com.rayvision.inventory_management.service.impl.AutoOrderScheduledService
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 public interface PurchaseOrderService {
     Orders createOrder(Long companyId, OrderCreateDTO dto);
@@ -25,4 +26,5 @@ public interface PurchaseOrderService {
     Orders findDraftOrderForSupplierAndLocation(Long id, Long id1);
 
     Orders updateDraftOrderWithShortages(Orders draft, List<AutoOrderScheduledService.ShortageLine> lines, String autoOrderComment);
+    Map<Long, Double> calculateInTransitQuantitiesByLocation(Long locationId);
 }

@@ -25,4 +25,6 @@ public interface SaleRepository extends JpaRepository<Sale, Long> {
             @Param("end") LocalDateTime end
     );
 
+    Boolean existsByPosReferenceAndLocationId(String posReference, Long locationId);
+
 }

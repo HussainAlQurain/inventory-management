@@ -10,5 +10,5 @@ public class SaleCreateDTO {
     private Long locationId;          // which location sold the items
     private LocalDateTime saleDateTime;
     private String posReference;      // check number, etc.
-    private List<SaleLineDTO> lines;
+    private List<SaleLineCreateDTO> lines;
 }

@@ -3,6 +3,7 @@ package com.rayvision.inventory_management.service.impl;
 
 import com.rayvision.inventory_management.model.*;
 import com.rayvision.inventory_management.model.dto.SaleCreateDTO;
+import com.rayvision.inventory_management.model.dto.SaleLineCreateDTO;
 import com.rayvision.inventory_management.model.dto.SaleLineDTO;
 import com.rayvision.inventory_management.repository.*;
 import com.rayvision.inventory_management.service.SaleService;
@@ -42,6 +43,13 @@ public class SaleServiceImpl implements SaleService {
 
     @Override
     public Sale createSale(SaleCreateDTO dto) {
+        // 0) Check if (posReference, locationId) already exists
+        if (dto.getPosReference() != null) {
+            if (saleRepository.existsByPosReferenceAndLocationId(dto.getPosReference(), dto.getLocationId())) {
+                return null;
+            }
+        }
+
         // 1) Validate location
         Location location = locationRepository.findById(dto.getLocationId())
                 .orElseThrow(() -> new RuntimeException("Location not found: " + dto.getLocationId()));
@@ -60,7 +68,7 @@ public class SaleServiceImpl implements SaleService {
         // We'll add lines below
         List<SaleLine> saleLines = new ArrayList<>();
 
-        for (SaleLineDTO lineDto : dto.getLines()) {
+        for (SaleLineCreateDTO lineDto : dto.getLines()) {
             // a) find or create the MenuItem
             MenuItem menuItem = findOrCreateMenuItemByPosCode(lineDto.getPosCode(), lineDto.getMenuItemName(), company);
 

@@ -13,6 +13,11 @@ import java.util.List;
 @Getter
 @Setter
 @Builder
+@Table(name = "sale",
+        uniqueConstraints = {
+                @UniqueConstraint(columnNames = {"pos_reference", "location_id"})
+        }
+)
 public class Sale {
 
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -26,6 +31,7 @@ public class Sale {
     private LocalDateTime saleDateTime;
 
     // For integration with the POS, e.g. the check/receipt number
+    @Column(name="pos_reference")
     private String posReference;
 
     // Summaries

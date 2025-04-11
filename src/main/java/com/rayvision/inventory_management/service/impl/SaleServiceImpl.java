@@ -4,10 +4,7 @@ package com.rayvision.inventory_management.service.impl;
 import com.rayvision.inventory_management.model.*;
 import com.rayvision.inventory_management.model.dto.SaleCreateDTO;
 import com.rayvision.inventory_management.model.dto.SaleLineDTO;
-import com.rayvision.inventory_management.repository.CompanyRepository;
-import com.rayvision.inventory_management.repository.LocationRepository;
-import com.rayvision.inventory_management.repository.MenuItemRepository;
-import com.rayvision.inventory_management.repository.SaleRepository;
+import com.rayvision.inventory_management.repository.*;
 import com.rayvision.inventory_management.service.SaleService;
 import com.rayvision.inventory_management.service.StockTransactionService;
 import org.springframework.stereotype.Service;
@@ -28,16 +25,19 @@ public class SaleServiceImpl implements SaleService {
     private final MenuItemRepository menuItemRepository;
     private final StockTransactionService stockTransactionService;
     private final CompanyRepository companyRepository;
+    private final CategoryRepository categoryRepository;
 
     public SaleServiceImpl(SaleRepository saleRepository,
                            LocationRepository locationRepository,
                            MenuItemRepository menuItemRepository,
-                           StockTransactionService stockTransactionService, CompanyRepository companyRepository) {
+                           StockTransactionService stockTransactionService, CompanyRepository companyRepository,
+                           CategoryRepository categoryRepository) {
         this.saleRepository = saleRepository;
         this.locationRepository = locationRepository;
         this.menuItemRepository = menuItemRepository;
         this.stockTransactionService = stockTransactionService;
         this.companyRepository = companyRepository;
+        this.categoryRepository = categoryRepository;
     }
 
     @Override
@@ -202,12 +202,14 @@ public class SaleServiceImpl implements SaleService {
     private MenuItem findOrCreateMenuItemByPosCode(String posCode, String fallbackName, Company company) {
         MenuItem item = menuItemRepository.findByPosCode(posCode).orElse(null);
         if (item == null) {
+            Category anyCat = findAnyCategoryForCompany(company.getId());
             // create a placeholder
             item = new MenuItem();
             item.setName(fallbackName != null ? fallbackName : posCode);
             item.setPosCode(posCode);
             item.setRetailPriceExclTax(0.0); // user can fix later
             item.setCompany(company); // or find a default company if you want
+            item.setCategory(anyCat);
             item = menuItemRepository.save(item);
         }
         return item;
@@ -223,5 +225,13 @@ public class SaleServiceImpl implements SaleService {
         return saleRepository.findById(saleId);
     }
 
+    private Category findAnyCategoryForCompany(Long companyId) {
+        List<Category> categories = categoryRepository.findByCompanyId(companyId);
+
+        if (categories.isEmpty()) {
+            throw new RuntimeException("No categories found for company " + companyId);
+        }
+        return categories.getFirst();
+    }
 
 }

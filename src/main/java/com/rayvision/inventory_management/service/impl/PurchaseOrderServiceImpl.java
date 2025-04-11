@@ -715,12 +715,11 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
                 
                 if (hasValidPurchaseOption) {
                     validItems.add(item);
+                } else {
+                    // Explicitly remove invalid items
+                    order.getOrderItems().remove(item);
                 }
-                // Items without valid purchase options will be dropped
             }
-            
-            // Replace the order items list with only valid items
-            order.setOrderItems(validItems);
         }
         
         // Process item updates
@@ -751,13 +750,20 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
             }
         }
         
-        // Process item deletions
+        // Process item deletions - proper JPA way to delete items from a collection with orphanRemoval
         if (dto.getDeletedItemIds() != null && !dto.getDeletedItemIds().isEmpty()) {
-            order.setOrderItems(
-                order.getOrderItems().stream()
-                    .filter(item -> !dto.getDeletedItemIds().contains(item.getId()))
-                    .collect(Collectors.toList())
-            );
+            // Iterate through a copy of the list to avoid ConcurrentModificationException
+            List<OrderItem> itemsToRemove = new ArrayList<>();
+            for (OrderItem item : order.getOrderItems()) {
+                if (dto.getDeletedItemIds().contains(item.getId())) {
+                    itemsToRemove.add(item);
+                }
+            }
+            
+            // Now remove each item from the original list
+            for (OrderItem itemToRemove : itemsToRemove) {
+                order.getOrderItems().remove(itemToRemove);
+            }
         }
         
         // Process new items to add

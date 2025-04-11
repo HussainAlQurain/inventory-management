@@ -182,9 +182,12 @@ public class PurchaseOrderController {
     // Update a draft purchase order (only works for DRAFT status)
     // ----------------------------------------------------------------
     @PatchMapping("/{orderId}")
-    public ResponseEntity<Orders> updateDraftOrder(@PathVariable Long orderId, @RequestBody OrderUpdateDTO dto) {
+    public ResponseEntity<OrderResponseDTO> updateDraftOrder(
+            @PathVariable Long companyId,
+            @PathVariable Long orderId, 
+            @RequestBody OrderUpdateDTO dto) {
         Orders updated = purchaseOrderService.updateDraftOrder(orderId, dto);
-        return ResponseEntity.ok(updated);
+        return ResponseEntity.ok(toOrderResponseDTO(updated));
     }
 
     // ----------------------------------------------------------------

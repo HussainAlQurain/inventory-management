@@ -257,6 +257,7 @@ public class AutoOrderScheduledService {
                     Orders createdDraft = purchaseOrderService.createOrder(loc.getCompany().getId(), dto);
                     System.out.println("DEBUG: Successfully created draft order with ID: " + createdDraft.getId());
 
+                    // Show notification for newly created orders
                     notificationService.createNotification(
                             companyId,
                             "Auto-Order Created",
@@ -267,29 +268,47 @@ public class AutoOrderScheduledService {
                 } catch (Exception ex) {
                     System.err.println("ERROR creating draft order: " + ex.getMessage());
                     ex.printStackTrace();
+                    
+                    // Show notification for errors
+                    notificationService.createNotification(
+                            companyId,
+                            "Auto-Order Error",
+                            "Failed to create draft order for supplier '" + sup.getName() 
+                                    + "', location '" + loc.getName() 
+                                    + "'. Error: " + ex.getMessage()
+                    );
                 }
             } else {
                 // update lines
                 System.out.println("DEBUG: Updating existing draft order ID: " + draft.getId());
                 try {
-                    purchaseOrderService.updateDraftOrderWithShortages(draft, lines, setting.getAutoOrderComment());
+                    Orders updatedDraft = purchaseOrderService.updateDraftOrderWithShortages(draft, lines, setting.getAutoOrderComment());
                     System.out.println("DEBUG: Successfully updated draft order");
-
-                    notificationService.createNotification(
-                            companyId,
-                            "Auto-Order Updated",
-                            "Updated draft PO (ID=" + draft.getId()
-                                    + ") for supplier '" + sup.getName()
-                                    + "', location '" + loc.getName() + "'"
-                    );
+                    
+                    // Don't show notification for routine updates
+                    // Only show notification if there was an actual change
+                    if (updatedDraft != draft) {
+                        System.out.println("DEBUG: Order was updated with changes");
+                    } else {
+                        System.out.println("DEBUG: No changes were made to the order");
+                    }
                 } catch (Exception ex) {
                     System.err.println("ERROR updating draft order: " + ex.getMessage());
                     ex.printStackTrace();
+                    
+                    // Show notification for errors
+                    notificationService.createNotification(
+                            companyId,
+                            "Auto-Order Error",
+                            "Failed to update draft order (ID=" + draft.getId() 
+                                    + ") for supplier '" + sup.getName() 
+                                    + "', location '" + loc.getName() 
+                                    + "'. Error: " + ex.getMessage()
+                    );
                 }
             }
         }
     }
-
 
     private PurchaseOption pickMainOrFallbackPurchaseOption(InventoryItem item) {
         if (item.getPurchaseOptions() == null || item.getPurchaseOptions().isEmpty()) return null;
@@ -324,7 +343,6 @@ public class AutoOrderScheduledService {
         // else the first enabled
         return enabledOptions.get(0);
     }
-
 
     // We'll define a small record for shortage lines
     public record ShortageLine(Long itemId, double shortageQty, Double price, String itemName) {}

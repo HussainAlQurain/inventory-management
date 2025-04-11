@@ -1,9 +1,12 @@
 package com.rayvision.inventory_management.controllers;
 
+import com.rayvision.inventory_management.model.InventoryItem;
 import com.rayvision.inventory_management.model.OrderItem;
 import com.rayvision.inventory_management.model.Orders;
 import com.rayvision.inventory_management.model.dto.*;
 import com.rayvision.inventory_management.service.PurchaseOrderService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -12,12 +15,14 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/companies/{companyId}/purchase-orders")
 public class PurchaseOrderController {
     private final PurchaseOrderService purchaseOrderService;
 
+    @Autowired
     public PurchaseOrderController(PurchaseOrderService purchaseOrderService) {
         this.purchaseOrderService = purchaseOrderService;
     }
@@ -171,6 +176,35 @@ public class PurchaseOrderController {
             result.add(toOrderResponseDTO(o));
         }
         return ResponseEntity.ok(result);
+    }
+
+    // ----------------------------------------------------------------
+    // Update a draft purchase order (only works for DRAFT status)
+    // ----------------------------------------------------------------
+    @PatchMapping("/{orderId}")
+    public ResponseEntity<Orders> updateDraftOrder(@PathVariable Long orderId, @RequestBody OrderUpdateDTO dto) {
+        Orders updated = purchaseOrderService.updateDraftOrder(orderId, dto);
+        return ResponseEntity.ok(updated);
+    }
+
+    // ----------------------------------------------------------------
+    // Delete a draft purchase order (only works for DRAFT status)
+    // ----------------------------------------------------------------
+    @DeleteMapping("/{orderId}")
+    public ResponseEntity<Void> deleteDraftOrder(@PathVariable Long orderId) {
+        purchaseOrderService.deleteDraftOrder(orderId);
+        return ResponseEntity.noContent().build();
+    }
+
+    // ----------------------------------------------------------------
+    // Get inventory items available for ordering from a specific supplier and location
+    // ----------------------------------------------------------------
+    @GetMapping("/available-items")
+    public ResponseEntity<List<InventoryItemResponseDTO>> getAvailableInventoryItems(
+            @RequestParam Long supplierId,
+            @RequestParam Long locationId) {
+        List<InventoryItemResponseDTO> items = purchaseOrderService.getInventoryItemsBySupplierAndLocation(supplierId, locationId);
+        return ResponseEntity.ok(items);
     }
 
     // ----------------------------------------------------------------

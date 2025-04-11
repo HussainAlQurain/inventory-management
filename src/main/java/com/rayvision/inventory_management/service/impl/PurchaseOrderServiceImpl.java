@@ -2,6 +2,7 @@ package com.rayvision.inventory_management.service.impl;
 
 import com.rayvision.inventory_management.enums.OrderStatus;
 import com.rayvision.inventory_management.exceptions.ResourceNotFoundException;
+import com.rayvision.inventory_management.mappers.InventoryItemResponseMapper;
 import com.rayvision.inventory_management.model.*;
 import com.rayvision.inventory_management.model.dto.*;
 import com.rayvision.inventory_management.repository.*;
@@ -13,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -27,6 +29,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
     private final EmailSenderService emailSenderService;
     private final AssortmentLocationRepository assortmentLocationRepository;
     private final InventoryItemLocationRepository inventoryItemLocationRepository;
+    private final InventoryItemResponseMapper inventoryItemResponseMapper;
 
     public PurchaseOrderServiceImpl(
             OrderRepository ordersRepository,
@@ -38,7 +41,8 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
             StockTransactionService stockTransactionService,
             EmailSenderService emailSenderService,
             AssortmentLocationRepository assortmentLocationRepository,
-            InventoryItemLocationRepository inventoryItemLocationRepository
+            InventoryItemLocationRepository inventoryItemLocationRepository,
+            InventoryItemResponseMapper inventoryItemResponseMapper
     ) {
         this.ordersRepository = ordersRepository;
         this.locationRepository = locationRepository;
@@ -50,6 +54,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         this.emailSenderService = emailSenderService;
         this.assortmentLocationRepository = assortmentLocationRepository;
         this.inventoryItemLocationRepository = inventoryItemLocationRepository;
+        this.inventoryItemResponseMapper = inventoryItemResponseMapper;
     }
 
     // -------------------------------------------------------------
@@ -672,5 +677,204 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         }
         
         return inTransitMap;
+    }
+
+    // -------------------------------------------------------------
+    // 6) UPDATE DRAFT ORDER (add/edit/delete lines, change comments)
+    // -------------------------------------------------------------
+    @Override
+    @Transactional
+    public Orders updateDraftOrder(Long orderId, OrderUpdateDTO dto) {
+        Orders order = ordersRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId));
+        
+        // Verify order is in DRAFT status
+        if (order.getStatus() != OrderStatus.DRAFT) {
+            throw new RuntimeException("Only orders in DRAFT status can be modified");
+        }
+        
+        // Update order fields if provided in the DTO
+        if (dto.getComments() != null) {
+            order.setComments(dto.getComments());
+        }
+        
+        if (dto.getSupplierId() != null && !dto.getSupplierId().equals(order.getSentToSupplier().getId())) {
+            Supplier newSupplier = supplierRepository.findById(dto.getSupplierId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Supplier", "id", dto.getSupplierId()));
+            order.setSentToSupplier(newSupplier);
+            
+            // When changing supplier, need to verify all order items have valid purchase options
+            // with the new supplier. If not, remove invalid items.
+            List<OrderItem> validItems = new ArrayList<>();
+            for (OrderItem item : order.getOrderItems()) {
+                boolean hasValidPurchaseOption = item.getInventoryItem().getPurchaseOptions()
+                        .stream()
+                        .anyMatch(po -> po.getSupplier() != null && 
+                                po.getSupplier().getId().equals(newSupplier.getId()) && 
+                                po.isOrderingEnabled());
+                
+                if (hasValidPurchaseOption) {
+                    validItems.add(item);
+                }
+                // Items without valid purchase options will be dropped
+            }
+            
+            // Replace the order items list with only valid items
+            order.setOrderItems(validItems);
+        }
+        
+        // Process item updates
+        if (dto.getUpdatedItems() != null) {
+            for (OrderItemUpdateDTO itemUpdate : dto.getUpdatedItems()) {
+                OrderItem existingItem = findLineInOrder(order, itemUpdate.getOrderItemId());
+                
+                // Update quantity if provided
+                if (itemUpdate.getQuantity() != null) {
+                    existingItem.setQuantity(itemUpdate.getQuantity());
+                    // Recalculate total
+                    existingItem.setTotal(existingItem.getQuantity() * existingItem.getPrice());
+                }
+                
+                // Update price if provided
+                if (itemUpdate.getPrice() != null) {
+                    existingItem.setPrice(itemUpdate.getPrice());
+                    // Recalculate total
+                    existingItem.setTotal(existingItem.getQuantity() * existingItem.getPrice());
+                }
+                
+                // Update UOM if provided
+                if (itemUpdate.getUomId() != null) {
+                    UnitOfMeasure uom = uomRepository.findById(itemUpdate.getUomId())
+                            .orElseThrow(() -> new ResourceNotFoundException("UnitOfMeasure", "id", itemUpdate.getUomId()));
+                    existingItem.setUnitOfOrdering(uom);
+                }
+            }
+        }
+        
+        // Process item deletions
+        if (dto.getDeletedItemIds() != null && !dto.getDeletedItemIds().isEmpty()) {
+            order.setOrderItems(
+                order.getOrderItems().stream()
+                    .filter(item -> !dto.getDeletedItemIds().contains(item.getId()))
+                    .collect(Collectors.toList())
+            );
+        }
+        
+        // Process new items to add
+        if (dto.getNewItems() != null && !dto.getNewItems().isEmpty()) {
+            for (OrderItemDTO newItem : dto.getNewItems()) {
+                InventoryItem invItem = inventoryItemRepository.findById(newItem.getInventoryItemId())
+                        .orElseThrow(() -> new ResourceNotFoundException("InventoryItem", "id", newItem.getInventoryItemId()));
+                
+                // Check that this item has a purchase option for the order's supplier
+                Supplier supplier = order.getSentToSupplier();
+                Set<PurchaseOption> matchingOptions = invItem.getPurchaseOptions().stream()
+                        .filter(po -> po.getSupplier() != null && 
+                                po.getSupplier().getId().equals(supplier.getId()) && 
+                                po.isOrderingEnabled())
+                        .collect(Collectors.toSet());
+                
+                if (matchingOptions.isEmpty()) {
+                    throw new RuntimeException(
+                        "No *enabled* purchase option found for item '" + invItem.getName()
+                        + "' with supplier '" + supplier.getName() + "'. Cannot add to order.");
+                }
+                
+                // Pick the main purchase option if available, otherwise the first one
+                PurchaseOption chosenOption = matchingOptions.stream()
+                        .filter(PurchaseOption::isMainPurchaseOption)
+                        .findFirst()
+                        .orElse(matchingOptions.iterator().next());
+                
+                Double finalPrice = (chosenOption.getPrice() != null) ? chosenOption.getPrice() : 0.0;
+                Double qty = (newItem.getQuantity() != null) ? newItem.getQuantity() : 0.0;
+                
+                UnitOfMeasure finalUom = (chosenOption.getOrderingUom() != null)
+                        ? chosenOption.getOrderingUom()
+                        : invItem.getInventoryUom();
+                
+                OrderItem oi = new OrderItem();
+                oi.setOrders(order);
+                oi.setInventoryItem(invItem);
+                oi.setQuantity(qty);
+                oi.setPrice(finalPrice);
+                oi.setUnitOfOrdering(finalUom);
+                oi.setTotal(qty * finalPrice);
+                oi.setExtendedQuantity(qty);
+                
+                order.getOrderItems().add(oi);
+            }
+        }
+        
+        return ordersRepository.save(order);
+    }
+    
+    // -------------------------------------------------------------
+    // 7) DELETE DRAFT ORDER (only if in DRAFT status)
+    // -------------------------------------------------------------
+    @Override
+    @Transactional
+    public void deleteDraftOrder(Long orderId) {
+        Orders order = ordersRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId));
+                
+        if (order.getStatus() != OrderStatus.DRAFT) {
+            throw new RuntimeException("Only orders in DRAFT status can be deleted");
+        }
+        
+        ordersRepository.delete(order);
+    }
+    
+    // -------------------------------------------------------------
+    // 8) GET AVAILABLE INVENTORY ITEMS BY SUPPLIER AND LOCATION
+    // -------------------------------------------------------------
+    @Override
+    public List<InventoryItemResponseDTO> getInventoryItemsBySupplierAndLocation(Long supplierId, Long locationId) {
+        // 1. First check if the location has any assortments with inventory items
+        List<AssortmentLocation> assortmentLocations = assortmentLocationRepository.findByLocationId(locationId);
+        Set<InventoryItem> assortmentItems = new HashSet<>();
+        
+        if (!assortmentLocations.isEmpty()) {
+            // Collect all inventory items from all assortments linked to this location
+            for (AssortmentLocation al : assortmentLocations) {
+                if (al.getAssortment() != null && al.getAssortment().getInventoryItems() != null) {
+                    assortmentItems.addAll(al.getAssortment().getInventoryItems());
+                }
+            }
+        }
+        
+        // 2. Determine which list of items to filter against the supplier's purchase options
+        List<InventoryItem> baseItemList;
+        if (!assortmentItems.isEmpty()) {
+            // Filter using assortment items as the base list
+            baseItemList = new ArrayList<>(assortmentItems);
+        } else {
+            // If no assortment items, get all items from the company
+            // We need to get the company ID from any object
+            Supplier supplier = supplierRepository.findById(supplierId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Supplier", "id", supplierId));
+            Long companyId = supplier.getCompany().getId();
+            baseItemList = inventoryItemRepository.findByCompanyId(companyId);
+        }
+        
+        // 3. Filter the baseItemList to only include items with valid purchase options for this supplier
+        List<InventoryItem> filteredItems = baseItemList.stream()
+            .filter(item -> {
+                if (item.getPurchaseOptions() == null || item.getPurchaseOptions().isEmpty()) {
+                    return false;
+                }
+                
+                return item.getPurchaseOptions().stream()
+                    .anyMatch(po -> po.getSupplier() != null && 
+                            po.getSupplier().getId().equals(supplierId) && 
+                            po.isOrderingEnabled() &&
+                            (po.isMainPurchaseOption() || true)); // Include if main or any enabled option exists
+            })
+            .collect(Collectors.toList());
+        
+        // 4. Convert entities to DTOs using the mapper
+        return filteredItems.stream()
+            .map(inventoryItemResponseMapper::toInventoryItemResponseDTO)
+            .collect(Collectors.toList());
     }
 }

@@ -25,4 +25,6 @@ public interface MenuItemRepository extends JpaRepository<MenuItem, Long> {
 
     List<MenuItem> findByCompanyId(Long companyId);
     Optional<MenuItem>  findByIdAndCompanyId(Long id, Long companyId);
+
+    Optional<MenuItem> findByPosCode(String posCode);
 }

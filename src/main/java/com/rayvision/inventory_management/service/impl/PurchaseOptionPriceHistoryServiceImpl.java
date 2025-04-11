@@ -5,7 +5,7 @@ import com.rayvision.inventory_management.model.PurchaseOptionPriceHistory;
 import com.rayvision.inventory_management.repository.PurchaseOptionPriceHistoryRepository;
 import com.rayvision.inventory_management.repository.PurchaseOptionRepository;
 import com.rayvision.inventory_management.service.PurchaseOptionPriceHistoryService;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;

@@ -4,7 +4,7 @@ import com.rayvision.inventory_management.model.InventoryItem;
 import com.rayvision.inventory_management.model.SubRecipe;
 import com.rayvision.inventory_management.model.SubRecipeLine;
 import com.rayvision.inventory_management.model.UnitOfMeasure;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.stereotype.Service;
 
 @Service

@@ -9,8 +9,8 @@ import com.rayvision.inventory_management.repository.InventoryItemRepository;
 import com.rayvision.inventory_management.repository.SubRecipeRepository;
 import com.rayvision.inventory_management.repository.UnitOfMeasureRepository;
 import com.rayvision.inventory_management.service.CountUomPreferenceService;
-import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Objects;

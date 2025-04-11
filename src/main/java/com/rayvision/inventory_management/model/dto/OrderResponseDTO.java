@@ -22,9 +22,9 @@ public class OrderResponseDTO {
     private Long supplierId;
     private String supplierName;
 
-    // Possibly also createdByUser info, etc.
-
-    // The lines
     private List<OrderItemResponseDTO> items;
 
+    // Added user info
+    private Long createdByUserId;
+    private String createdByUserName;
 }

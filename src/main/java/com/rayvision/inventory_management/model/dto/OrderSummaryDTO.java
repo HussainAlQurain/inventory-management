@@ -15,4 +15,8 @@ public class OrderSummaryDTO {
     private Double total;
     private String status;
     private String comments;
+
+    // Added user info
+    private Long createdByUserId;
+    private String createdByUserName;
 }

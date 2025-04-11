@@ -66,6 +66,12 @@ public class PurchaseOrderController {
             if (o.getSentToSupplier() != null) {
                 sumDto.setSupplierName(o.getSentToSupplier().getName());
             }
+            
+            // Add user information
+            if (o.getCreatedByUser() != null) {
+                sumDto.setCreatedByUserId(o.getCreatedByUser().getId());
+                sumDto.setCreatedByUserName(o.getCreatedByUser().getUsername());
+            }
 
             // If you want total price, sum the order items
             double sum = 0.0;
@@ -190,6 +196,12 @@ public class PurchaseOrderController {
         if (order.getSentToSupplier() != null) {
             dto.setSupplierId(order.getSentToSupplier().getId());
             dto.setSupplierName(order.getSentToSupplier().getName());
+        }
+        
+        // Add user information
+        if (order.getCreatedByUser() != null) {
+            dto.setCreatedByUserId(order.getCreatedByUser().getId());
+            dto.setCreatedByUserName(order.getCreatedByUser().getUsername());
         }
 
         // Build line DTOs

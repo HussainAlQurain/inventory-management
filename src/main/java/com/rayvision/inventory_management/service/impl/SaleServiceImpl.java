@@ -4,6 +4,7 @@ package com.rayvision.inventory_management.service.impl;
 import com.rayvision.inventory_management.model.*;
 import com.rayvision.inventory_management.model.dto.SaleCreateDTO;
 import com.rayvision.inventory_management.model.dto.SaleLineDTO;
+import com.rayvision.inventory_management.repository.CompanyRepository;
 import com.rayvision.inventory_management.repository.LocationRepository;
 import com.rayvision.inventory_management.repository.MenuItemRepository;
 import com.rayvision.inventory_management.repository.SaleRepository;
@@ -26,15 +27,17 @@ public class SaleServiceImpl implements SaleService {
     private final LocationRepository locationRepository;
     private final MenuItemRepository menuItemRepository;
     private final StockTransactionService stockTransactionService;
+    private final CompanyRepository companyRepository;
 
     public SaleServiceImpl(SaleRepository saleRepository,
                            LocationRepository locationRepository,
                            MenuItemRepository menuItemRepository,
-                           StockTransactionService stockTransactionService) {
+                           StockTransactionService stockTransactionService, CompanyRepository companyRepository) {
         this.saleRepository = saleRepository;
         this.locationRepository = locationRepository;
         this.menuItemRepository = menuItemRepository;
         this.stockTransactionService = stockTransactionService;
+        this.companyRepository = companyRepository;
     }
 
     @Override
@@ -42,6 +45,8 @@ public class SaleServiceImpl implements SaleService {
         // 1) Validate location
         Location location = locationRepository.findById(dto.getLocationId())
                 .orElseThrow(() -> new RuntimeException("Location not found: " + dto.getLocationId()));
+
+        Company company = location.getCompany();
 
         // 2) Build the Sale
         Sale sale = new Sale();
@@ -57,7 +62,7 @@ public class SaleServiceImpl implements SaleService {
 
         for (SaleLineDTO lineDto : dto.getLines()) {
             // a) find or create the MenuItem
-            MenuItem menuItem = findOrCreateMenuItemByPosCode(lineDto.getPosCode(), lineDto.getMenuItemName());
+            MenuItem menuItem = findOrCreateMenuItemByPosCode(lineDto.getPosCode(), lineDto.getMenuItemName(), company);
 
             // b) compute cost for (menuItem, quantity)
             double costForThisLine = computeMenuItemCostAtSaleTime(menuItem, lineDto.getQuantity());
@@ -194,7 +199,7 @@ public class SaleServiceImpl implements SaleService {
      * If the system does not find a matching MenuItem by posCode,
      * it can create a “placeholder” item or do partial sync.
      */
-    private MenuItem findOrCreateMenuItemByPosCode(String posCode, String fallbackName) {
+    private MenuItem findOrCreateMenuItemByPosCode(String posCode, String fallbackName, Company company) {
         MenuItem item = menuItemRepository.findByPosCode(posCode).orElse(null);
         if (item == null) {
             // create a placeholder
@@ -202,7 +207,7 @@ public class SaleServiceImpl implements SaleService {
             item.setName(fallbackName != null ? fallbackName : posCode);
             item.setPosCode(posCode);
             item.setRetailPriceExclTax(0.0); // user can fix later
-            item.setCompany(null); // or find a default company if you want
+            item.setCompany(company); // or find a default company if you want
             item = menuItemRepository.save(item);
         }
         return item;

@@ -59,3 +59,25 @@ SELECT 1, 1, 1
 INSERT INTO location_user (id, location_id, user_id)
 SELECT 1, 1, 1
     WHERE NOT EXISTS (SELECT 1 FROM location_user WHERE location_id = 1 AND user_id = 1);
+
+
+-- Insert the "system" user with a fixed ID=999999999
+-- We assume you want to store a placeholder password, email, etc.
+INSERT INTO users (id, username, password, email, status, first_name, last_name, phone)
+SELECT 999999999,
+       'system-user',
+       '$2a$14$C2HvKTOQmGVMKZGQ0xa1NO8UUcRHoYgjESdZlEj51bZcSKye43Qdm',
+       'system@example.com',
+       'active',
+       'SYSTEM',
+       'USER',
+       '+000000000000'
+    WHERE NOT EXISTS (SELECT 1 FROM users WHERE id = 999999999);
+
+-- For example, give them an ADMIN role (role_id=2?),
+-- or a different role_id as you see fit
+INSERT INTO user_roles (user_id, role_id)
+SELECT 999999999, 3
+    WHERE NOT EXISTS (
+    SELECT 1 FROM user_roles WHERE user_id=999999999 AND role_id=3
+);

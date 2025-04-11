@@ -1,7 +1,6 @@
 package com.rayvision.inventory_management.service.impl;
 
 import com.rayvision.inventory_management.enums.OrderStatus;
-import com.rayvision.inventory_management.exceptions.InvalidOperationException;
 import com.rayvision.inventory_management.exceptions.ResourceNotFoundException;
 import com.rayvision.inventory_management.model.*;
 import com.rayvision.inventory_management.model.dto.*;
@@ -14,7 +13,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -562,4 +560,87 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         return order;
     }
 
+    @Override
+    public Orders findDraftOrderForSupplierAndLocation(Long supplierId, Long locationId) {
+        try {
+            return ordersRepository.findDraftBySupplierAndLocation(supplierId, locationId)
+                .orElse(null);
+        } catch (org.springframework.dao.IncorrectResultSizeDataAccessException ex) {
+            // If multiple draft orders exist, log it and return the most recent one
+            System.out.println("WARNING: Multiple draft orders found for supplier " + supplierId + 
+                " and location " + locationId + ". Using the most recent one.");
+            
+            // Get all orders for this supplier/location with DRAFT status
+            List<Orders> allDrafts = ordersRepository.findAllDraftsBySupplierAndLocation(supplierId, locationId);
+            if (allDrafts.isEmpty()) {
+                return null;
+            }
+            
+            // Sort by creation date descending and return the most recent
+            allDrafts.sort(Comparator.comparing(Orders::getCreationDate).reversed());
+            return allDrafts.get(0);
+        }
+    }
+
+    @Override
+    @Transactional
+    public Orders updateDraftOrderWithShortages(Orders draft, List<AutoOrderScheduledService.ShortageLine> lines, String comment) {
+        boolean orderChanged = false;
+        
+        // 1) for each line => either add or update
+        // We do a map: itemId -> existing orderItem
+        Map<Long, OrderItem> existingMap = new HashMap<>();
+        for (OrderItem oi : draft.getOrderItems()) {
+            if (oi.getInventoryItem() != null) {
+                existingMap.put(oi.getInventoryItem().getId(), oi);
+            }
+        }
+
+        for (AutoOrderScheduledService.ShortageLine sl : lines) {
+            if (existingMap.containsKey(sl.itemId())) {
+                // update existing - REPLACE quantity instead of adding to it
+                OrderItem oi = existingMap.get(sl.itemId());
+                double currentQty = (oi.getQuantity() != null ? oi.getQuantity() : 0.0);
+                double newQty = sl.shortageQty(); // Directly use the shortage quantity
+                
+                // Only update if quantity actually changed
+                if (Math.abs(newQty - currentQty) > 0.001) {
+                    oi.setQuantity(newQty);
+                    oi.setTotal(newQty * oi.getPrice());
+                    orderChanged = true;
+                    System.out.println("DEBUG: Updated order line for item " + sl.itemId() + 
+                        " from quantity " + currentQty + " to " + newQty);
+                }
+            } else {
+                // create new line
+                InventoryItem item = inventoryItemRepository.findById(sl.itemId())
+                        .orElseThrow(() -> new RuntimeException("Item not found: " + sl.itemId()));
+                // build an orderItem
+                OrderItem newItem = new OrderItem();
+                newItem.setOrders(draft);
+                newItem.setInventoryItem(item);
+                newItem.setQuantity(sl.shortageQty());
+                // We'll rely on the "pick purchase option" logic or set price to item.getCurrentPrice() or PO price.
+                newItem.setPrice(sl.price() != null ? sl.price() : 0.0);
+                newItem.setUnitOfOrdering(item.getInventoryUom());
+                double lineTotal = sl.shortageQty() * (newItem.getPrice() != null ? newItem.getPrice() : 0.0);
+                newItem.setTotal(lineTotal);
+
+                draft.getOrderItems().add(newItem);
+                orderChanged = true;
+                System.out.println("DEBUG: Created new order line for item " + sl.itemId() + 
+                    " with quantity " + sl.shortageQty());
+            }
+        }
+
+        // Only update the comment and save the order if something actually changed
+        if (orderChanged) {
+            // Replace the comment instead of appending to it
+            draft.setComments(comment);
+            return ordersRepository.save(draft);
+        }
+        
+        // Return the draft without saving if nothing changed
+        return draft;
+    }
 }

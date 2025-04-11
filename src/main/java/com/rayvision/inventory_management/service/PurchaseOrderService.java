@@ -4,8 +4,8 @@ import com.rayvision.inventory_management.model.Orders;
 import com.rayvision.inventory_management.model.dto.NoOrderInvoiceDTO;
 import com.rayvision.inventory_management.model.dto.OrderCreateDTO;
 import com.rayvision.inventory_management.model.dto.ReceiveLineDTO;
+import com.rayvision.inventory_management.service.impl.AutoOrderScheduledService;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -22,4 +22,7 @@ public interface PurchaseOrderService {
     // ...
     Orders getOrderById(Long companyId, Long orderId);
 
+    Orders findDraftOrderForSupplierAndLocation(Long id, Long id1);
+
+    Orders updateDraftOrderWithShortages(Orders draft, List<AutoOrderScheduledService.ShortageLine> lines, String autoOrderComment);
 }

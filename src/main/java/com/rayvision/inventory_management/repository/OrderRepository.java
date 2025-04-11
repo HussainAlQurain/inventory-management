@@ -8,6 +8,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface OrderRepository extends JpaRepository <Orders, Long> {
@@ -20,4 +21,19 @@ public interface OrderRepository extends JpaRepository <Orders, Long> {
                                              @Param("start") LocalDateTime start,
                                              @Param("end") LocalDateTime end);
 
+    @Query("SELECT o FROM Orders o "
+            + "WHERE o.sentToSupplier.id = :supplierId "
+            + "  AND o.buyerLocation.id = :locationId "
+            + "  AND o.status = 'DRAFT'"
+            + "  AND o.createdByUser.id = 999999999")
+    Optional<Orders> findDraftBySupplierAndLocation(@Param("supplierId") Long supplierId,
+                                                    @Param("locationId") Long locationId);
+
+    @Query("SELECT o FROM Orders o "
+            + "WHERE o.sentToSupplier.id = :supplierId "
+            + "  AND o.buyerLocation.id = :locationId "
+            + "  AND o.status = 'DRAFT'"
+            + "  AND o.createdByUser.id = 999999999")
+    List<Orders> findAllDraftsBySupplierAndLocation(@Param("supplierId") Long supplierId,
+                                                    @Param("locationId") Long locationId);
 }

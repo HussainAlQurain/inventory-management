@@ -32,8 +32,8 @@ public class TransferController {
 
     // COMPLETE
     @PostMapping("/{id}/complete")
-    public ResponseEntity<TransferDTO> complete(@PathVariable Long transferId) {
-        Transfer completed = transferService.completeTransfer(transferId);
+    public ResponseEntity<TransferDTO> complete(@PathVariable Long id) {
+        Transfer completed = transferService.completeTransfer(id);
         return ResponseEntity.ok(transferMapper.toDto(completed));
     }
 
@@ -45,8 +45,8 @@ public class TransferController {
 
     // DELETE
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable Long transferId) {
-        transferService.deleteTransfer(transferId);
+    public ResponseEntity<Void> delete(@PathVariable Long id) {
+        transferService.deleteTransfer(id);
         return ResponseEntity.noContent().build();
     }
 

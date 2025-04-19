@@ -10,6 +10,7 @@
 - change the deletion to soft deletion (make it inactive rather than fully removing it.)
 - Add validation for email, name etc..
 - Implement paginatino and search functionalities:
+- Consider implementing viewed by supplier on specific date and if not viewed for a long time, send notification to users.
 ```Java
 @GetMapping
 public Page<Company> getCompanies(Pageable pageable) {

@@ -10,23 +10,26 @@ import lombok.*;
 @Builder
 @Entity
 public class TransferLine {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // The parent Transfer
-    @ManyToOne
-    @JoinColumn(name = "transfer_id")
+    /* parent */
+    @ManyToOne @JoinColumn(name = "transfer_id")
     private Transfer transfer;
 
-    // The item being transferred
-    @ManyToOne
-    @JoinColumn(name = "inventory_item_id")
-    private InventoryItem item;
+    /* EITHER inventoryItem OR subRecipe (prep) -------------------------------- */
+    @ManyToOne @JoinColumn(name = "inventory_item_id")
+    private InventoryItem inventoryItem;          // nullable
 
-    private Double quantity;
+    @ManyToOne @JoinColumn(name = "sub_recipe_id")
+    private SubRecipe subRecipe;                  // nullable – only PREPARATION type
 
-    // optional cost if you want to track cost for the line
+    /* How the user entered the quantity */
+    private Double quantity;                      // in the user’s UoM
+    @ManyToOne @JoinColumn(name = "unit_of_measure_id")
+    private UnitOfMeasure unitOfMeasure;          // never null
+
+    /* optional cost fields – purely informational */
     private Double costPerUnit;
     private Double totalCost;
 

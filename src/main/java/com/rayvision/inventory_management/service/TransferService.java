@@ -3,6 +3,7 @@ package com.rayvision.inventory_management.service;
 import com.rayvision.inventory_management.model.Transfer;
 import com.rayvision.inventory_management.model.dto.TransferCreateDTO;
 import com.rayvision.inventory_management.model.dto.TransferLineDTO;
+import com.rayvision.inventory_management.service.impl.RedistributeJob;
 
 import java.util.List;
 
@@ -22,4 +23,13 @@ public interface TransferService {
 
     Transfer getTransfer(Long transferId);
     void deleteTransfer(Long transferId);
+
+    /** return *one* draft between two locations or <code>null</code>         */
+    Transfer findDraftBetween(Long fromLocationId, Long toLocationId);
+
+    /** merge shortages into an existing draft                                */
+    Transfer updateDraftWithLines(Transfer draft,
+                                  List<RedistributeJob.ShortLine> lines,
+                                  String comment);
+
 }

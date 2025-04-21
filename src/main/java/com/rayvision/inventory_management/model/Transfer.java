@@ -38,4 +38,7 @@ public class Transfer {
     @Builder.Default
     private List<TransferLine> lines = new ArrayList<>();
 
+    @Column(length = 255)
+    private String comments;
+
 }

@@ -11,7 +11,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @Transactional
@@ -227,6 +229,56 @@ public class TransferServiceImpl implements TransferService {
             stockTransactionService.deleteBySourceReferenceId(transferId);
         }
         transferRepository.delete(transfer);
+    }
+
+
+    /* in TransferServiceImpl --------------------------------------------- */
+    @Override
+    public Transfer findDraftBetween(Long from, Long to) {
+        return transferRepository
+                .findFirstByFromLocationIdAndToLocationIdAndStatus(
+                        from, to, "DRAFT").orElse(null);
+    }
+
+    @Override
+    @Transactional
+    public Transfer updateDraftWithLines(Transfer draft,
+                                         List<RedistributeJob.ShortLine> lines,
+                                         String comment) {
+
+        /* Map existing lines by (item‑id) so we can merge quantities */
+        Map<Long, TransferLine> existing = new HashMap<>();
+        for (TransferLine tl : draft.getLines()) {
+            if (tl.getInventoryItem()!=null) {
+                existing.put(tl.getInventoryItem().getId(), tl);
+            }
+        }
+
+        for (RedistributeJob.ShortLine sl : lines) {
+            if (existing.containsKey(sl.itemId())) {
+                TransferLine tl = existing.get(sl.itemId());
+                double newQty = tl.getQuantity() + sl.qty();
+                tl.setQuantity(newQty);
+            } else {
+                /* brand‑new line                                               */
+                TransferLine tl = new TransferLine();
+                tl.setTransfer(draft);
+                tl.setInventoryItem(
+                        inventoryItemRepository.findById(sl.itemId())
+                                .orElseThrow(() -> new RuntimeException("Item not found")));
+                tl.setUnitOfMeasure(sl.uom());
+                tl.setQuantity(sl.qty());
+                draft.getLines().add(tl);
+            }
+        }
+
+        draft.setStatus("DRAFT");
+        draft.setCreationDate(LocalDate.now());
+        draft.setComments(
+                (draft.getComments()!=null?draft.getComments():"")+
+                        " ; "+comment);
+
+        return transferRepository.save(draft);
     }
 
 

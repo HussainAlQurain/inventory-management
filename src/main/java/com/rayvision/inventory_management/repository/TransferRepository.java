@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface TransferRepository extends JpaRepository<Transfer, Long> {
@@ -30,5 +31,8 @@ public interface TransferRepository extends JpaRepository<Transfer, Long> {
          and t.status = :status
     """)
     List<Transfer> findIncomingDraftsByCompany(Long companyId, String status);
+
+    Optional<Transfer> findFirstByFromLocationIdAndToLocationIdAndStatus(
+            Long fromId, Long toId, String status);
 
 }

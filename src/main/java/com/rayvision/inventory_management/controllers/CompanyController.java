@@ -1,5 +1,6 @@
 package com.rayvision.inventory_management.controllers;
 
+import com.rayvision.inventory_management.mappers.impl.CompanyMapperImpl;
 import com.rayvision.inventory_management.model.Company;
 import com.rayvision.inventory_management.model.Users;
 import com.rayvision.inventory_management.model.dto.CompanyDTO;
@@ -18,30 +19,49 @@ import java.util.Optional;
 @RequestMapping("/companies")
 public class CompanyController {
 
-    @Autowired
-    private CompanyService companyService;
+    private final CompanyService companyService;
+    private final CompanyMapperImpl companyMapper;
 
+    public CompanyController(CompanyService companyService, CompanyMapperImpl companyMapper) {
+        this.companyService = companyService;
+        this.companyMapper = companyMapper;
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* CREATE – POST /companies                                           */
+    /* ------------------------------------------------------------------ */
     @PostMapping
-    public Company createCompany(@RequestBody Company company)
-    {
-        return companyService.save(company);
+    public ResponseEntity<CompanyDTO> createCompany(@RequestBody CompanyDTO dto) {
+        Company entity  = companyMapper.mapFrom(dto);       // dto ➜ entity
+        Company saved   = companyService.save(entity);
+        return new ResponseEntity<>(companyMapper.mapTo(saved), HttpStatus.CREATED);
     }
 
+    /* ------------------------------------------------------------------ */
+    /* LIST  – GET /companies                                             */
+    /* ------------------------------------------------------------------ */
     @GetMapping
-    public List<Company> getCompanies()
-    {
-        return companyService.findAll();
+    public ResponseEntity<List<CompanyDTO>> getCompanies() {
+        List<CompanyDTO> list = companyService.findAll()
+                .stream()
+                .map(companyMapper::mapTo)
+                .toList();
+        return ResponseEntity.ok(list);
     }
 
+    /* ------------------------------------------------------------------ */
+    /* GET ONE – GET /companies/{id}                                      */
+    /* ------------------------------------------------------------------ */
     @GetMapping("/{id}")
-    public ResponseEntity<Company> getCompanyById(@PathVariable Long id)
-    {
-        Optional<Company> foundCompany = companyService.findOne(id);
-        return foundCompany.map(company -> {
-            return new ResponseEntity<>(company, HttpStatus.OK);
-        }).orElse(new ResponseEntity<>(HttpStatus.NOT_FOUND));
+    public ResponseEntity<CompanyDTO> getCompanyById(@PathVariable Long id) {
+        Optional<Company> opt = companyService.findOne(id);
+        return opt.map(c -> ResponseEntity.ok(companyMapper.mapTo(c)))
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
+    /* ------------------------------------------------------------------ */
+    /* LIST BY USER – GET /companies/user/{userId}                     */
+    /* ------------------------------------------------------------------ */
     @GetMapping("/user/{userId}")
     public ResponseEntity<List<CompanyDTO>> getCompaniesByUserId(@PathVariable Long userId) {
         List<CompanyDTO> companies = companyService.findByUserId(userId);
@@ -64,8 +84,31 @@ public class CompanyController {
     }
 
     @PatchMapping("/{id}")
-    public ResponseEntity<Company> updateCompany(@PathVariable Long id, @RequestBody Company company) {
-       Company updatedCompany = companyService.partialUpdate(id, company);
-       return new ResponseEntity<>(updatedCompany, HttpStatus.OK);
+    public ResponseEntity<CompanyDTO> updateCompany(@PathVariable Long id, @RequestBody CompanyDTO patch) {
+        Company entity = companyService.findOne(id)
+                .orElseThrow(() -> new RuntimeException("Company not found"));
+
+        /* apply ONLY non‑null fields from patch dto */
+        if (patch.getName()    != null) entity.setName   (patch.getName());
+        if (patch.getTaxId()   != null) entity.setTaxId (patch.getTaxId());
+        if (patch.getPhone()   != null) entity.setPhone (patch.getPhone());
+        if (patch.getMobile()  != null) entity.setMobile(patch.getMobile());
+        if (patch.getEmail()   != null) entity.setEmail (patch.getEmail());
+        if (patch.getState()   != null) entity.setState (patch.getState());
+        if (patch.getCity()    != null) entity.setCity  (patch.getCity());
+        if (patch.getAddress() != null) entity.setAddress(patch.getAddress());
+        if (patch.getZip()     != null) entity.setZip   (patch.getZip());
+        if (patch.getAddPurchasedItemsToFavorites() != null)
+            entity.setAddPurchasedItemsToFavorites(patch.getAddPurchasedItemsToFavorites());
+        if (patch.getLogo()    != null) entity.setLogo  (patch.getLogo());
+        if (patch.getAllowedInvoiceDeviation()  != null)
+            entity.setAllowedInvoiceDeviation(patch.getAllowedInvoiceDeviation());
+        if (patch.getAccountingSoftware() != null)
+            entity.setAccountingSoftware(patch.getAccountingSoftware());
+        if (patch.getExportDeliveryNotesAsBills() != null)
+            entity.setExportDeliveryNotesAsBills(patch.getExportDeliveryNotesAsBills());
+
+        Company saved = companyService.save(entity);
+        return ResponseEntity.ok(companyMapper.mapTo(saved));
     }
 }

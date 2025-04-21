@@ -19,12 +19,6 @@ public interface InventoryItemLocationRepository extends JpaRepository<Inventory
 
     // find all bridging for a given location
     List<InventoryItemLocation> findByLocationId(Long locationId);
+    List<InventoryItemLocation> findByLocationCompanyId(Long companyId);
 
-    /** all rows that belong to locations of a company */
-    @Query("""
-        SELECT iil
-          FROM InventoryItemLocation iil
-          WHERE iil.location.company.id = :companyId
-    """)
-    List<InventoryItemLocation> findAllByCompanyId(Long id);
 }

@@ -9,6 +9,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @Repository
 public interface InventoryItemRepository extends JpaRepository<InventoryItem, Long> {
@@ -27,5 +28,17 @@ public interface InventoryItemRepository extends JpaRepository<InventoryItem, Lo
             @Param("companyId") Long companyId,
             @Param("searchTerm") String searchTerm
     );
+
+    /**     /**
+     * Return only the primary‑key values for all items that belong to the company.
+     * No entities are loaded, so it is cheap even for thousands of rows.
+     */
+    @Query("""
+        SELECT i.id
+        FROM   InventoryItem i
+        WHERE  i.company.id = :companyId
+    """)
+    Set<Long> findIdsByCompany(@Param("companyId") Long companyId);
+
 
 }

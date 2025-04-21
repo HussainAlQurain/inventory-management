@@ -74,7 +74,7 @@ public class RedistributeJob {
        core logic
      ------------------------------------------------------------------ */
     @Transactional
-    private void redistributeForCompany(AutoRedistributeSetting cfg) {
+    public void redistributeForCompany(AutoRedistributeSetting cfg) {
 
         Company company = cfg.getCompany();
         List<Location> locs = locationRepo.findByCompanyId(company.getId());

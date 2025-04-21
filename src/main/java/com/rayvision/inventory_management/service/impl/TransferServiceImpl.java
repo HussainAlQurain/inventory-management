@@ -246,6 +246,11 @@ public class TransferServiceImpl implements TransferService {
                                          List<RedistributeJob.ShortLine> lines,
                                          String comment) {
 
+        /* 🔑  Re‑attach + initialise lines */
+        draft = transferRepository.findByIdWithLines(draft.getId())
+                .orElseThrow(() -> new RuntimeException("Draft not found"));
+
+
         /* Map existing lines by (item‑id) so we can merge quantities */
         Map<Long, TransferLine> existing = new HashMap<>();
         for (TransferLine tl : draft.getLines()) {

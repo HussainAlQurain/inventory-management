@@ -3,6 +3,7 @@ package com.rayvision.inventory_management.repository;
 import com.rayvision.inventory_management.model.Transfer;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -34,5 +35,15 @@ public interface TransferRepository extends JpaRepository<Transfer, Long> {
 
     Optional<Transfer> findFirstByFromLocationIdAndToLocationIdAndStatus(
             Long fromId, Long toId, String status);
+
+
+    @Query("""
+    SELECT t
+    FROM   Transfer t
+    LEFT JOIN FETCH t.lines
+    WHERE  t.id = :id
+""")
+    Optional<Transfer> findByIdWithLines(@Param("id") Long id);
+
 
 }

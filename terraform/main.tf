@@ -213,12 +213,12 @@ resource "aws_db_instance" "postgres" {
   allocated_storage      = var.db_allocated_storage
   storage_type           = "gp2"
   engine                 = "postgres"
-  engine_version         = "13.7"
+  engine_version         = "15.7"  # Updated to supported version 15.7
   instance_class         = var.db_instance_class
   db_name                = var.db_name
   username               = var.db_username
   password               = var.db_password
-  parameter_group_name   = "default.postgres13"
+  parameter_group_name   = "default.postgres15"
   db_subnet_group_name   = aws_db_subnet_group.main.name
   vpc_security_group_ids = [aws_security_group.db_sg.id]
   skip_final_snapshot    = true

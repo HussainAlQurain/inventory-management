@@ -1,8 +1,35 @@
-HELP.md
+### Java ###
+# Compiled class files
+*.class
+
+# Log files
+*.log
+
+# Package files
+*.jar
+*.war
+*.nar
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# Virtual machine crash logs
+hs_err_pid*
+
+### Maven ###
 target/
 !.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
+.mvn/timing.properties
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
 
 ### STS ###
 .apt_generated
@@ -14,20 +41,59 @@ target/
 .sts4-cache
 
 ### IntelliJ IDEA ###
-.idea
+.idea/
 *.iws
 *.iml
 *.ipr
 
-### NetBeans ###
-/nbproject/private/
-/nbbuild/
-/dist/
-/nbdist/
-/.nb-gradle/
-build/
-!**/src/main/**/build/
-!**/src/test/**/build/
-
 ### VS Code ###
 .vscode/
+*.code-workspace
+
+### Spring Boot ###
+*#
+*.sw?
+*~
+.#*
+.*.md.html
+.DS_Store
+.attach_pid*
+.gradle
+.metadata
+.recommenders
+.settings
+.springBeans
+.project
+.classpath
+HELP.md
+bin/
+
+### AWS ###
+# Local Terraform directories & files
+**/.terraform/*
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.*
+terraform/.terraform.lock.hcl
+terraform/terraform.tfvars
+terraform/crash.log
+terraform/override.tf
+terraform/override.tf.json
+terraform/*_override.tf
+terraform/*_override.tf.json
+
+# AWS credentials & config
+.aws/
+
+# Local environment variable files
+.env
+.env.*
+
+# Docker
+docker-compose.override.yml
+
+# Application secrets
+**/application-local.properties
+**/application-local.yml
+**/application-*.private.yml
+**/application-*.private.properties

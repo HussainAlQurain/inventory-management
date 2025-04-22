@@ -1,16 +1,22 @@
 package com.rayvision.inventory_management.controllers;
 
+import com.rayvision.inventory_management.enums.userRoles;
+import com.rayvision.inventory_management.mappers.UserResponseMapper;
 import com.rayvision.inventory_management.mappers.impl.UserLoginMapperImpl;
 import com.rayvision.inventory_management.mappers.impl.UserMapperImpl;
 import com.rayvision.inventory_management.model.Users;
 import com.rayvision.inventory_management.model.dto.LoginDTO;
 import com.rayvision.inventory_management.model.dto.UserDTO;
+import com.rayvision.inventory_management.model.dto.UserResponseDTO;
+import com.rayvision.inventory_management.model.dto.UserUpdateDTO;
 import com.rayvision.inventory_management.service.impl.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/users")
@@ -24,21 +30,99 @@ public class UserController {
 
     @Autowired
     private UserLoginMapperImpl userLoginMapper;
+    
+    @Autowired
+    private UserResponseMapper userResponseMapper;
 
-
-    @PostMapping("create")
-    public ResponseEntity<UserDTO> createUser(@RequestBody UserDTO userDto) {
+    /**
+     * Create a new user within a company with a specified role
+     */
+    @PostMapping("/companies/{companyId}")
+    public ResponseEntity<UserResponseDTO> createUserInCompany(
+            @PathVariable Long companyId,
+            @RequestBody UserDTO userDto) {
+        
         // Map UserDto to Users entity
         Users user = userMapper.mapFrom(userDto);
-
-        // Create user in service
-        Users savedUser = userService.createUser(user);
-
-        // Map created user to UserDto for response
-        UserDTO responseUserDto = userMapper.mapTo(savedUser);
-        responseUserDto.setPassword(null); // Set password to null to prevent returning it in response
-
-        return ResponseEntity.ok(responseUserDto);
+        
+        // Choose the role from DTO or default to ROLE_USER
+        userRoles role = userDto.getRole() != null ? userDto.getRole() : userRoles.ROLE_USER;
+        
+        // Create user and associate with company
+        Users savedUser = userService.createUser(user, companyId, role);
+        
+        // Convert to response DTO
+        UserResponseDTO responseDto = userResponseMapper.toDto(savedUser);
+        
+        return new ResponseEntity<>(responseDto, HttpStatus.CREATED);
+    }
+    
+    /**
+     * Get all users for a specific company
+     */
+    @GetMapping("/companies/{companyId}")
+    public ResponseEntity<List<UserResponseDTO>> getUsersByCompany(@PathVariable Long companyId) {
+        List<Users> users = userService.findUsersByCompanyId(companyId);
+        List<UserResponseDTO> responseList = userResponseMapper.toDtoList(users);
+        return ResponseEntity.ok(responseList);
+    }
+    
+    /**
+     * Get a user by ID
+     */
+    @GetMapping("/{userId}")
+    public ResponseEntity<UserResponseDTO> getUserById(@PathVariable Long userId) {
+        return userService.findOne(userId)
+                .map(userResponseMapper::toDto)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+    
+    /**
+     * Update user details
+     */
+    @PutMapping("/{userId}")
+    public ResponseEntity<UserResponseDTO> updateUser(
+            @PathVariable Long userId,
+            @RequestBody UserUpdateDTO updateDto) {
+        
+        Users updatedUser = userService.updateUser(userId, updateDto);
+        UserResponseDTO responseDto = userResponseMapper.toDto(updatedUser);
+        return ResponseEntity.ok(responseDto);
+    }
+    
+    /**
+     * Enable a user
+     */
+    @PatchMapping("/{userId}/enable")
+    public ResponseEntity<Void> enableUser(@PathVariable Long userId) {
+        userService.toggleUserStatus(userId, true);
+        return ResponseEntity.noContent().build();
+    }
+    
+    /**
+     * Disable a user (soft delete)
+     */
+    @PatchMapping("/{userId}/disable")
+    public ResponseEntity<Void> disableUser(@PathVariable Long userId) {
+        userService.toggleUserStatus(userId, false);
+        return ResponseEntity.noContent().build();
+    }
+    
+    /**
+     * Change user role
+     */
+    @PatchMapping("/{userId}/roles")
+    public ResponseEntity<UserResponseDTO> changeRole(
+            @PathVariable Long userId,
+            @RequestParam userRoles role) {
+        
+        UserUpdateDTO updateDto = new UserUpdateDTO();
+        updateDto.setRole(role);
+        
+        Users updatedUser = userService.updateUser(userId, updateDto);
+        UserResponseDTO responseDto = userResponseMapper.toDto(updatedUser);
+        return ResponseEntity.ok(responseDto);
     }
 
     @PostMapping("login")
@@ -54,6 +138,4 @@ public class UserController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("{\"error\": \"Authentication failed\"}");
         }
     }
-
-
 }

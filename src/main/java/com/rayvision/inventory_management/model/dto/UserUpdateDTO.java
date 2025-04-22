@@ -4,14 +4,11 @@ import com.rayvision.inventory_management.enums.userRoles;
 import lombok.Data;
 
 @Data
-public class UserDTO {
-    private String username;
-    private String password;
+public class UserUpdateDTO {
     private String email;
-    private String status;
     private String firstName;
     private String lastName;
     private String phone;
-    private userRoles role;
-    private Long companyId;
+    private String status; // can be used to enable/disable
+    private userRoles role; // optional role update
 }

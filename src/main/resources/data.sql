@@ -16,12 +16,24 @@ SELECT 'ROLE_USER'
     WHERE NOT EXISTS (SELECT 1 FROM role WHERE name = 'ROLE_USER');
 
 INSERT INTO role (name)
+SELECT 'ROLE_STAFF'
+    WHERE NOT EXISTS (SELECT 1 FROM role WHERE name = 'ROLE_STAFF');
+
+INSERT INTO role (name)
+SELECT 'ROLE_MANAGER'
+    WHERE NOT EXISTS (SELECT 1 FROM role WHERE name = 'ROLE_MANAGER');
+
+INSERT INTO role (name)
 SELECT 'ROLE_ADMIN'
     WHERE NOT EXISTS (SELECT 1 FROM role WHERE name = 'ROLE_ADMIN');
 
 INSERT INTO role (name)
 SELECT 'ROLE_SUPER_ADMIN'
     WHERE NOT EXISTS (SELECT 1 FROM role WHERE name = 'ROLE_SUPER_ADMIN');
+
+INSERT INTO role (name)
+SELECT 'ROLE_SYSTEM_ADMIN'
+    WHERE NOT EXISTS (SELECT 1 FROM role WHERE name = 'ROLE_SYSTEM_ADMIN');
 
 INSERT INTO users (username, password, email, status, first_name, last_name, phone)
 SELECT 'admin', '$2a$14$C2HvKTOQmGVMKZGQ0xa1NO8UUcRHoYgjESdZlEj51bZcSKye43Qdm', 'hussain.qurain@outlook.com', 'active', 'Hussain', 'Al-Qurain', '+966536071929'

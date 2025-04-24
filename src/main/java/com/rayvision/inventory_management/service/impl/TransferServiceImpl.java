@@ -160,6 +160,25 @@ public class TransferServiceImpl implements TransferService {
         return transferRepository.findIncomingDraftsByCompany(companyId, "DRAFT");
     }
 
+    @Override
+    public List<Transfer> findCompletedTransfersByCompany(Long companyId) {
+        return transferRepository.findCompletedTransfersByCompany(companyId, "COMPLETED");
+    }
+
+    @Override
+    public List<Transfer> findCompletedTransfersByLocation(Long locationId, boolean isFromLocation) {
+        if (isFromLocation) {
+            return transferRepository.findByFromLocationIdAndStatus(locationId, "COMPLETED");
+        } else {
+            return transferRepository.findByToLocationIdAndStatus(locationId, "COMPLETED");
+        }
+    }
+
+    @Override
+    public List<Transfer> findAllCompletedTransfers() {
+        return transferRepository.findByStatus("COMPLETED");
+    }
+
     /* ------------------------------------------------ draft update --------- */
     @Override
     public Transfer updateDraft(Long transferId,

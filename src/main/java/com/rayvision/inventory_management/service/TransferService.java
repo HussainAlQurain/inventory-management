@@ -20,6 +20,11 @@ public interface TransferService {
 
     List<Transfer> findOutgoingDraftsByCompany(Long companyId);
     List<Transfer> findIncomingDraftsByCompany(Long companyId);
+    
+    /* Completed transfers look-ups --------------------------------------- */
+    List<Transfer> findCompletedTransfersByCompany(Long companyId);
+    List<Transfer> findCompletedTransfersByLocation(Long locationId, boolean isFromLocation);
+    List<Transfer> findAllCompletedTransfers();
 
     Transfer getTransfer(Long transferId);
     void deleteTransfer(Long transferId);

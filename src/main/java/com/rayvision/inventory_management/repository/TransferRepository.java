@@ -18,6 +18,9 @@ public interface TransferRepository extends JpaRepository<Transfer, Long> {
     /* incoming drafts waiting to be fulfilled by a location */
     List<Transfer> findByToLocationIdAndStatus(Long locId, String status);
 
+    /* Find transfers by status */
+    List<Transfer> findByStatus(String status);
+
     /* company‑wide views --------------------------------------------------- */
     @Query("""
        select t from Transfer t
@@ -32,6 +35,15 @@ public interface TransferRepository extends JpaRepository<Transfer, Long> {
          and t.status = :status
     """)
     List<Transfer> findIncomingDraftsByCompany(Long companyId, String status);
+
+    @Query("""
+       select t from Transfer t
+       where (t.fromLocation.company.id = :companyId
+          or t.toLocation.company.id = :companyId)
+         and t.status = :status
+    """)
+    List<Transfer> findCompletedTransfersByCompany(@Param("companyId") Long companyId,
+                                                   @Param("status") String status);
 
     Optional<Transfer> findFirstByFromLocationIdAndToLocationIdAndStatus(
             Long fromId, Long toId, String status);

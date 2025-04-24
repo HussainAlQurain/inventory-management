@@ -62,6 +62,15 @@ public class TransferController {
         return transferService.findIncomingDraftsByLocation(locId)
                 .stream().map(transferMapper::toDto).toList();
     }
+    
+    /* ----------- COMPLETED LISTS (Location) --------------------------- */
+    @GetMapping("/location/{locId}/completed")
+    public List<TransferDTO> completedByLoc(
+            @PathVariable Long locId,
+            @RequestParam(required = false, defaultValue = "false") boolean fromLocation) {
+        return transferService.findCompletedTransfersByLocation(locId, fromLocation)
+                .stream().map(transferMapper::toDto).toList();
+    }
 
     /* ----------- LISTS (Company) -------------------------------------- */
     @GetMapping("/company/{compId}/outgoing")
@@ -73,6 +82,20 @@ public class TransferController {
     @GetMapping("/company/{compId}/incoming")
     public List<TransferDTO> incomingByCo(@PathVariable Long compId){
         return transferService.findIncomingDraftsByCompany(compId)
+                .stream().map(transferMapper::toDto).toList();
+    }
+    
+    /* ----------- COMPLETED LISTS (Company) ---------------------------- */
+    @GetMapping("/company/{compId}/completed")
+    public List<TransferDTO> completedByCo(@PathVariable Long compId){
+        return transferService.findCompletedTransfersByCompany(compId)
+                .stream().map(transferMapper::toDto).toList();
+    }
+    
+    /* ----------- ALL COMPLETED TRANSFERS ------------------------------ */
+    @GetMapping("/completed")
+    public List<TransferDTO> allCompleted() {
+        return transferService.findAllCompletedTransfers()
                 .stream().map(transferMapper::toDto).toList();
     }
 

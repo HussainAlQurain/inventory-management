@@ -22,21 +22,72 @@ public class TransferServiceImpl implements TransferService {
     private final LocationRepository locationRepository;
     private final InventoryItemRepository inventoryItemRepository;
     private final SubRecipeRepository subRecipeRepository;
-    private final UnitOfMeasureRepository uomRepository;   // so we can fetch the user’s chosen UOM
+    private final UnitOfMeasureRepository uomRepository;   // so we can fetch the user's chosen UOM
     private final StockTransactionService stockTransactionService;
+    private final ItemCostCalculator itemCostCalculator;
+    private final SubRecipeCostCalculationService subRecipeCostCalculationService;
 
     public TransferServiceImpl(TransferRepository transferRepository,
                                LocationRepository locationRepository,
                                InventoryItemRepository inventoryItemRepository,
                                StockTransactionService stockTransactionService,
                                UnitOfMeasureRepository uomRepository,
-                               SubRecipeRepository subRecipeRepository) {
+                               SubRecipeRepository subRecipeRepository,
+                               ItemCostCalculator itemCostCalculator,
+                               SubRecipeCostCalculationService subRecipeCostCalculationService) {
         this.transferRepository = transferRepository;
         this.locationRepository = locationRepository;
         this.inventoryItemRepository = inventoryItemRepository;
         this.stockTransactionService = stockTransactionService;
         this.uomRepository = uomRepository;
         this.subRecipeRepository = subRecipeRepository;
+        this.itemCostCalculator = itemCostCalculator;
+        this.subRecipeCostCalculationService = subRecipeCostCalculationService;
+    }
+
+    /**
+     * Calculate the cost per unit and total cost for a transfer line based on the inventory item or sub-recipe
+     */
+    private void calculateCosts(TransferLine line) {
+        if (line.getInventoryItem() != null && line.getQuantity() != null) {
+            InventoryItem item = line.getInventoryItem();
+            UnitOfMeasure uom = line.getUnitOfMeasure();
+            double quantity = line.getQuantity();
+            
+            // Calculate total cost using ItemCostCalculator
+            double totalCost = ItemCostCalculator.computeCost(item, quantity, uom);
+            line.setTotalCost(totalCost);
+            
+            // Calculate cost per unit
+            if (quantity > 0) {
+                line.setCostPerUnit(totalCost / quantity);
+            } else {
+                line.setCostPerUnit(0.0);
+            }
+        } else if (line.getSubRecipe() != null && line.getQuantity() != null) {
+            SubRecipe subRecipe = line.getSubRecipe();
+            
+            // Get current cost from SubRecipe
+            double totalCost = 0.0;
+            if (subRecipe.getCost() != null && line.getQuantity() != null) {
+                UnitOfMeasure lineUom = line.getUnitOfMeasure();
+                UnitOfMeasure recipeUom = subRecipe.getUom();
+                
+                if (lineUom != null && recipeUom != null) {
+                    double convertedQty = line.getQuantity() * (lineUom.getConversionFactor() / recipeUom.getConversionFactor());
+                    double recipeYield = subRecipe.getYieldQty() != null ? subRecipe.getYieldQty() : 1.0;
+                    
+                    totalCost = (convertedQty / recipeYield) * subRecipe.getCost();
+                    line.setTotalCost(totalCost);
+                    
+                    if (line.getQuantity() > 0) {
+                        line.setCostPerUnit(totalCost / line.getQuantity());
+                    } else {
+                        line.setCostPerUnit(0.0);
+                    }
+                }
+            }
+        }
     }
 
     // ------------------------------------------------------------------ create
@@ -79,20 +130,15 @@ public class TransferServiceImpl implements TransferService {
                 throw new RuntimeException("Line must have inventoryItemId or subRecipeId");
             }
 
-            /* optional cost fields */
-            entity.setCostPerUnit(l.getCostPerUnit());
-            if (l.getCostPerUnit() != null && l.getQuantity() != null) {
-                entity.setTotalCost(l.getCostPerUnit() * l.getQuantity());
-            }
-
+            // Calculate costs automatically instead of using client-provided values
+            calculateCosts(entity);
+            
             lines.add(entity);
         }
         t.setLines(lines);
 
         return transferRepository.save(t);
     }
-
-    // TransferServiceImpl  – add after createTransfer()
 
     @Override
     public List<Transfer> findOutgoingDraftsByLocation(Long locId) {
@@ -155,11 +201,8 @@ public class TransferServiceImpl implements TransferService {
                 throw new RuntimeException("Line must have inventoryItemId or subRecipeId");
             }
 
-            /* optional costs */
-            line.setCostPerUnit(l.getCostPerUnit());
-            if (l.getCostPerUnit()!=null && l.getQuantity()!=null) {
-                line.setTotalCost(l.getCostPerUnit() * l.getQuantity());
-            }
+            // Calculate costs automatically instead of using client-provided values
+            calculateCosts(line);
 
             t.getLines().add(line);
         }
@@ -232,7 +275,6 @@ public class TransferServiceImpl implements TransferService {
     }
 
 
-    /* in TransferServiceImpl --------------------------------------------- */
     @Override
     public Transfer findDraftBetween(Long from, Long to) {
         return transferRepository
@@ -264,6 +306,8 @@ public class TransferServiceImpl implements TransferService {
                 TransferLine tl = existing.get(sl.itemId());
                 double newQty = tl.getQuantity() + sl.qty();
                 tl.setQuantity(newQty);
+                // Recalculate costs after updating quantity
+                calculateCosts(tl);
             } else {
                 /* brand‑new line                                               */
                 TransferLine tl = new TransferLine();
@@ -273,6 +317,10 @@ public class TransferServiceImpl implements TransferService {
                                 .orElseThrow(() -> new RuntimeException("Item not found")));
                 tl.setUnitOfMeasure(sl.uom());
                 tl.setQuantity(sl.qty());
+                
+                // Calculate costs for the new line
+                calculateCosts(tl);
+                
                 draft.getLines().add(tl);
             }
         }

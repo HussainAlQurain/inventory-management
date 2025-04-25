@@ -17,8 +17,9 @@ import java.util.List;
 @Entity
 public class Orders {
 
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Id
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "orders_id_seq")
+    @SequenceGenerator(name = "orders_id_seq", sequenceName = "orders_id_seq", allocationSize = 1)
     private Long id;
     private String orderNumber;
     private LocalDateTime creationDate;

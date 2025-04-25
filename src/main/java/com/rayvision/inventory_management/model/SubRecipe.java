@@ -15,7 +15,8 @@ import java.util.Set;
 @Entity
 public class SubRecipe {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "sub_recipe_id_seq")
+    @SequenceGenerator(name = "sub_recipe_id_seq", sequenceName = "sub_recipe_id_seq", allocationSize = 1)
     private Long id;
 
     /**

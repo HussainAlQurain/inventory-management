@@ -16,7 +16,8 @@ import java.time.LocalDate;
 })
 public class InventoryItemLocation {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "inventory_item_location_id_seq")
+    @SequenceGenerator(name = "inventory_item_location_id_seq", sequenceName = "inventory_item_location_id_seq", allocationSize = 1)
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)

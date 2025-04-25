@@ -12,7 +12,8 @@ import lombok.*;
 @Entity
 public class StorageArea {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "storage_area_id_seq")
+    @SequenceGenerator(name = "storage_area_id_seq", sequenceName = "storage_area_id_seq", allocationSize = 1)
     private Long id;
     private String name;
     private String description;

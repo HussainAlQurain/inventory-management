@@ -11,7 +11,8 @@ import lombok.*;
 @Entity
 public class InventoryCountLine {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "inventory_count_line_id_seq")
+    @SequenceGenerator(name = "inventory_count_line_id_seq", sequenceName = "inventory_count_line_id_seq", allocationSize = 1)
     private Long id;
 
     // Which session/header does this line belong to

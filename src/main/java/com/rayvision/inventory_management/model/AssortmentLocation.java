@@ -11,7 +11,8 @@ import lombok.*;
 @Entity
 public class AssortmentLocation {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "assortment_location_id_seq")
+    @SequenceGenerator(name = "assortment_location_id_seq", sequenceName = "assortment_location_id_seq", allocationSize = 1)
     private Long id;
 
     @ManyToOne

@@ -18,8 +18,9 @@ import lombok.NoArgsConstructor;
 )
 public class CompanyUser {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    Long id;
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "company_user_id_seq")
+    @SequenceGenerator(name = "company_user_id_seq", sequenceName = "company_user_id_seq", allocationSize = 1)
+    private Long id;
 
     @ManyToOne
     @JoinColumn(name = "company_id", nullable = false)

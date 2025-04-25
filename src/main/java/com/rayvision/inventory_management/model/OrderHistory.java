@@ -15,8 +15,9 @@ import java.time.LocalDateTime;
 @Builder
 @Entity
 public class OrderHistory {
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Id
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "order_history_id_seq")
+    @SequenceGenerator(name = "order_history_id_seq", sequenceName = "order_history_id_seq", allocationSize = 1)
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)

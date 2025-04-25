@@ -11,10 +11,10 @@ import lombok.*;
 @Builder
 public class SaleLine {
 
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Id
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "sale_line_id_seq")
+    @SequenceGenerator(name = "sale_line_id_seq", sequenceName = "sale_line_id_seq", allocationSize = 1)
     private Long id;
-
 
     @ManyToOne(fetch=FetchType.LAZY)
     @JoinColumn(name="sale_id", nullable=false)

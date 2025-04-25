@@ -14,7 +14,8 @@ import java.util.Set;
 @Builder
 @Entity
 public class InventoryItem {
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "inventory_item_id_seq")
+    @SequenceGenerator(name = "inventory_item_id_seq", sequenceName = "inventory_item_id_seq", allocationSize = 1)
     @Id
     private Long id;
 

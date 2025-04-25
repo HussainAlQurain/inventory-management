@@ -13,7 +13,8 @@ import java.time.LocalDateTime;
 @Builder
 public class AutoRedistributeSetting {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "auto_redistribute_setting_id_seq")
+    @SequenceGenerator(name = "auto_redistribute_setting_id_seq", sequenceName = "auto_redistribute_setting_id_seq", allocationSize = 1)
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)               // ❶ company‑level

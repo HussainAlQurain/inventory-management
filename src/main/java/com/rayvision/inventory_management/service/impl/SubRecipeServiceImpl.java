@@ -3,7 +3,6 @@ package com.rayvision.inventory_management.service.impl;
 import com.rayvision.inventory_management.exceptions.ResourceNotFoundException;
 import com.rayvision.inventory_management.model.*;
 import com.rayvision.inventory_management.model.dto.SubRecipeCreateDTO;
-import com.rayvision.inventory_management.model.dto.SubRecipeItemLineDTO;
 import com.rayvision.inventory_management.model.dto.SubRecipeLineDTO;
 import com.rayvision.inventory_management.repository.*;
 import com.rayvision.inventory_management.service.SubRecipeService;
@@ -25,7 +24,6 @@ public class SubRecipeServiceImpl implements SubRecipeService {
     private final CategoryRepository categoryRepository;
     private final UnitOfMeasureRepository unitOfMeasureRepository;
     private final InventoryItemRepository inventoryItemRepository;
-    private final SubRecipeItemRepository subRecipeItemRepository;
     private final SubRecipeCostCalculationService subRecipeCostCalculationService;
 
     public SubRecipeServiceImpl(SubRecipeRepository subRecipeRepository,
@@ -33,14 +31,12 @@ public class SubRecipeServiceImpl implements SubRecipeService {
                                 CategoryRepository categoryRepository,
                                 UnitOfMeasureRepository unitOfMeasureRepository,
                                 InventoryItemRepository inventoryItemRepository,
-                                SubRecipeItemRepository subRecipeItemRepository,
                                 SubRecipeCostCalculationService subRecipeCostCalculationService) {
         this.subRecipeRepository = subRecipeRepository;
         this.companyRepository = companyRepository;
         this.categoryRepository = categoryRepository;
         this.unitOfMeasureRepository = unitOfMeasureRepository;
         this.inventoryItemRepository = inventoryItemRepository;
-        this.subRecipeItemRepository = subRecipeItemRepository;
         this.subRecipeCostCalculationService = subRecipeCostCalculationService;
     }
 

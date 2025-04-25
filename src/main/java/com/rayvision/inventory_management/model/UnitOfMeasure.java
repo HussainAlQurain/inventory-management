@@ -12,7 +12,8 @@ import lombok.*;
 @Entity
 public class UnitOfMeasure {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "uom_id_seq")
+    @SequenceGenerator(name = "uom_id_seq", sequenceName = "uom_id_seq", allocationSize = 1)
     private Long id;
 
     @Column(nullable = false, unique = true)

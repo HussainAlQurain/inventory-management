@@ -14,7 +14,8 @@ import java.util.Set;
 @Entity
 public class Assortment {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "assortment_id_seq")
+    @SequenceGenerator(name = "assortment_id_seq", sequenceName = "assortment_id_seq", allocationSize = 1)
     private Long id;
 
     private String name;

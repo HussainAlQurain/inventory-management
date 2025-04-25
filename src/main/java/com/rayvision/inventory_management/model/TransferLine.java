@@ -10,7 +10,9 @@ import lombok.*;
 @Builder
 @Entity
 public class TransferLine {
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Id
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "transfer_line_id_seq")
+    @SequenceGenerator(name = "transfer_line_id_seq", sequenceName = "transfer_line_id_seq", allocationSize = 1)
     private Long id;
 
     /* parent */

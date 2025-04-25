@@ -12,7 +12,8 @@ import java.util.Set;
 @Builder
 @Entity
 public class Category {
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "category_id_seq")
+    @SequenceGenerator(name = "category_id_seq", sequenceName = "category_id_seq", allocationSize = 1)
     @Id
     private Long id;
 

@@ -14,8 +14,9 @@ import java.time.LocalDate;
 @Builder
 @Entity
 public class InventoryCount {
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Id
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "inventory_count_id_seq")
+    @SequenceGenerator(name = "inventory_count_id_seq", sequenceName = "inventory_count_id_seq", allocationSize = 1)
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)

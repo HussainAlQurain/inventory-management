@@ -12,7 +12,8 @@ import lombok.*;
 @Entity
 public class LocationUser {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "location_user_id_seq")
+    @SequenceGenerator(name = "location_user_id_seq", sequenceName = "location_user_id_seq", allocationSize = 1)
     private Long id;
 
     @ManyToOne

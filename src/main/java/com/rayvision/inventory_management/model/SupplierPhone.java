@@ -10,8 +10,9 @@ import lombok.*;
 @Builder
 @Entity
 public class SupplierPhone {
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Id
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "supplier_phone_id_seq")
+    @SequenceGenerator(name = "supplier_phone_id_seq", sequenceName = "supplier_phone_id_seq", allocationSize = 1)
     private Long id;
 
     private String phoneNumber;

@@ -12,8 +12,9 @@ import java.util.Set;
 @Builder
 @Entity
 public class Allergen {
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Id
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "allergen_id_seq")
+    @SequenceGenerator(name = "allergen_id_seq", sequenceName = "allergen_id_seq", allocationSize = 1)
     private Long id;
 
     private String name;

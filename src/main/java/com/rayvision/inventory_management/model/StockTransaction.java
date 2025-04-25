@@ -15,7 +15,8 @@ public class StockTransaction {
 
 
     @Id
-    @GeneratedValue(strategy= GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "stock_transaction_id_seq")
+    @SequenceGenerator(name = "stock_transaction_id_seq", sequenceName = "stock_transaction_id_seq", allocationSize = 1)
     private Long id;
 
     private LocalDate date;

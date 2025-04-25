@@ -11,7 +11,8 @@ import lombok.*;
 @Builder
 public class MenuItemLine {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "menu_item_line_id_seq")
+    @SequenceGenerator(name = "menu_item_line_id_seq", sequenceName = "menu_item_line_id_seq", allocationSize = 1)
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)

@@ -10,8 +10,9 @@ import lombok.*;
 @Builder
 @Entity
 public class SupplierEmail {
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Id
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "supplier_email_id_seq")
+    @SequenceGenerator(name = "supplier_email_id_seq", sequenceName = "supplier_email_id_seq", allocationSize = 1)
     private Long id;
 
     private String email;

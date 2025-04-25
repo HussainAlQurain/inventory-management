@@ -16,7 +16,8 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class LocationIntegrationSetting {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "location_integration_setting_id_seq")
+    @SequenceGenerator(name = "location_integration_setting_id_seq", sequenceName = "location_integration_setting_id_seq", allocationSize = 1)
     private Long id;
 
     // One-to-One or Many-to-One, depends on your design

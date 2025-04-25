@@ -14,7 +14,8 @@ import java.util.Set;
 @Builder
 public class PurchaseOption {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "purchase_option_id_seq")
+    @SequenceGenerator(name = "purchase_option_id_seq", sequenceName = "purchase_option_id_seq", allocationSize = 1)
     private Long id;
 
     /**

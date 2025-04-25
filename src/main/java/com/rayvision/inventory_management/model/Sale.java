@@ -20,8 +20,9 @@ import java.util.List;
 )
 public class Sale {
 
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Id
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "sale_id_seq")
+    @SequenceGenerator(name = "sale_id_seq", sequenceName = "sale_id_seq", allocationSize = 1)
     private Long id;
 
     @ManyToOne(fetch=FetchType.LAZY)

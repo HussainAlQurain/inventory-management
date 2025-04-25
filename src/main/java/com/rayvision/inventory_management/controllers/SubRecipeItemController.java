@@ -4,6 +4,10 @@ import com.rayvision.inventory_management.mappers.SubRecipeItemLineMapper;
 import com.rayvision.inventory_management.model.SubRecipeItem;
 import com.rayvision.inventory_management.model.dto.SubRecipeItemLineDTO;
 import com.rayvision.inventory_management.service.SubRecipeItemService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -22,7 +26,7 @@ public class SubRecipeItemController {
         this.subRecipeItemLineMapper = subRecipeItemLineMapper;
     }
 
-    // GET all items for the subRecipe
+    // GET all items for the subRecipe (non-paginated, for backward compatibility)
     @GetMapping
     public ResponseEntity<List<SubRecipeItemLineDTO>> getAllItems(@PathVariable Long subRecipeId) {
         List<SubRecipeItem> entities = subRecipeItemService.getItemsBySubRecipe(subRecipeId);
@@ -32,6 +36,24 @@ public class SubRecipeItemController {
         return ResponseEntity.ok(dtos);
     }
 
+    // GET all items for the subRecipe with pagination
+    @GetMapping("/paginated")
+    public ResponseEntity<Page<SubRecipeItemLineDTO>> getAllItemsPaginated(
+            @PathVariable Long subRecipeId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "") String search,
+            @RequestParam(defaultValue = "id") String sort,
+            @RequestParam(defaultValue = "asc") String direction) {
+
+        Sort.Direction sortDirection = Sort.Direction.fromString(direction);
+        Pageable pageable = PageRequest.of(page, size, sortDirection, sort);
+
+        Page<SubRecipeItem> entities = subRecipeItemService.getItemsBySubRecipe(subRecipeId, search, pageable);
+        Page<SubRecipeItemLineDTO> dtos = entities.map(subRecipeItemLineMapper::toDto);
+
+        return ResponseEntity.ok(dtos);
+    }
 
     // GET single item
     @GetMapping("/{itemId}")
@@ -43,7 +65,6 @@ public class SubRecipeItemController {
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
-
     // CREATE new subRecipeItem
     @PostMapping
     public ResponseEntity<SubRecipeItemLineDTO> createItem(@PathVariable Long subRecipeId,
@@ -53,7 +74,6 @@ public class SubRecipeItemController {
         SubRecipeItemLineDTO responseDto = subRecipeItemLineMapper.toDto(created);
         return ResponseEntity.status(HttpStatus.CREATED).body(responseDto);
     }
-
 
     // UPDATE (full) subRecipeItem
     @PutMapping("/{itemId}")
@@ -69,7 +89,6 @@ public class SubRecipeItemController {
             return ResponseEntity.notFound().build();
         }
     }
-
 
     // PARTIAL update
     @PatchMapping("/{itemId}")

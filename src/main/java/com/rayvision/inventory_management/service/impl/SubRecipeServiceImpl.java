@@ -7,6 +7,8 @@ import com.rayvision.inventory_management.model.dto.SubRecipeItemLineDTO;
 import com.rayvision.inventory_management.model.dto.SubRecipeLineDTO;
 import com.rayvision.inventory_management.repository.*;
 import com.rayvision.inventory_management.service.SubRecipeService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -325,6 +327,11 @@ public class SubRecipeServiceImpl implements SubRecipeService {
     @Override
     public List<SubRecipe> searchSubRecipes(Long companyId, String searchTerm) {
         return subRecipeRepository.searchSubRecipes(companyId, searchTerm);
+    }
+
+    @Override
+    public Page<SubRecipe> searchSubRecipes(Long companyId, String searchTerm, Pageable pageable) {
+        return subRecipeRepository.searchSubRecipes(companyId, searchTerm, pageable);
     }
 
 }

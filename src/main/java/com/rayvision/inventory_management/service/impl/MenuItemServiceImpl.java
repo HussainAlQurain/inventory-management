@@ -7,6 +7,8 @@ import com.rayvision.inventory_management.model.dto.MenuItemLineDTO;
 import com.rayvision.inventory_management.model.dto.MenuItemSubRecipeLineDTO;
 import com.rayvision.inventory_management.repository.*;
 import com.rayvision.inventory_management.service.MenuItemService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -336,6 +338,11 @@ public class MenuItemServiceImpl implements MenuItemService {
     @Override
     public List<MenuItem> searchMenuItems(Long companyId, String searchTerm) {
         return menuItemRepository.searchMenuItems(companyId, searchTerm);
+    }
+
+    @Override
+    public Page<MenuItem> searchMenuItems(Long companyId, String searchTerm, Pageable pageable) {
+        return menuItemRepository.searchMenuItems(companyId, searchTerm, pageable);
     }
 
 }

@@ -9,10 +9,15 @@ import com.rayvision.inventory_management.repository.SubRecipeLineRepository;
 import com.rayvision.inventory_management.repository.SubRecipeRepository;
 import com.rayvision.inventory_management.repository.UnitOfMeasureRepository;
 import com.rayvision.inventory_management.service.SubRecipeLineService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 public class SubRecipeLineServiceImpl implements SubRecipeLineService {
@@ -43,6 +48,46 @@ public class SubRecipeLineServiceImpl implements SubRecipeLineService {
         return all.stream()
                 .filter(line -> line.getParentSubRecipe().getId().equals(subRecipeId))
                 .toList();
+    }
+
+    @Override
+    public Page<SubRecipeLine> getLinesBySubRecipe(Long subRecipeId, String search, Pageable pageable) {
+        // Get all lines for the sub recipe
+        List<SubRecipeLine> allLines = subRecipeLineRepository.findAll().stream()
+                .filter(line -> line.getParentSubRecipe().getId().equals(subRecipeId))
+                .collect(Collectors.toList());
+        
+        // Apply search filter if provided
+        if (StringUtils.hasText(search)) {
+            String searchLower = search.toLowerCase();
+            allLines = allLines.stream()
+                    .filter(line -> {
+                        // Search in inventory item name if exists
+                        boolean matchesInventoryItem = line.getInventoryItem() != null && 
+                                line.getInventoryItem().getName() != null &&
+                                line.getInventoryItem().getName().toLowerCase().contains(searchLower);
+                        
+                        // Search in child sub recipe name if exists
+                        boolean matchesChildSubRecipe = line.getChildSubRecipe() != null &&
+                                line.getChildSubRecipe().getName() != null &&
+                                line.getChildSubRecipe().getName().toLowerCase().contains(searchLower);
+                        
+                        return matchesInventoryItem || matchesChildSubRecipe;
+                    })
+                    .collect(Collectors.toList());
+        }
+        
+        // Apply pagination
+        int start = (int) pageable.getOffset();
+        int end = Math.min((start + pageable.getPageSize()), allLines.size());
+        
+        // Handle case when start index is out of bounds
+        if (start >= allLines.size()) {
+            return new PageImpl<>(List.of(), pageable, allLines.size());
+        }
+        
+        List<SubRecipeLine> pageContent = allLines.subList(start, end);
+        return new PageImpl<>(pageContent, pageable, allLines.size());
     }
 
     @Override

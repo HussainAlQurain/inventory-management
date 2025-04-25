@@ -2,6 +2,8 @@ package com.rayvision.inventory_management.service;
 
 import com.rayvision.inventory_management.model.SubRecipe;
 import com.rayvision.inventory_management.model.dto.SubRecipeCreateDTO;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 import java.util.Optional;
@@ -28,6 +30,20 @@ public interface SubRecipeService {
 
     void deleteSubRecipeById(Long companyId, Long subRecipeId);
 
-
+    /**
+     * Search sub-recipes without pagination
+     * @param companyId The company ID
+     * @param searchTerm Search term to filter results
+     * @return List of sub-recipes
+     */
     List<SubRecipe> searchSubRecipes(Long companyId, String searchTerm);
+    
+    /**
+     * Search sub-recipes with pagination support
+     * @param companyId The company ID
+     * @param searchTerm Search term to filter results
+     * @param pageable Pagination parameters
+     * @return Page of sub-recipes
+     */
+    Page<SubRecipe> searchSubRecipes(Long companyId, String searchTerm, Pageable pageable);
 }

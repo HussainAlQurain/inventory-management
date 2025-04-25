@@ -3,6 +3,8 @@ package com.rayvision.inventory_management.service;
 import com.rayvision.inventory_management.model.MenuItem;
 import com.rayvision.inventory_management.model.dto.MenuItemCreateDTO;
 import com.rayvision.inventory_management.model.dto.MenuItemLineDTO;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 import java.util.Optional;
@@ -38,7 +40,21 @@ public interface MenuItemService {
      */
     MenuItem recalcMenuItemCost(MenuItem menuItem);
 
+    /**
+     * Search menu items with pagination support
+     * @param companyId The company ID
+     * @param searchTerm Search term to filter results
+     * @param pageable Pagination parameters
+     * @return Page of menu items
+     */
+    Page<MenuItem> searchMenuItems(Long companyId, String searchTerm, Pageable pageable);
 
+    /**
+     * Search menu items without pagination
+     * @param companyId The company ID
+     * @param searchTerm Search term to filter results
+     * @return List of menu items
+     */
     List<MenuItem> searchMenuItems(Long companyId, String searchTerm);
 
     MenuItem addLineToMenuItem(Long companyId, Long menuItemId, MenuItemLineDTO lineDTO);

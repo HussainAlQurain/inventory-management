@@ -6,11 +6,17 @@ import com.rayvision.inventory_management.model.dto.SubRecipeCreateDTO;
 import com.rayvision.inventory_management.model.dto.SubRecipeDTO;
 import com.rayvision.inventory_management.service.SubRecipeService;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/sub-recipes")
@@ -24,23 +30,32 @@ public class SubRecipeController {
         this.subRecipeMapper = subRecipeMapper;
     }
 
-//    @GetMapping("/company/{companyId}")
-//    public ResponseEntity<List<SubRecipeDTO>> getAllSubRecipes(@PathVariable Long companyId) {
-//        List<SubRecipe> list = subRecipeService.getAllSubRecipes(companyId);
-//        List<SubRecipeDTO> dtoList = list.stream().map(subRecipeMapper::toDto).toList();
-//        return ResponseEntity.ok(dtoList);
-//    }
-
     @GetMapping("/company/{companyId}")
-    public ResponseEntity<List<SubRecipeDTO>> getAllSubRecipes(
+    public ResponseEntity<Map<String, Object>> getAllSubRecipes(
             @PathVariable Long companyId,
-            @RequestParam(name = "search", required = false, defaultValue = "") String searchTerm
+            @RequestParam(name = "search", required = false, defaultValue = "") String searchTerm,
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size,
+            @RequestParam(name = "sort", defaultValue = "name") String sortBy,
+            @RequestParam(name = "direction", defaultValue = "asc") String direction
     ) {
-        List<SubRecipe> list = subRecipeService.searchSubRecipes(companyId, searchTerm);
-        List<SubRecipeDTO> dtoList = list.stream()
+        Sort.Direction sortDirection = direction.equalsIgnoreCase("desc") ? 
+            Sort.Direction.DESC : Sort.Direction.ASC;
+            
+        Pageable pageable = PageRequest.of(page, size, Sort.by(sortDirection, sortBy));
+        Page<SubRecipe> pageResults = subRecipeService.searchSubRecipes(companyId, searchTerm, pageable);
+        
+        List<SubRecipeDTO> dtoList = pageResults.getContent().stream()
                 .map(subRecipeMapper::toDto)
                 .toList();
-        return ResponseEntity.ok(dtoList);
+                
+        Map<String, Object> response = new HashMap<>();
+        response.put("items", dtoList);
+        response.put("currentPage", pageResults.getNumber());
+        response.put("totalItems", pageResults.getTotalElements());
+        response.put("totalPages", pageResults.getTotalPages());
+        
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/{subRecipeId}/company/{companyId}")
@@ -52,8 +67,6 @@ public class SubRecipeController {
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
-
-    // CREATE using the new DTO
     @PostMapping("/company/{companyId}")
     public ResponseEntity<SubRecipeDTO> createSubRecipe(@PathVariable Long companyId,
                                                      @RequestBody SubRecipeCreateDTO dto) {
@@ -61,7 +74,6 @@ public class SubRecipeController {
         return ResponseEntity.status(HttpStatus.CREATED).body(subRecipeMapper.toDto(created));
     }
 
-    // UPDATE (full replace) using the new DTO
     @PutMapping("/{subRecipeId}/company/{companyId}")
     public ResponseEntity<SubRecipeDTO> updateSubRecipe(
             @PathVariable Long companyId,
@@ -72,7 +84,6 @@ public class SubRecipeController {
         return ResponseEntity.ok(subRecipeMapper.toDto(updated));
     }
 
-    // PARTIAL update
     @PatchMapping("/{subRecipeId}/company/{companyId}")
     public ResponseEntity<SubRecipeDTO> partialUpdateSubRecipe(@PathVariable Long companyId,
                                                             @PathVariable Long subRecipeId,

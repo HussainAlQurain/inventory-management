@@ -4,6 +4,10 @@ import com.rayvision.inventory_management.mappers.SubRecipeLineMapper;
 import com.rayvision.inventory_management.model.SubRecipeLine;
 import com.rayvision.inventory_management.model.dto.SubRecipeLineDTO;
 import com.rayvision.inventory_management.service.SubRecipeLineService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -30,6 +34,25 @@ public class SubRecipeLineController {
                 .map(subRecipeLineMapper::toDto)
                 .toList();
         return ResponseEntity.ok(dtos);
+    }
+
+    // GET paginated lines
+    @GetMapping("/paginated")
+    public ResponseEntity<Page<SubRecipeLineDTO>> getPaginatedLines(
+            @PathVariable Long subRecipeId,
+            @RequestParam(required = false) String search,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "id") String sortBy,
+            @RequestParam(defaultValue = "asc") String sortDir) {
+
+        Sort sort = Sort.by(Sort.Direction.fromString(sortDir), sortBy);
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        Page<SubRecipeLine> paginatedLines = subRecipeLineService.getLinesBySubRecipe(subRecipeId, search, pageable);
+        Page<SubRecipeLineDTO> paginatedDtos = paginatedLines.map(subRecipeLineMapper::toDto);
+
+        return ResponseEntity.ok(paginatedDtos);
     }
 
     // GET single line

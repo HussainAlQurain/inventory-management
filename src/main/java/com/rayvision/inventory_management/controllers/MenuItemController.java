@@ -7,11 +7,17 @@ import com.rayvision.inventory_management.model.MenuItem;
 import com.rayvision.inventory_management.model.MenuItemLine;
 import com.rayvision.inventory_management.model.dto.*;
 import com.rayvision.inventory_management.service.MenuItemService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 
 @RestController
 @RequestMapping("/menu-items")
@@ -28,17 +34,32 @@ public class MenuItemController {
     }
 
     @GetMapping("/company/{companyId}")
-    public ResponseEntity<List<MenuItemResponseDTO>> getAllMenuItems(
+    public ResponseEntity<Map<String, Object>> getAllMenuItems(
             @PathVariable Long companyId,
-            @RequestParam(name = "search", required = false, defaultValue = "") String searchTerm
+            @RequestParam(name = "search", required = false, defaultValue = "") String searchTerm,
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size,
+            @RequestParam(name = "sort", defaultValue = "name") String sortBy,
+            @RequestParam(name = "direction", defaultValue = "asc") String direction
     ) {
-        List<MenuItem> items = menuItemService.searchMenuItems(companyId, searchTerm);
-        List<MenuItemResponseDTO> dtoList = items.stream()
+        Sort.Direction sortDirection = direction.equalsIgnoreCase("desc") ? 
+            Sort.Direction.DESC : Sort.Direction.ASC;
+        
+        Pageable pageable = PageRequest.of(page, size, Sort.by(sortDirection, sortBy));
+        Page<MenuItem> pageItems = menuItemService.searchMenuItems(companyId, searchTerm, pageable);
+        
+        List<MenuItemResponseDTO> items = pageItems.getContent().stream()
                 .map(menuItemResponseMapper::toDto)
                 .toList();
-        return ResponseEntity.ok(dtoList);
+        
+        Map<String, Object> response = new HashMap<>();
+        response.put("items", items);
+        response.put("currentPage", pageItems.getNumber());
+        response.put("totalItems", pageItems.getTotalElements());
+        response.put("totalPages", pageItems.getTotalPages());
+        
+        return ResponseEntity.ok(response);
     }
-
 
     @GetMapping("/{id}/company/{companyId}")
     public ResponseEntity<MenuItemResponseDTO> getMenuItemById(@PathVariable Long companyId,
@@ -49,7 +70,6 @@ public class MenuItemController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-
     @PostMapping("/company/{companyId}")
     public ResponseEntity<MenuItemResponseDTO> createMenuItem(@PathVariable Long companyId,
                                                               @RequestBody MenuItemCreateDTO dto) {
@@ -57,7 +77,6 @@ public class MenuItemController {
         MenuItemResponseDTO response = menuItemResponseMapper.toDto(created);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
-
 
     @PutMapping("/{id}/company/{companyId}")
     public ResponseEntity<MenuItemResponseDTO> updateMenuItem(@PathVariable Long companyId,
@@ -70,7 +89,6 @@ public class MenuItemController {
             return ResponseEntity.notFound().build();
         }
     }
-
 
     @PatchMapping("/{id}/company/{companyId}")
     public ResponseEntity<MenuItemResponseDTO> partialUpdateMenuItem(@PathVariable Long companyId,
@@ -94,7 +112,6 @@ public class MenuItemController {
             return ResponseEntity.notFound().build();
         }
     }
-
 
     // Line management endpoints
     @GetMapping("/{menuItemId}/company/{companyId}/lines")

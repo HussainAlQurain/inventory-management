@@ -36,6 +36,7 @@ public class RedistributeJob {
     private final InventoryItemLocationRepository   iilRepo;
     private final AssortmentLocationRepository      alRepo;
     private final InventoryItemRepository           itemRepo;
+    private final UnitOfMeasureRepository           uomRepository;
     private final TransferService                   transferService;
     private final NotificationService               notificationService;
 
@@ -160,6 +161,7 @@ public class RedistributeJob {
         return result;
     }
 
+    @Transactional
     private void matchItem(Long itemId,
                            List<Deficit> deficits,
                            List<Surplus> surpluses,
@@ -200,6 +202,7 @@ public class RedistributeJob {
 
     /* ------------------------------------------------------------------ */
 
+    @Transactional
     private void createOrUpdateDraft(Long itemId, double qty,
                                      Long fromId, Long toId,
                                      List<Location> locs,
@@ -256,12 +259,23 @@ public class RedistributeJob {
                 .orElseThrow(() -> new RuntimeException("Location not found " + id));
     }
 
+    @Transactional
     private UnitOfMeasure requiredUom(Long itemId) {
-        UnitOfMeasure uom = itemRepo.findById(itemId)
-                .orElseThrow()
-                .getInventoryUom();
-        if (uom == null) throw new RuntimeException("Item " + itemId + " has no default UoM");
-        return uom;
+        // First, get the inventory item
+        InventoryItem item = itemRepo.findById(itemId)
+                .orElseThrow(() -> new RuntimeException("Item not found: " + itemId));
+        
+        if (item.getInventoryUom() == null) {
+            throw new RuntimeException("Item " + itemId + " has no default UoM");
+        }
+        
+        // Instead of using the potentially lazy-loaded UOM from the item,
+        // directly fetch the UOM from the repository to ensure it's fully initialized
+        Long uomId = item.getInventoryUom().getId();
+        
+        // We need to add UnitOfMeasureRepository to our class
+        return uomRepository.findById(uomId)
+                .orElseThrow(() -> new RuntimeException("UnitOfMeasure not found: " + uomId));
     }
 
     private double nz(Double d) { return d != null ? d : 0.0; }

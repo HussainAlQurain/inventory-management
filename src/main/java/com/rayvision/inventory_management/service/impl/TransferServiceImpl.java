@@ -321,6 +321,20 @@ public class TransferServiceImpl implements TransferService {
         }
 
         for (RedistributeJob.ShortLine sl : lines) {
+            // Force initialization of UnitOfMeasure properties to avoid LazyInitializationException
+            if (sl.uom() != null) {
+                // Access properties to ensure they're loaded
+                try {
+                    double conversionFactor = sl.uom().getConversionFactor();
+                    String name = sl.uom().getName();
+                } catch (Exception e) {
+                    // If we can't access the properties, we'll need to load the UOM from the repository
+                    UnitOfMeasure freshUom = uomRepository.findById(sl.uom().getId())
+                            .orElseThrow(() -> new RuntimeException("UOM not found: " + sl.uom().getId()));
+                    // Continue with the rest using freshUom if needed
+                }
+            }
+            
             if (existing.containsKey(sl.itemId())) {
                 TransferLine tl = existing.get(sl.itemId());
                 double newQty = tl.getQuantity() + sl.qty();
@@ -334,7 +348,10 @@ public class TransferServiceImpl implements TransferService {
                 tl.setInventoryItem(
                         inventoryItemRepository.findById(sl.itemId())
                                 .orElseThrow(() -> new RuntimeException("Item not found")));
-                tl.setUnitOfMeasure(sl.uom());
+                // Load a fresh copy of the UnitOfMeasure to avoid LazyInitializationException
+                UnitOfMeasure freshUom = uomRepository.findById(sl.uom().getId())
+                        .orElseThrow(() -> new RuntimeException("UOM not found: " + sl.uom().getId()));
+                tl.setUnitOfMeasure(freshUom);
                 tl.setQuantity(sl.qty());
                 
                 // Calculate costs for the new line

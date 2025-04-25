@@ -9,13 +9,18 @@ import com.rayvision.inventory_management.repository.InventoryItemRepository;
 import com.rayvision.inventory_management.repository.LocationRepository;
 import com.rayvision.inventory_management.service.InventoryItemLocationService;
 import com.rayvision.inventory_management.service.PurchaseOrderService;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 
+@Slf4j
 @Service
 public class AutoOrderScheduledService {
     private final AutoOrderSettingRepository settingRepo;
@@ -44,12 +49,16 @@ public class AutoOrderScheduledService {
         this.assortmentLocationRepository = assortmentLocationRepository;
     }
 
-    // runs every 60 seconds
-    @Scheduled(fixedDelay = 60000)
+    @Scheduled(fixedDelayString = "${inventory.scheduled.auto-order.delay:60000}")
     @Transactional
     public void checkAutoOrders() {
         LocalDateTime now = LocalDateTime.now();
-        List<AutoOrderSetting> allSettings = settingRepo.findAll();
+        
+        // Use the new repository method to fetch settings with eager-loaded relationships
+        List<AutoOrderSetting> allSettings = settingRepo.findAllWithLocationAndCompany();
+
+        log.debug("Checking {} auto-order settings", allSettings.size());
+
         for (AutoOrderSetting setting : allSettings) {
             if (!setting.isEnabled()) {
                 continue; // skip if not enabled
@@ -59,49 +68,116 @@ public class AutoOrderScheduledService {
             }
 
             LocalDateTime last = Optional.ofNullable(setting.getLastCheckTime())
-                    .orElse(LocalDateTime.of(1970,1,1,0,0));
+                    .orElse(LocalDateTime.of(1970, 1, 1, 0, 0));
             LocalDateTime nextAllowed = last.plusSeconds(setting.getFrequencySeconds());
-            
-            // Add debug logging for time check
-            System.out.println("DEBUG: Setting for location " + 
-                (setting.getLocation() != null ? setting.getLocation().getId() : "unknown") + 
-                ", enabled=" + setting.isEnabled() + 
-                ", lastCheck=" + setting.getLastCheckTime() + 
-                ", nextAllowed=" + nextAllowed + 
-                ", now=" + now + 
-                ", should run=" + now.isAfter(nextAllowed));
-                
+
             if (now.isAfter(nextAllowed)) {
-                // time to run auto-order logic
                 try {
-                    runAutoOrderLogic(setting);
-                    // if success, update lastCheckTime
-                    setting.setLastCheckTime(now);
-                    settingRepo.save(setting);
+                    // Extract all necessary IDs now, with null checks
+                    Long locationId = null;
+                    Long companyId = null;
+                    Long settingId = setting.getId();
+                    
+                    Location location = setting.getLocation();
+                    if (location != null) {
+                        locationId = location.getId();
+                        Company company = location.getCompany();
+                        if (company != null) {
+                            companyId = company.getId();
+                        }
+                    }
+                    
+                    // Safety check - we should have both location and company by now
+                    if (locationId == null) {
+                        log.error("Location not available for setting ID {}", settingId);
+                        continue;
+                    }
+                    
+                    final Long finalLocationId = locationId;
+                    final Long finalCompanyId = companyId;
+                    
+                    log.info("Starting auto-order process for location ID: {}", finalLocationId);
+                    
+                    // Run asynchronously
+                    CompletableFuture<Boolean> future = processAutoOrderAsync(settingId);
+
+                    // We don't wait here - it will complete in the background
+                    future.thenAccept(success -> {
+                        if (success) {
+                            // Update the lastCheckTime only if successful - this is now done separately
+                            // in the processAutoOrderAsync method to avoid transaction issues
+                        }
+                    });
                 } catch (Exception ex) {
-                    // Add proper logging
-                    ex.printStackTrace();
-                    System.err.println("Error in auto-order for location ID " + 
-                        (setting.getLocation() != null ? setting.getLocation().getId() : "unknown") + 
-                        ": " + ex.getMessage());
+                    log.error("Error scheduling auto-order for setting ID: {}", setting.getId(), ex);
                 }
             }
         }
     }
 
+    @Async("autoOrderExecutor")
+    public CompletableFuture<Boolean> processAutoOrderAsync(Long settingId) {
+        try {
+            // Use the eager loading repository method
+            AutoOrderSetting setting = settingRepo.findByIdWithLocationAndCompany(settingId)
+                .orElseThrow(() -> new RuntimeException("Setting not found: " + settingId));
+            
+            // Run the core logic
+            runAutoOrderLogic(setting);
+            
+            // Update lastCheckTime in a separate transaction
+            updateLastCheckTime(settingId);
+            
+            return CompletableFuture.completedFuture(true);
+        } catch (Exception ex) {
+            log.error("Auto-order process failed for setting ID: {}", settingId, ex);
+            return CompletableFuture.completedFuture(false);
+        }
+    }
+    
+    @Transactional
+    public void updateLastCheckTime(Long settingId) {
+        try {
+            AutoOrderSetting freshSetting = settingRepo.findById(settingId)
+                .orElseThrow(() -> new RuntimeException("Setting not found: " + settingId));
+            freshSetting.setLastCheckTime(LocalDateTime.now());
+            settingRepo.save(freshSetting);
+            log.debug("Updated lastCheckTime for setting ID: {}", settingId);
+        } catch (Exception ex) {
+            log.error("Failed to update lastCheckTime for setting ID: {}", settingId, ex);
+        }
+    }
+
     @Transactional
     public void runAutoOrderLogic(AutoOrderSetting setting) {
-        Location loc = setting.getLocation();
-        if (loc == null) {
-            System.err.println("DEBUG: Location is null for setting ID: " + setting.getId());
+        // Re-fetch location to avoid LazyInitialization
+        Location loc = null;
+        if (setting.getLocation() != null) {
+            Long locationId = setting.getLocation().getId();
+            loc = locationRepository.findById(locationId)
+                .orElse(null);
+            
+            if (loc == null) {
+                log.warn("Location with ID {} not found", locationId);
+                return;
+            }
+        } else {
+            log.warn("Location is null for setting ID: {}", setting.getId());
+            return;
+        }
+
+        log.debug("Running auto-order logic for location: {} - {}", loc.getId(), loc.getName());
+        LocalDateTime startTime = LocalDateTime.now();
+
+        // 1) figure out which items are in scope
+        // Re-fetch company to avoid LazyInitialization
+        Company company = loc.getCompany();
+        if (company == null) {
+            log.warn("Company is null for location ID: {}", loc.getId());
             return;
         }
         
-        System.out.println("DEBUG: Starting auto-order for location: " + loc.getId() + " - " + loc.getName());
-
-        // 1) figure out which items are in scope
-        //    same logic as fillToPar:
-        Long companyId = loc.getCompany().getId();
+        Long companyId = company.getId();
         List<AssortmentLocation> bridgingAssortments =
                 assortmentLocationRepository.findByLocationId(loc.getId());
 
@@ -109,26 +185,26 @@ public class AutoOrderScheduledService {
         if (bridgingAssortments.isEmpty()) {
             // fallback to ALL items in the company
             unionItems.addAll(inventoryItemRepository.findByCompanyId(companyId));
-            System.out.println("DEBUG: No assortments found, using all company items: " + unionItems.size());
+            log.debug("No assortments found, using all company items: {}", unionItems.size());
         } else {
             for (AssortmentLocation al : bridgingAssortments) {
-                unionItems.addAll(al.getAssortment().getInventoryItems());
+                // Eager fetch the inventory items to avoid lazy loading issues
+                Assortment assortment = al.getAssortment();
+                if (assortment != null) {
+                    unionItems.addAll(assortment.getInventoryItems());
+                }
             }
-            System.out.println("DEBUG: Using items from " + bridgingAssortments.size() + " assortments, total items: " + unionItems.size());
+            log.debug("Using items from {} assortments, total items: {}",
+                    bridgingAssortments.size(), unionItems.size());
         }
-        
-        // After step 1:
-        System.out.println("DEBUG: Found " + unionItems.size() + " items in scope");
 
         // 2) get itemLocation bridging rows
         List<InventoryItemLocation> bridgingList = itemLocationService.getByLocation(loc.getId());
         if (bridgingList.isEmpty()) {
-            System.err.println("DEBUG: No inventory item location bridging rows found for location: " + loc.getId());
+            log.warn("No inventory item location bridging rows found for location: {}", loc.getId());
             return; // no items
         }
-        
-        System.out.println("DEBUG: Found " + bridgingList.size() + " bridging rows");
-        
+
         // build a map itemId -> bridging row
         Map<Long, InventoryItemLocation> iilMap = new HashMap<>();
         for (InventoryItemLocation bil : bridgingList) {
@@ -137,15 +213,13 @@ public class AutoOrderScheduledService {
 
         // 2.5) Get in-transit quantities from sent orders
         Map<Long, Double> inTransitMap = purchaseOrderService.calculateInTransitQuantitiesByLocation(loc.getId());
-        System.out.println("DEBUG: Found " + inTransitMap.size() + " items with in-transit quantities");
+        log.debug("Found {} items with in-transit quantities", inTransitMap.size());
 
         // 3) For each item in unionItems => compute shortage if par>0
-        //    skip if both par & min are zero or null
-        //    group by main/fallback purchase option's supplier
         Map<Supplier, List<ShortageLine>> shortageMap = new HashMap<>();
         int itemsProcessed = 0;
         int shortagesFound = 0;
-        
+
         for (InventoryItem item : unionItems) {
             itemsProcessed++;
             InventoryItemLocation bil = iilMap.get(item.getId());
@@ -157,38 +231,37 @@ public class AutoOrderScheduledService {
             // if user wants "skip items with both minOnHand & par=0"
             double min = (bil.getMinOnHand() != null) ? bil.getMinOnHand() : 0.0;
             double par = (bil.getParLevel() != null) ? bil.getParLevel() : 0.0;
-            if ( (min <= 0) && (par <= 0) ) {
+            if ((min <= 0) && (par <= 0)) {
                 // skip if both are effectively zero => user doesn't want auto-order
                 continue;
             }
 
             // compute shortage from par - onHand
             double onHand = (bil.getOnHand() != null) ? bil.getOnHand() : 0.0;
-            
+
             // Account for in-transit quantities (already ordered but not received)
             double inTransitQty = inTransitMap.getOrDefault(item.getId(), 0.0);
-            
+
             // Total expected quantity = current on hand + in transit
             double effectiveOnHand = onHand + inTransitQty;
-            
+
             // Calculate shortage based on effective on-hand (including in-transit)
             double shortage = par - effectiveOnHand;
-            
+
             if (shortage <= 0) {
                 // no ordering needed
                 continue;
             }
-            
+
             shortagesFound++;
-            System.out.println("DEBUG: Item " + item.getId() + " - " + item.getName() + 
-                " has shortage of " + shortage + " (Par: " + par + ", OnHand: " + onHand + 
-                ", In-transit: " + inTransitQty + ", Min: " + min + ")");
+            log.debug("Item {} - {} has shortage of {} (Par: {}, OnHand: {}, In-transit: {}, Min: {})",
+                    item.getId(), item.getName(), shortage, par, onHand, inTransitQty, min);
 
             // 4) pick an enabled purchase option => get supplier
             PurchaseOption po = pickEnabledMainOrFallbackPurchaseOption(item);
             if (po == null) {
                 // no valid option => create a notification to user
-                System.err.println("DEBUG: No enabled purchase option found for item: " + item.getId() + " - " + item.getName());
+                log.info("No enabled purchase option found for item: {} - {}", item.getId(), item.getName());
                 notificationService.createNotification(
                         companyId,
                         "Auto-Order Skipped",
@@ -201,7 +274,7 @@ public class AutoOrderScheduledService {
 
             Supplier sup = po.getSupplier();
             if (sup == null) {
-                System.err.println("DEBUG: Purchase option has no supplier for item: " + item.getId() + " - " + item.getName());
+                log.info("Purchase option has no supplier for item: {} - {}", item.getId(), item.getName());
                 notificationService.createNotification(
                         companyId,
                         "Auto-Order Skipped",
@@ -216,17 +289,15 @@ public class AutoOrderScheduledService {
             ShortageLine sl = new ShortageLine(item.getId(), shortage, po.getPrice(), item.getName());
             shortageMap.computeIfAbsent(sup, k -> new ArrayList<>()).add(sl);
         }
-        
-        System.out.println("DEBUG: Processed " + itemsProcessed + " items, found " + shortagesFound + " with shortages");
-        System.out.println("DEBUG: Found " + shortageMap.size() + " suppliers with shortages");
+
+        log.debug("Processed {} items, found {} with shortages across {} suppliers",
+                itemsProcessed, shortagesFound, shortageMap.size());
 
         // 5) create or update draft for each supplier
         for (Map.Entry<Supplier, List<ShortageLine>> e : shortageMap.entrySet()) {
             Supplier sup = e.getKey();
             List<ShortageLine> lines = e.getValue();
             if (lines.isEmpty()) continue;
-            
-            System.out.println("DEBUG: Processing supplier " + sup.getName() + " with " + lines.size() + " shortage lines");
 
             // find draft
             Orders draft = purchaseOrderService.findDraftOrderForSupplierAndLocation(sup.getId(), loc.getId());
@@ -250,12 +321,12 @@ public class AutoOrderScheduledService {
                     itemDtos.add(idto);
                 }
                 dto.setItems(itemDtos);
-                
-                System.out.println("DEBUG: Creating new draft order for supplier " + sup.getName() + " with " + itemDtos.size() + " items");
+
+                log.info("Creating new draft order for supplier {} with {} items", sup.getName(), itemDtos.size());
 
                 try {
-                    Orders createdDraft = purchaseOrderService.createOrder(loc.getCompany().getId(), dto);
-                    System.out.println("DEBUG: Successfully created draft order with ID: " + createdDraft.getId());
+                    Orders createdDraft = purchaseOrderService.createOrder(companyId, dto);
+                    log.info("Successfully created draft order with ID: {}", createdDraft.getId());
 
                     // Show notification for newly created orders
                     notificationService.createNotification(
@@ -266,48 +337,49 @@ public class AutoOrderScheduledService {
                                     + "', location '" + loc.getName() + "'"
                     );
                 } catch (Exception ex) {
-                    System.err.println("ERROR creating draft order: " + ex.getMessage());
-                    ex.printStackTrace();
-                    
+                    log.error("Error creating draft order: {}", ex.getMessage(), ex);
+
                     // Show notification for errors
                     notificationService.createNotification(
                             companyId,
                             "Auto-Order Error",
-                            "Failed to create draft order for supplier '" + sup.getName() 
-                                    + "', location '" + loc.getName() 
+                            "Failed to create draft order for supplier '" + sup.getName()
+                                    + "', location '" + loc.getName()
                                     + "'. Error: " + ex.getMessage()
                     );
                 }
             } else {
                 // update lines
-                System.out.println("DEBUG: Updating existing draft order ID: " + draft.getId());
+                log.info("Updating existing draft order ID: {}", draft.getId());
                 try {
                     Orders updatedDraft = purchaseOrderService.updateDraftOrderWithShortages(draft, lines, setting.getAutoOrderComment());
-                    System.out.println("DEBUG: Successfully updated draft order");
-                    
+
                     // Don't show notification for routine updates
                     // Only show notification if there was an actual change
                     if (updatedDraft != draft) {
-                        System.out.println("DEBUG: Order was updated with changes");
+                        log.debug("Order was updated with changes");
                     } else {
-                        System.out.println("DEBUG: No changes were made to the order");
+                        log.debug("No changes were made to the order");
                     }
                 } catch (Exception ex) {
-                    System.err.println("ERROR updating draft order: " + ex.getMessage());
-                    ex.printStackTrace();
-                    
+                    log.error("Error updating draft order: {}", ex.getMessage(), ex);
+
                     // Show notification for errors
                     notificationService.createNotification(
                             companyId,
                             "Auto-Order Error",
-                            "Failed to update draft order (ID=" + draft.getId() 
-                                    + ") for supplier '" + sup.getName() 
-                                    + "', location '" + loc.getName() 
+                            "Failed to update draft order (ID=" + draft.getId()
+                                    + ") for supplier '" + sup.getName()
+                                    + "', location '" + loc.getName()
                                     + "'. Error: " + ex.getMessage()
                     );
                 }
             }
         }
+
+        // Log the total execution time for performance monitoring
+        Duration duration = Duration.between(startTime, LocalDateTime.now());
+        log.info("Auto-order for location {} completed in {} ms", loc.getId(), duration.toMillis());
     }
 
     private PurchaseOption pickMainOrFallbackPurchaseOption(InventoryItem item) {
@@ -346,5 +418,4 @@ public class AutoOrderScheduledService {
 
     // We'll define a small record for shortage lines
     public record ShortageLine(Long itemId, double shortageQty, Double price, String itemName) {}
-
 }

@@ -363,9 +363,9 @@ public class TransferServiceImpl implements TransferService {
 
         draft.setStatus("DRAFT");
         draft.setCreationDate(LocalDate.now());
-        draft.setComments(
-                (draft.getComments()!=null?draft.getComments():"")+
-                        " ; "+comment);
+        
+        // Replace comments instead of appending them
+        draft.setComments(comment);
 
         return transferRepository.save(draft);
     }

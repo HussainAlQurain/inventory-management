@@ -17,7 +17,7 @@ import java.time.LocalDateTime;
 public class OrderHistory {
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "order_history_id_seq")
-    @SequenceGenerator(name = "order_history_id_seq", sequenceName = "order_history_id_seq", allocationSize = 1)
+    @SequenceGenerator(name = "order_history_id_seq", sequenceName = "order_history_id_seq", allocationSize = 50)
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)

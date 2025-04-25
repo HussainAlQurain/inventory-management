@@ -12,7 +12,7 @@ import lombok.*;
 public class SubRecipeLine {
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "sub_recipe_line_id_seq")
-    @SequenceGenerator(name = "sub_recipe_line_id_seq", sequenceName = "sub_recipe_line_id_seq", allocationSize = 1)
+    @SequenceGenerator(name = "sub_recipe_line_id_seq", sequenceName = "sub_recipe_line_id_seq", allocationSize = 50)
     private Long id;
 
     /**

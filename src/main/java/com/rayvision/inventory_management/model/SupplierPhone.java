@@ -12,7 +12,7 @@ import lombok.*;
 public class SupplierPhone {
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "supplier_phone_id_seq")
-    @SequenceGenerator(name = "supplier_phone_id_seq", sequenceName = "supplier_phone_id_seq", allocationSize = 1)
+    @SequenceGenerator(name = "supplier_phone_id_seq", sequenceName = "supplier_phone_id_seq", allocationSize = 50)
     private Long id;
 
     private String phoneNumber;

@@ -16,7 +16,7 @@ import java.util.Set;
 public class InventoryCountSession {
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "inventory_count_session_id_seq")
-    @SequenceGenerator(name = "inventory_count_session_id_seq", sequenceName = "inventory_count_session_id_seq", allocationSize = 1)
+    @SequenceGenerator(name = "inventory_count_session_id_seq", sequenceName = "inventory_count_session_id_seq", allocationSize = 50)
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)

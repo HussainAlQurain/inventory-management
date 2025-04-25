@@ -14,7 +14,7 @@ import java.util.Set;
 public class Allergen {
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "allergen_id_seq")
-    @SequenceGenerator(name = "allergen_id_seq", sequenceName = "allergen_id_seq", allocationSize = 1)
+    @SequenceGenerator(name = "allergen_id_seq", sequenceName = "allergen_id_seq", allocationSize = 50)
     private Long id;
 
     private String name;

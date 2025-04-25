@@ -17,7 +17,7 @@ import java.time.LocalDate;
 public class PrepItemLocation {
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "prep_item_location_id_seq")
-    @SequenceGenerator(name = "prep_item_location_id_seq", sequenceName = "prep_item_location_id_seq", allocationSize = 1)
+    @SequenceGenerator(name = "prep_item_location_id_seq", sequenceName = "prep_item_location_id_seq", allocationSize = 50)
     private Long id;
 
     // Which sub‐recipe is being physically tracked

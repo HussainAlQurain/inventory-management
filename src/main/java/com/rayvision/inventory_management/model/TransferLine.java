@@ -12,7 +12,7 @@ import lombok.*;
 public class TransferLine {
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "transfer_line_id_seq")
-    @SequenceGenerator(name = "transfer_line_id_seq", sequenceName = "transfer_line_id_seq", allocationSize = 1)
+    @SequenceGenerator(name = "transfer_line_id_seq", sequenceName = "transfer_line_id_seq", allocationSize = 50)
     private Long id;
 
     /* parent */

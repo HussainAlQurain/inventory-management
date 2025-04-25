@@ -19,7 +19,7 @@ public class Orders {
 
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "orders_id_seq")
-    @SequenceGenerator(name = "orders_id_seq", sequenceName = "orders_id_seq", allocationSize = 1)
+    @SequenceGenerator(name = "orders_id_seq", sequenceName = "orders_id_seq", allocationSize = 50)
     private Long id;
     private String orderNumber;
     private LocalDateTime creationDate;

@@ -15,7 +15,7 @@ import java.util.Set;
 public class Assortment {
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "assortment_id_seq")
-    @SequenceGenerator(name = "assortment_id_seq", sequenceName = "assortment_id_seq", allocationSize = 1)
+    @SequenceGenerator(name = "assortment_id_seq", sequenceName = "assortment_id_seq", allocationSize = 50)
     private Long id;
 
     private String name;

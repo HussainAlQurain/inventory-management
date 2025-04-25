@@ -12,7 +12,7 @@ import lombok.*;
 public class SupplierEmail {
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "supplier_email_id_seq")
-    @SequenceGenerator(name = "supplier_email_id_seq", sequenceName = "supplier_email_id_seq", allocationSize = 1)
+    @SequenceGenerator(name = "supplier_email_id_seq", sequenceName = "supplier_email_id_seq", allocationSize = 50)
     private Long id;
 
     private String email;

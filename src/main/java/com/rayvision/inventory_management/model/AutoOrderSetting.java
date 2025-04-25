@@ -17,7 +17,7 @@ import java.time.LocalDateTime;
 public class AutoOrderSetting {
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "auto_order_setting_id_seq")
-    @SequenceGenerator(name = "auto_order_setting_id_seq", sequenceName = "auto_order_setting_id_seq", allocationSize = 1)
+    @SequenceGenerator(name = "auto_order_setting_id_seq", sequenceName = "auto_order_setting_id_seq", allocationSize = 50)
     private Long id;
 
     @OneToOne(fetch= FetchType.LAZY)

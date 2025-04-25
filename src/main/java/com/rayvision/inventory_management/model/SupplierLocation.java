@@ -12,7 +12,7 @@ import lombok.*;
 public class SupplierLocation {
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "supplier_location_id_seq")
-    @SequenceGenerator(name = "supplier_location_id_seq", sequenceName = "supplier_location_id_seq", allocationSize = 1)
+    @SequenceGenerator(name = "supplier_location_id_seq", sequenceName = "supplier_location_id_seq", allocationSize = 50)
     private Long id;
 
     @ManyToOne

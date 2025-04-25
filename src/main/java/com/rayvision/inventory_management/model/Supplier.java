@@ -16,7 +16,7 @@ import java.util.Set;
 @Entity
 public class Supplier {
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "supplier_id_seq")
-    @SequenceGenerator(name = "supplier_id_seq", sequenceName = "supplier_id_seq", allocationSize = 1)
+    @SequenceGenerator(name = "supplier_id_seq", sequenceName = "supplier_id_seq", allocationSize = 50) // Updated allocationSize
     @Id
     private Long id;
     //@Column(unique = true) need to ensure unique supplier name to differentiate between them.

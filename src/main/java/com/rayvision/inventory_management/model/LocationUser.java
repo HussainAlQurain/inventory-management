@@ -13,7 +13,7 @@ import lombok.*;
 public class LocationUser {
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "location_user_id_seq")
-    @SequenceGenerator(name = "location_user_id_seq", sequenceName = "location_user_id_seq", allocationSize = 1)
+    @SequenceGenerator(name = "location_user_id_seq", sequenceName = "location_user_id_seq", allocationSize = 50)
     private Long id;
 
     @ManyToOne

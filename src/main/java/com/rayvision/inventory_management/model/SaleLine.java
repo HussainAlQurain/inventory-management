@@ -13,7 +13,7 @@ public class SaleLine {
 
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "sale_line_id_seq")
-    @SequenceGenerator(name = "sale_line_id_seq", sequenceName = "sale_line_id_seq", allocationSize = 1)
+    @SequenceGenerator(name = "sale_line_id_seq", sequenceName = "sale_line_id_seq", allocationSize = 50)
     private Long id;
 
     @ManyToOne(fetch=FetchType.LAZY)

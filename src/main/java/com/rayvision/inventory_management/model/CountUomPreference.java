@@ -12,7 +12,7 @@ import lombok.*;
 public class CountUomPreference {
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "count_uom_preference_id_seq")
-    @SequenceGenerator(name = "count_uom_preference_id_seq", sequenceName = "count_uom_preference_id_seq", allocationSize = 1)
+    @SequenceGenerator(name = "count_uom_preference_id_seq", sequenceName = "count_uom_preference_id_seq", allocationSize = 50)
     private Long id;
 
     // Either link to an item or a prep (one or both can be null)

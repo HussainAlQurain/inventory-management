@@ -12,7 +12,7 @@ import lombok.*;
 public class MenuItemLine {
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "menu_item_line_id_seq")
-    @SequenceGenerator(name = "menu_item_line_id_seq", sequenceName = "menu_item_line_id_seq", allocationSize = 1)
+    @SequenceGenerator(name = "menu_item_line_id_seq", sequenceName = "menu_item_line_id_seq", allocationSize = 50)
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)

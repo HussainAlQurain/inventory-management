@@ -7,6 +7,7 @@ import com.rayvision.inventory_management.repository.AssortmentLocationRepositor
 import com.rayvision.inventory_management.repository.AutoOrderSettingRepository;
 import com.rayvision.inventory_management.repository.InventoryItemRepository;
 import com.rayvision.inventory_management.repository.LocationRepository;
+import com.rayvision.inventory_management.repository.UserRepository;
 import com.rayvision.inventory_management.service.InventoryItemLocationService;
 import com.rayvision.inventory_management.service.PurchaseOrderService;
 import lombok.extern.slf4j.Slf4j;
@@ -30,6 +31,7 @@ public class AutoOrderScheduledService {
     private final LocationRepository locationRepository;
     private final InventoryItemRepository inventoryItemRepository;
     private final AssortmentLocationRepository assortmentLocationRepository;
+    private final UserRepository userRepository; // Add UserRepository dependency
 
     public AutoOrderScheduledService(
             AutoOrderSettingRepository settingRepo,
@@ -38,7 +40,8 @@ public class AutoOrderScheduledService {
             NotificationService notificationService,
             LocationRepository locationRepository,
             InventoryItemRepository inventoryItemRepository,
-            AssortmentLocationRepository assortmentLocationRepository
+            AssortmentLocationRepository assortmentLocationRepository,
+            UserRepository userRepository // Add to constructor
     ) {
         this.settingRepo = settingRepo;
         this.itemLocationService = itemLocationService;
@@ -47,6 +50,7 @@ public class AutoOrderScheduledService {
         this.locationRepository = locationRepository;
         this.inventoryItemRepository = inventoryItemRepository;
         this.assortmentLocationRepository = assortmentLocationRepository;
+        this.userRepository = userRepository; // Assign UserRepository
     }
 
     @Scheduled(fixedDelayString = "${inventory.scheduled.auto-order.delay:60000}")
@@ -306,7 +310,13 @@ public class AutoOrderScheduledService {
                 OrderCreateDTO dto = new OrderCreateDTO();
                 dto.setBuyerLocationId(loc.getId());
                 dto.setSupplierId(sup.getId());
-                dto.setCreatedByUserId(999999999L); // system user ID
+                
+                // Fetch system user ID
+                Long systemUserId = userRepository.findByUsername("system-user")
+                                        .map(Users::getId)
+                                        .orElseThrow(() -> new RuntimeException("System user 'system-user' not found!"));
+                dto.setCreatedByUserId(systemUserId); // Use fetched system user ID
+                
                 dto.setComments(
                         (setting.getAutoOrderComment() != null)
                                 ? setting.getAutoOrderComment()

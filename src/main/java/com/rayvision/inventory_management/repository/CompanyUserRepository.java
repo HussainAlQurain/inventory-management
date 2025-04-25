@@ -20,4 +20,6 @@ public interface CompanyUserRepository extends JpaRepository<CompanyUser, Long> 
     List<Long> findCompanyIdsByUserId(@Param("userId") Long userId);
 
     Optional<CompanyUser> findByCompanyIdAndUserId(Long companyId, Long userId);
+    
+    boolean existsByCompanyIdAndUserId(Long companyId, Long userId);
 }

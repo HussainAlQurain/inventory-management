@@ -18,10 +18,17 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 
 import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
+import java.lang.InterruptedException;
 import java.util.stream.Collectors;
 
 @Configuration
@@ -41,6 +48,7 @@ public class DataInitializerConfig implements CommandLineRunner {
     private static final String DEFAULT_KSA_CITY_1 = "Khobar";
     private static final String DEFAULT_KSA_CITY_2 = "Dammam";
     private static final String DEFAULT_KSA_STATE = "Eastern Province";
+    private static final String SYSTEM_USERNAME = "system-user";
 
     private final CompanyRepository companyRepository;
     private final LocationRepository locationRepository;
@@ -59,7 +67,8 @@ public class DataInitializerConfig implements CommandLineRunner {
     private final MenuItemService menuItemService; // Use service for menu items
     private final PasswordEncoder passwordEncoder;
     private final Random random = ThreadLocalRandom.current();
-
+    private final PlatformTransactionManager transactionManager;
+    private final TransactionTemplate transactionTemplate;
 
     public DataInitializerConfig(CompanyRepository companyRepository,
                                  LocationRepository locationRepository,
@@ -76,7 +85,8 @@ public class DataInitializerConfig implements CommandLineRunner {
                                  PurchaseOptionRepository purchaseOptionRepository,
                                  SubRecipeService subRecipeService,
                                  MenuItemService menuItemService,
-                                 PasswordEncoder passwordEncoder) {
+                                 PasswordEncoder passwordEncoder,
+                                 PlatformTransactionManager transactionManager) { // Add transactionManager
         this.companyRepository = companyRepository;
         this.locationRepository = locationRepository;
         this.categoryService = categoryService;
@@ -93,6 +103,9 @@ public class DataInitializerConfig implements CommandLineRunner {
         this.subRecipeService = subRecipeService;
         this.menuItemService = menuItemService;
         this.passwordEncoder = passwordEncoder;
+        this.transactionManager = transactionManager; // Assign transactionManager
+        this.transactionTemplate = new TransactionTemplate(transactionManager); // Initialize transactionTemplate
+        this.transactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW); // Ensure find runs in new transaction
     }
 
     @Override
@@ -100,6 +113,9 @@ public class DataInitializerConfig implements CommandLineRunner {
     public void run(String... args) throws Exception {
         log.info("Checking if data initialization is needed...");
 
+        // First, initialize core system data that was previously in data.sql
+        initializeCoreSystemData();
+        
         // Check if a specific category exists for Company 1 to prevent re-initialization
         boolean alreadyInitialized = categoryRepository.findByCompanyId(COMPANY_ID)
                 .stream()
@@ -142,6 +158,313 @@ public class DataInitializerConfig implements CommandLineRunner {
         } catch (Exception e) {
             log.error("Error during data initialization: {}", e.getMessage(), e);
             throw e;
+        }
+    }
+
+    public void initializeCoreSystemData() {
+        log.info("Initializing core system data...");
+        
+        // 1. Create all roles (method remains @Transactional)
+        initializeRoles();
+        
+        // 2. Create admin user (method remains @Transactional)
+        Users admin = initializeAdminUser();
+        
+        // 3. Create system user (method remains @Transactional)
+        Users systemUser = initializeSystemUser();
+        
+        // 4. Create company (method remains @Transactional)
+        Company company = initializeCompany();
+        
+        // 5. Create default location (method remains @Transactional)
+        Location defaultLocation = initializeDefaultLocation(company);
+        
+        // 6. Link admin user to roles (method remains @Transactional)
+        initializeAdminUserRoles(admin);
+        
+        // 7. Link system user to roles (method remains @Transactional)
+        initializeSystemUserRoles(systemUser);
+        
+        // 8. Link admin user to company (method remains @Transactional)
+        initializeCompanyUser(admin, company);
+        
+        // 9. Link admin user to default location (method remains @Transactional)
+        initializeLocationUser(admin, defaultLocation);
+        
+        log.info("Core system data initialization completed");
+    }
+    
+    @Transactional
+    public void initializeRoles() {
+        log.info("Initializing roles...");
+        
+        List<userRoles> requiredRoles = List.of(
+            userRoles.ROLE_USER,
+            userRoles.ROLE_STAFF,
+            userRoles.ROLE_MANAGER,
+            userRoles.ROLE_ADMIN,
+            userRoles.ROLE_SUPER_ADMIN,
+            userRoles.ROLE_SYSTEM_ADMIN
+        );
+        
+        for (userRoles roleName : requiredRoles) {
+            if (roleRepository.findByName(roleName) == null) {
+                Role role = new Role();
+                role.setName(roleName);
+                roleRepository.save(role);
+                log.info("Created role: {}", roleName);
+            } else {
+                log.info("Role already exists: {}", roleName);
+            }
+        }
+    }
+    
+    @Transactional
+    public Users initializeAdminUser() {
+        log.info("Initializing admin user...");
+        
+        Optional<Users> adminOpt = userRepository.findByUsername("admin");
+        if (adminOpt.isEmpty()) {
+            Users admin = new Users();
+            admin.setUsername("admin");
+            admin.setPassword("$2a$14$C2HvKTOQmGVMKZGQ0xa1NO8UUcRHoYgjESdZlEj51bZcSKye43Qdm"); // encoded "admin"
+            admin.setEmail("hussain.qurain@outlook.com");
+            admin.setStatus("active");
+            admin.setFirstName("Hussain");
+            admin.setLastName("Al-Qurain");
+            admin.setPhone("+966536071929");
+            admin.setRoles(new HashSet<>());
+            admin = userRepository.save(admin);
+            log.info("Created admin user with ID: {}", admin.getId());
+            return admin;
+        } else {
+            log.info("Admin user already exists with ID: {}", adminOpt.get().getId());
+            return adminOpt.get();
+        }
+    }
+    
+    @Transactional
+    public Users initializeSystemUser() {
+        log.info("Initializing system user...");
+
+        // First check if user exists by username in a new transaction
+        Optional<Users> existingUser = transactionTemplate.execute(status -> userRepository.findByUsername(SYSTEM_USERNAME));
+
+        if (existingUser.isPresent()) {
+            log.info("System user already exists with username: {}", SYSTEM_USERNAME);
+            return existingUser.get();
+        }
+
+        // If not present, attempt to create
+        Users systemUser = new Users();
+        systemUser.setUsername(SYSTEM_USERNAME);
+        systemUser.setPassword("$2a$14$C2HvKTOQmGVMKZGQ0xa1NO8UUcRHoYgjESdZlEj51bZcSKye43Qdm"); // same encoded password
+        systemUser.setEmail("system@example.com");
+        systemUser.setStatus("active");
+        systemUser.setFirstName("SYSTEM");
+        systemUser.setLastName("USER");
+        systemUser.setPhone("+000000000000");
+        systemUser.setRoles(new HashSet<>());
+
+        try {
+            // Try saving the new user, let sequence generate ID
+            Users savedUser = userRepository.save(systemUser);
+            log.info("Created system user with username: {} and ID: {}", savedUser.getUsername(), savedUser.getId());
+            return savedUser;
+        } catch (DataIntegrityViolationException e) {
+            // Catch potential unique constraint violation (username)
+            log.warn("DataIntegrityViolationException during system user creation (username: {}), likely race condition. Fetching existing.",
+                     SYSTEM_USERNAME, e);
+
+            // If save fails due to conflict, fetch it by username in a NEW transaction
+            // Add retries just in case of visibility delays
+            for (int i = 0; i < 3; i++) {
+                try {
+                    if (i > 0) {
+                        TimeUnit.MILLISECONDS.sleep(100 * i); // Wait 100ms, 200ms
+                        log.info("Retrying fetch for system user (username: {}) attempt {}", SYSTEM_USERNAME, i + 1);
+                    }
+                    Optional<Users> userAfterConflict = transactionTemplate.execute(status ->
+                        userRepository.findByUsername(SYSTEM_USERNAME)
+                    );
+                    if (userAfterConflict.isPresent()) {
+                        log.info("Successfully fetched system user (username: {}) after conflict on attempt {}", SYSTEM_USERNAME, i + 1);
+                        return userAfterConflict.get();
+                    }
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException("Interrupted while waiting to retry fetch for system user (username: " + SYSTEM_USERNAME + ")", ie);
+                } catch (Exception fetchEx) {
+                    log.error("Error during retry fetch for system user (username: {}) on attempt {}: {}", SYSTEM_USERNAME, i + 1, fetchEx.getMessage(), fetchEx);
+                }
+            }
+            // If all retries fail, throw the exception
+            throw new RuntimeException("Failed to fetch system user (username: " + SYSTEM_USERNAME + ") after data integrity violation and retries.", e);
+        } catch (ObjectOptimisticLockingFailureException oolfe) {
+             // Keep handling optimistic lock just in case, though less likely now
+             log.warn("ObjectOptimisticLockingFailureException during system user creation (username: {}), unexpected but handling. Fetching existing.",
+                      SYSTEM_USERNAME, oolfe);
+             // Fetch by username in a new transaction
+             return transactionTemplate.execute(status ->
+                 userRepository.findByUsername(SYSTEM_USERNAME)
+                     .orElseThrow(() -> new RuntimeException("Failed to fetch system user (username: " + SYSTEM_USERNAME + ") after optimistic lock failure.", oolfe))
+             );
+        }
+    }
+    
+    @Transactional
+    public Company initializeCompany() {
+        log.info("Initializing company...");
+        
+        Company company = null;
+        List<Company> companies = companyRepository.findByName("Company A");
+        
+        if (companies.isEmpty()) {
+            company = new Company();
+            company.setName("Company A");
+            company.setTaxId("3000000000000");
+            company.setPhone("+966013555555");
+            company.setMobile("+966555555555");
+            company.setEmail("hussain.qurain@outlook.com");
+            company.setState("khobar");
+            company.setCity("khobar");
+            company.setAddress("khobar");
+            company.setZip("55555");
+            company.setAddPurchasedItemsToFavorites(true);
+            company.setLogo("test.png");
+            company.setAllowedInvoiceDeviation(3.0);
+            company.setExportDeliveryNotesAsBills(true);
+            company = companyRepository.save(company);
+            log.info("Created company with ID: {}", company.getId());
+        } else {
+            company = companies.getFirst();
+            log.info("Company already exists with ID: {}", company.getId());
+        }
+        
+        return company;
+    }
+    
+    @Transactional
+    public Location initializeDefaultLocation(Company company) {
+        log.info("Initializing default location for company ID: {}", company.getId());
+        
+        Location location = null;
+        List<Location> locations = locationRepository.findByNameAndCompanyId("Default Location", company.getId());
+        
+        if (locations.isEmpty()) {
+            location = new Location();
+            location.setName("Default Location");
+            location.setCode("LOC1");
+            location.setAddress("123 Main St");
+            location.setCity("Khobar");
+            location.setState("Eastern Province");
+            location.setZip("12345");
+            location.setPhone("+966123456789");
+            location.setCompany(company);
+            location = locationRepository.save(location);
+            log.info("Created default location with ID: {}", location.getId());
+        } else {
+            location = locations.get(0);
+            log.info("Default location already exists with ID: {}", location.getId());
+        }
+        
+        return location;
+    }
+    
+    @Transactional
+    public void initializeAdminUserRoles(Users admin) {
+        log.info("Initializing roles for admin user...");
+        
+        Role userRole = roleRepository.findByName(userRoles.ROLE_USER);
+        Role adminRole = roleRepository.findByName(userRoles.ROLE_ADMIN);
+        Role superAdminRole = roleRepository.findByName(userRoles.ROLE_SUPER_ADMIN);
+        
+        Set<Role> currentRoles = admin.getRoles();
+        if (currentRoles == null) {
+            currentRoles = new HashSet<>();
+            admin.setRoles(currentRoles);
+        }
+        
+        if (!currentRoles.contains(userRole)) {
+            currentRoles.add(userRole);
+            log.info("Added USER role to admin user");
+        }
+        
+        if (!currentRoles.contains(adminRole)) {
+            currentRoles.add(adminRole);
+            log.info("Added ADMIN role to admin user");
+        }
+        
+        if (!currentRoles.contains(superAdminRole)) {
+            currentRoles.add(superAdminRole);
+            log.info("Added SUPER_ADMIN role to admin user");
+        }
+        
+        userRepository.save(admin);
+    }
+    
+    @Transactional
+    public void initializeSystemUserRoles(Users systemUser) {
+        log.info("Initializing roles for system user...");
+        
+        Role superAdminRole = roleRepository.findByName(userRoles.ROLE_SUPER_ADMIN);
+        
+        Set<Role> currentRoles = systemUser.getRoles();
+        if (currentRoles == null) {
+            currentRoles = new HashSet<>();
+            systemUser.setRoles(currentRoles);
+        }
+        
+        boolean updated = false;
+        if (superAdminRole != null && !currentRoles.contains(superAdminRole)) {
+            currentRoles.add(superAdminRole);
+            log.info("Added SUPER_ADMIN role to system user");
+            updated = true; // Mark as updated if a role was added
+        } else if (superAdminRole == null) {
+             log.warn("SUPER_ADMIN role not found, cannot assign to system user.");
+        }
+
+        // Remove the explicit save call. Changes to the managed 'systemUser'
+        // will be flushed automatically at transaction commit if 'updated' is true.
+        // userRepository.save(systemUser); 
+        if (!updated) {
+             log.info("System user roles already up-to-date.");
+        }
+    }
+    
+    @Transactional
+    public void initializeCompanyUser(Users admin, Company company) {
+        log.info("Linking admin user to company...");
+        
+        // Check if the association already exists - using the correct method findByCompanyIdAndUserId
+        boolean exists = companyUserRepository.findByCompanyIdAndUserId(company.getId(), admin.getId()).isPresent();
+        
+        if (!exists) {
+            CompanyUser companyUser = new CompanyUser();
+            companyUser.setCompany(company);
+            companyUser.setUser(admin);
+            companyUserRepository.save(companyUser);
+            log.info("Linked admin user to company");
+        } else {
+            log.info("Admin user already linked to company");
+        }
+    }
+    
+    @Transactional
+    public void initializeLocationUser(Users admin, Location location) {
+        log.info("Linking admin user to default location...");
+        
+        // Check if the association already exists
+        boolean exists = locationUserRepository.findByLocationIdAndUserId(location.getId(), admin.getId()).isPresent();
+        
+        if (!exists) {
+            LocationUser locationUser = new LocationUser();
+            locationUser.setLocation(location);
+            locationUser.setUser(admin);
+            locationUserRepository.save(locationUser);
+            log.info("Linked admin user to default location");
+        } else {
+            log.info("Admin user already linked to default location");
         }
     }
 
@@ -417,6 +740,9 @@ public class DataInitializerConfig implements CommandLineRunner {
             countUoms = uoms; // Fallback to all UOMs if 'ea' not found
         }
 
+        log.info("Preparing {} inventory items for batch insert...", NUM_INVENTORY_ITEMS);
+        
+        // Create all items at once for batch insert
         for (int i = 1; i <= NUM_INVENTORY_ITEMS; i++) {
             InventoryItem item = new InventoryItem();
             item.setName("Item " + i);
@@ -432,12 +758,6 @@ public class DataInitializerConfig implements CommandLineRunner {
             // Determine Inventory UOM based on Category's UOM Category
             UnitOfMeasure baseUom = null;
             if (randomCategory != null) {
-                // Find the UOM category associated with the item category (e.g., Food -> MASS)
-                // This requires linking Item Category to UOM Category, which isn't directly modeled.
-                // We'll infer based on typical associations or default to COUNT.
-                // For simplicity, let's assume Food/Bev are MASS/VOLUME, others COUNT.
-                // A better approach would be a direct link or configuration.
-
                 List<UnitOfMeasure> potentialBaseUoms = null;
                 if ("Food".equals(randomCategory.getName())) {
                     potentialBaseUoms = uomsByCategory.values().stream()
@@ -468,24 +788,33 @@ public class DataInitializerConfig implements CommandLineRunner {
             }
             item.setInventoryUom(baseUom);
 
-            InventoryItem savedItem = inventoryItemRepository.save(item);
-            items.add(savedItem);
+            items.add(item);
+        }
 
-            // Create Purchase Options
-            int numPOs = random.nextInt(1, 4);
-            List<PurchaseOption> itemPOs = new ArrayList<>();
+        // Batch save all items
+        log.info("Batch saving {} inventory items...", items.size());
+        List<InventoryItem> savedItems = inventoryItemRepository.saveAll(items);
+        log.info("Successfully saved {} inventory items.", savedItems.size());
+        
+        // Create Purchase Options in batches
+        log.info("Creating purchase options...");
+        int batchSize = 100;
+        for (int i = 0; i < savedItems.size(); i++) {
+            InventoryItem savedItem = savedItems.get(i);
+            
             // Get UOMs compatible with the item's base UOM category
-            List<UnitOfMeasure> compatibleOrderingUoms = baseUom != null && baseUom.getCategory() != null
-                    ? uomsByCategory.getOrDefault(baseUom.getCategory().getId(), uoms)
+            List<UnitOfMeasure> compatibleOrderingUoms = savedItem.getInventoryUom() != null && savedItem.getInventoryUom().getCategory() != null
+                    ? uomsByCategory.getOrDefault(savedItem.getInventoryUom().getCategory().getId(), uoms)
                     : uoms;
             if (compatibleOrderingUoms.isEmpty()) compatibleOrderingUoms = uoms; // Ensure list is not empty
-
+            
+            // Create Purchase Options
+            int numPOs = random.nextInt(1, 4);
             for (int j = 1; j <= numPOs; j++) {
                 PurchaseOption po = new PurchaseOption();
                 po.setNickname(savedItem.getName() + " PO " + j);
                 po.setInventoryItem(savedItem);
                 po.setSupplier(getRandomElement(suppliers, random));
-                // Select an ordering UOM from the compatible list
                 po.setOrderingUom(getRandomElement(compatibleOrderingUoms, random));
                 po.setPrice(random.nextDouble(0.5, 90.0));
                 po.setTaxRate(15.0);
@@ -496,14 +825,20 @@ public class DataInitializerConfig implements CommandLineRunner {
                 po.setMinOrderQuantity((double) random.nextInt(1, 21));
                 po.setOrderingEnabled(true);
                 po.setMainPurchaseOption(j == 1);
-                itemPOs.add(po);
+                allPurchaseOptions.add(po);
             }
-            allPurchaseOptions.addAll(itemPOs);
+            
+            // Save purchase options in batches
+            if (i % batchSize == batchSize - 1 || i == savedItems.size() - 1) {
+                log.info("Batch saving {} purchase options (items {}-{})...", allPurchaseOptions.size(), Math.max(0, i-batchSize+1), i);
+                purchaseOptionRepository.saveAll(allPurchaseOptions);
+                log.info("Successfully saved batch of purchase options.");
+                allPurchaseOptions.clear();  // Clear after saving to free memory
+            }
         }
-
-        purchaseOptionRepository.saveAll(allPurchaseOptions);
-        log.info("Created {} Inventory Items and {} Purchase Options.", items.size(), allPurchaseOptions.size());
-        return items;
+        
+        log.info("Completed creating {} Inventory Items with purchase options.", savedItems.size());
+        return savedItems;
     }
 
     private List<SubRecipe> createSubRecipes(Company company, List<Category> categories, List<UnitOfMeasure> uoms, List<InventoryItem> inventoryItems, Map<Long, List<UnitOfMeasure>> uomsByCategory) {

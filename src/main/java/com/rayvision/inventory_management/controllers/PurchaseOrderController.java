@@ -1,11 +1,16 @@
 package com.rayvision.inventory_management.controllers;
 
+import com.rayvision.inventory_management.enums.OrderStatus;
 import com.rayvision.inventory_management.model.InventoryItem;
 import com.rayvision.inventory_management.model.OrderItem;
 import com.rayvision.inventory_management.model.Orders;
 import com.rayvision.inventory_management.model.dto.*;
 import com.rayvision.inventory_management.service.PurchaseOrderService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -208,6 +213,98 @@ public class PurchaseOrderController {
             @RequestParam Long locationId) {
         List<InventoryItemResponseDTO> items = purchaseOrderService.getInventoryItemsBySupplierAndLocation(supplierId, locationId);
         return ResponseEntity.ok(items);
+    }
+
+    // ----------------------------------------------------------------
+    // GET paginated purchase orders with advanced filtering options
+    // ----------------------------------------------------------------
+    @GetMapping("/paginated")
+    public ResponseEntity<PageResponseDTO<OrderSummaryDTO>> getPaginatedOrders(
+            @PathVariable Long companyId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String sort,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam(required = false) Long supplierId,
+            @RequestParam(required = false) Long locationId,
+            @RequestParam(required = false) OrderStatus status) {
+        
+        // 1) parse or default dates
+        LocalDateTime start = (startDate != null) 
+                ? startDate.atStartOfDay() 
+                : LocalDate.of(1970, 1, 1).atStartOfDay();
+                
+        LocalDateTime end = (endDate != null) 
+                ? endDate.atTime(23, 59, 59) 
+                : LocalDate.of(3000, 1, 1).atTime(23, 59, 59);
+        
+        // 2) Create sorting if provided
+        Sort sorting = Sort.unsorted();
+        if (sort != null && !sort.isEmpty()) {
+            String[] sortParams = sort.split(",");
+            String sortField = sortParams[0];
+            Sort.Direction direction = sortParams.length > 1 && sortParams[1].equalsIgnoreCase("desc") ?
+                    Sort.Direction.DESC : Sort.Direction.ASC;
+            sorting = Sort.by(direction, sortField);
+        } else {
+            // Default sort by creation date descending (newest first)
+            sorting = Sort.by(Sort.Direction.DESC, "creationDate");
+        }
+        
+        Pageable pageable = PageRequest.of(page, size, sorting);
+        
+        // 3) Fetch paginated orders with filtering
+        Page<Orders> ordersPage = purchaseOrderService.searchOrders(
+                companyId, supplierId, locationId, status, start, end, pageable);
+        
+        // 4) Convert to DTOs
+        Page<OrderSummaryDTO> dtoPage = ordersPage.map(order -> {
+            OrderSummaryDTO sumDto = new OrderSummaryDTO();
+            sumDto.setId(order.getId());
+            sumDto.setOrderNumber(order.getOrderNumber());
+            sumDto.setSentDate(order.getSentDate());
+            sumDto.setDeliveryDate(order.getDeliveryDate());
+            sumDto.setStatus((order.getStatus() != null) ? order.getStatus().name() : null);
+            sumDto.setComments(order.getComments());
+
+            if (order.getBuyerLocation() != null) {
+                sumDto.setBuyerLocationName(order.getBuyerLocation().getName());
+            }
+            if (order.getSentToSupplier() != null) {
+                sumDto.setSupplierName(order.getSentToSupplier().getName());
+            }
+            
+            // Add user information
+            if (order.getCreatedByUser() != null) {
+                sumDto.setCreatedByUserId(order.getCreatedByUser().getId());
+                sumDto.setCreatedByUserName(order.getCreatedByUser().getUsername());
+            }
+
+            // Calculate total price from order items
+            double sum = 0.0;
+            if (order.getOrderItems() != null) {
+                for (OrderItem line : order.getOrderItems()) {
+                    sum += (line.getTotal() != null) ? line.getTotal() : 0.0;
+                }
+            }
+            sumDto.setTotal(sum);
+            
+            return sumDto;
+        });
+        
+        // 5) Create response with pagination metadata
+        PageResponseDTO<OrderSummaryDTO> response = new PageResponseDTO<>(
+                dtoPage.getContent(),
+                dtoPage.getTotalElements(),
+                dtoPage.getTotalPages(),
+                dtoPage.getNumber(),
+                dtoPage.getSize(),
+                dtoPage.hasNext(),
+                dtoPage.hasPrevious()
+        );
+        
+        return ResponseEntity.ok(response);
     }
 
     // ----------------------------------------------------------------

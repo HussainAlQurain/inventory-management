@@ -2,7 +2,10 @@ package com.rayvision.inventory_management.repository;
 
 import com.rayvision.inventory_management.enums.OrderStatus;
 import com.rayvision.inventory_management.model.Orders;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -12,7 +15,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface OrderRepository extends JpaRepository <Orders, Long> {
+public interface OrderRepository extends JpaRepository<Orders, Long>, JpaSpecificationExecutor<Orders> {
     @Query("SELECT o FROM Orders o "
             + "WHERE o.company.id = :companyId "
             + "AND o.creationDate >= :start "
@@ -42,4 +45,56 @@ public interface OrderRepository extends JpaRepository <Orders, Long> {
      * Find all orders with a specific status for a given buyer location
      */
     List<Orders> findByBuyerLocationIdAndStatus(Long buyerLocationId, OrderStatus status);
+    
+    // New paginated methods
+    @Query("SELECT o FROM Orders o "
+            + "WHERE o.company.id = :companyId "
+            + "AND o.creationDate >= :start "
+            + "AND o.creationDate <= :end "
+            + "ORDER BY o.creationDate DESC")
+    Page<Orders> findByCompanyIdAndDateRange(
+            @Param("companyId") Long companyId,
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end,
+            Pageable pageable);
+    
+    /**
+     * Find all orders with a specific status for a given buyer location with pagination
+     */
+    Page<Orders> findByBuyerLocationIdAndStatus(Long buyerLocationId, OrderStatus status, Pageable pageable);
+    
+    /**
+     * Find all orders for a company with pagination
+     */
+    Page<Orders> findByCompanyId(Long companyId, Pageable pageable);
+    
+    /**
+     * Find all orders for a company with specific status
+     */
+    Page<Orders> findByCompanyIdAndStatus(Long companyId, OrderStatus status, Pageable pageable);
+    
+    /**
+     * Find all orders by status with pagination
+     */
+    Page<Orders> findByStatus(OrderStatus status, Pageable pageable);
+    
+    /**
+     * Advanced search for orders with filtering options
+     */
+    @Query("SELECT o FROM Orders o "
+            + "WHERE o.company.id = :companyId "
+            + "AND (:supplierId IS NULL OR o.sentToSupplier.id = :supplierId) "
+            + "AND (:locationId IS NULL OR o.buyerLocation.id = :locationId) "
+            + "AND (:status IS NULL OR o.status = :status) "
+            + "AND o.creationDate >= :start "
+            + "AND o.creationDate <= :end "
+            + "ORDER BY o.creationDate DESC")
+    Page<Orders> searchOrders(
+            @Param("companyId") Long companyId,
+            @Param("supplierId") Long supplierId,
+            @Param("locationId") Long locationId,
+            @Param("status") OrderStatus status,
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end,
+            Pageable pageable);
 }

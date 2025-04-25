@@ -2,6 +2,8 @@ package com.rayvision.inventory_management.repository;
 
 import com.rayvision.inventory_management.enums.SubRecipeType;
 import com.rayvision.inventory_management.model.SubRecipe;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -27,4 +29,21 @@ public interface SubRecipeRepository extends JpaRepository<SubRecipe, Long> {
 
     List<SubRecipe> findByCompanyIdAndType(Long companyId, SubRecipeType type);
 
+    // New paginated methods
+    Page<SubRecipe> findByCompanyId(Long companyId, Pageable pageable);
+    
+    @Query("""
+    SELECT sr
+    FROM SubRecipe sr
+    WHERE sr.company.id = :companyId
+      AND (:searchTerm = '' 
+           OR LOWER(sr.name) LIKE LOWER(CONCAT('%', :searchTerm, '%')))
+    """)
+    Page<SubRecipe> searchSubRecipes(
+            @Param("companyId") Long companyId,
+            @Param("searchTerm") String searchTerm,
+            Pageable pageable
+    );
+    
+    Page<SubRecipe> findByCompanyIdAndType(Long companyId, SubRecipeType type, Pageable pageable);
 }

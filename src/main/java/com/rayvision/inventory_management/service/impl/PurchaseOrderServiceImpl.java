@@ -8,9 +8,13 @@ import com.rayvision.inventory_management.model.dto.*;
 import com.rayvision.inventory_management.repository.*;
 import com.rayvision.inventory_management.service.PurchaseOrderService;
 import com.rayvision.inventory_management.service.StockTransactionService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import jakarta.persistence.criteria.Predicate;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -882,5 +886,58 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         return filteredItems.stream()
             .map(inventoryItemResponseMapper::toInventoryItemResponseDTO)
             .collect(Collectors.toList());
+    }
+
+    /**
+     * Find orders with pagination and advanced filtering options
+     *
+     * @param companyId The company ID
+     * @param supplierId Optional supplier ID to filter by
+     * @param locationId Optional location ID to filter by
+     * @param status Optional order status to filter by
+     * @param start Start date for filtering
+     * @param end End date for filtering
+     * @param pageable Pagination and sorting information
+     * @return Page of orders matching the criteria
+     */
+    @Override
+    public Page<Orders> searchOrders(Long companyId, Long supplierId, Long locationId, 
+                                   OrderStatus status, LocalDateTime start, LocalDateTime end,
+                                   Pageable pageable) {
+        // Create a specification for dynamic filtering
+        Specification<Orders> spec = (root, query, criteriaBuilder) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            
+            // Always filter by company ID
+            predicates.add(criteriaBuilder.equal(root.get("company").get("id"), companyId));
+            
+            // Filter by date range
+            if (start != null) {
+                predicates.add(criteriaBuilder.greaterThanOrEqualTo(root.get("creationDate"), start));
+            }
+            
+            if (end != null) {
+                predicates.add(criteriaBuilder.lessThanOrEqualTo(root.get("creationDate"), end));
+            }
+            
+            // Filter by supplier if provided
+            if (supplierId != null) {
+                predicates.add(criteriaBuilder.equal(root.get("sentToSupplier").get("id"), supplierId));
+            }
+            
+            // Filter by location if provided
+            if (locationId != null) {
+                predicates.add(criteriaBuilder.equal(root.get("buyerLocation").get("id"), locationId));
+            }
+            
+            // Filter by status if provided
+            if (status != null) {
+                predicates.add(criteriaBuilder.equal(root.get("status"), status));
+            }
+            
+            return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
+        };
+        
+        return ordersRepository.findAll(spec, pageable);
     }
 }

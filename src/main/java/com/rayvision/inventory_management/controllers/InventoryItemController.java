@@ -7,9 +7,14 @@ import com.rayvision.inventory_management.model.InventoryItem;
 import com.rayvision.inventory_management.model.dto.InventoryItemCreateDTO;
 import com.rayvision.inventory_management.model.dto.InventoryItemPartialUpdateDTO;
 import com.rayvision.inventory_management.model.dto.InventoryItemResponseDTO;
+import com.rayvision.inventory_management.model.dto.PageResponseDTO;
 import com.rayvision.inventory_management.service.InventoryItemService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -112,4 +117,54 @@ public class InventoryItemController {
 //            return ResponseEntity.notFound().build();
 //        }
 //    }
+
+    /**
+     * New endpoint for paginated inventory items
+     * GET /inventory-items/company/{companyId}/paginated?page=0&size=10&sort=name,asc&search=apple
+     */
+    @GetMapping("/company/{companyId}/paginated")
+    public ResponseEntity<PageResponseDTO<InventoryItemResponseDTO>> getPaginatedInventoryItems(
+            @PathVariable Long companyId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String sort,
+            @RequestParam(required = false, defaultValue = "") String search,
+            @RequestParam(required = false) Long categoryId) {
+        
+        // Create sorting if provided
+        Sort sorting = Sort.unsorted();
+        if (sort != null && !sort.isEmpty()) {
+            String[] sortParams = sort.split(",");
+            String sortField = sortParams[0];
+            Sort.Direction direction = sortParams.length > 1 && sortParams[1].equalsIgnoreCase("desc") ?
+                    Sort.Direction.DESC : Sort.Direction.ASC;
+            sorting = Sort.by(direction, sortField);
+        } else {
+            // Default sort by name ascending
+            sorting = Sort.by(Sort.Direction.ASC, "name");
+        }
+        
+        Pageable pageable = PageRequest.of(page, size, sorting);
+        
+        Page<InventoryItem> itemsPage;
+        if (categoryId != null) {
+            itemsPage = inventoryItemService.findByCompanyIdAndCategoryWithSearch(companyId, categoryId, search, pageable);
+        } else {
+            itemsPage = inventoryItemService.searchItemsPaginated(companyId, search, pageable);
+        }
+        
+        Page<InventoryItemResponseDTO> dtoPage = itemsPage.map(inventoryItemResponseMapper::toInventoryItemResponseDTO);
+        
+        PageResponseDTO<InventoryItemResponseDTO> response = new PageResponseDTO<>(
+                dtoPage.getContent(),
+                dtoPage.getTotalElements(),
+                dtoPage.getTotalPages(),
+                dtoPage.getNumber(),
+                dtoPage.getSize(),
+                dtoPage.hasNext(),
+                dtoPage.hasPrevious()
+        );
+        
+        return ResponseEntity.ok(response);
+    }
 }

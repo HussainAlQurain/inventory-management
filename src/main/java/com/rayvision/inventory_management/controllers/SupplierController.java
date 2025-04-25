@@ -15,6 +15,10 @@ import com.rayvision.inventory_management.service.SupplierPhoneService;
 import com.rayvision.inventory_management.service.SupplierService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -68,6 +72,55 @@ public class SupplierController {
                 .map(supplierMapper::toSupplierResponseDTO)
                 .toList();
         return ResponseEntity.ok(dtos);
+    }
+
+    /**
+     * GET paginated suppliers for a company with search, sorting and filtering
+     * @param companyId The company ID
+     * @param page Page number (zero-based)
+     * @param size Page size
+     * @param sort Sort field and direction (e.g. "name,asc")
+     * @param search Search term for supplier name
+     * @return Paginated list of suppliers
+     */
+    @GetMapping("/company/{companyId}/paginated")
+    public ResponseEntity<PageResponseDTO<SupplierResponseDTO>> getPaginatedSuppliers(
+            @PathVariable Long companyId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String sort,
+            @RequestParam(required = false, defaultValue = "") String search) {
+        
+        // Create sorting if provided
+        Sort sorting = Sort.unsorted();
+        if (sort != null && !sort.isEmpty()) {
+            String[] sortParams = sort.split(",");
+            String sortField = sortParams[0];
+            Sort.Direction direction = sortParams.length > 1 && sortParams[1].equalsIgnoreCase("desc") ?
+                    Sort.Direction.DESC : Sort.Direction.ASC;
+            sorting = Sort.by(direction, sortField);
+        } else {
+            // Default sort by name ascending
+            sorting = Sort.by(Sort.Direction.ASC, "name");
+        }
+        
+        Pageable pageable = PageRequest.of(page, size, sorting);
+        Page<Supplier> suppliersPage = supplierService.findPaginatedSuppliers(companyId, search, pageable);
+        
+        // Convert entities to DTOs
+        Page<SupplierResponseDTO> dtoPage = suppliersPage.map(supplierMapper::toSupplierResponseDTO);
+        
+        PageResponseDTO<SupplierResponseDTO> response = new PageResponseDTO<>(
+                dtoPage.getContent(),
+                dtoPage.getTotalElements(),
+                dtoPage.getTotalPages(),
+                dtoPage.getNumber(),
+                dtoPage.getSize(),
+                dtoPage.hasNext(),
+                dtoPage.hasPrevious()
+        );
+        
+        return ResponseEntity.ok(response);
     }
 
     // 2) GET single Supplier

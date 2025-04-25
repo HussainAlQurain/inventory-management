@@ -2,6 +2,8 @@ package com.rayvision.inventory_management.repository;
 
 import com.rayvision.inventory_management.model.Company;
 import com.rayvision.inventory_management.model.InventoryItem;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -40,5 +42,34 @@ public interface InventoryItemRepository extends JpaRepository<InventoryItem, Lo
     """)
     Set<Long> findIdsByCompany(@Param("companyId") Long companyId);
 
-
+    // New paginated methods
+    Page<InventoryItem> findByCompanyId(Long companyId, Pageable pageable);
+    
+    @Query("""
+    SELECT i
+    FROM InventoryItem i
+    WHERE i.company.id = :companyId
+      AND (:searchTerm = '' 
+           OR LOWER(i.name) LIKE LOWER(CONCAT('%', :searchTerm, '%')))
+    """)
+    Page<InventoryItem> searchInventoryItems(
+            @Param("companyId") Long companyId,
+            @Param("searchTerm") String searchTerm,
+            Pageable pageable
+    );
+    
+    @Query("""
+    SELECT i
+    FROM InventoryItem i
+    WHERE i.company.id = :companyId
+      AND (:categoryId IS NULL OR i.category.id = :categoryId)
+      AND (:searchTerm = '' 
+           OR LOWER(i.name) LIKE LOWER(CONCAT('%', :searchTerm, '%')))
+    """)
+    Page<InventoryItem> findByCompanyIdAndCategoryWithSearch(
+            @Param("companyId") Long companyId,
+            @Param("categoryId") Long categoryId,
+            @Param("searchTerm") String searchTerm,
+            Pageable pageable
+    );
 }

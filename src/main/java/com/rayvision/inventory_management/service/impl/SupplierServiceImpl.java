@@ -6,6 +6,8 @@ import com.rayvision.inventory_management.repository.CompanyRepository;
 import com.rayvision.inventory_management.repository.LocationRepository;
 import com.rayvision.inventory_management.repository.SupplierRepository;
 import com.rayvision.inventory_management.service.SupplierService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -126,6 +128,15 @@ public class SupplierServiceImpl implements SupplierService {
     @Override
     public List<Supplier> searchSuppliers(Long companyId, String searchTerm) {
         return supplierRepository.findByCompanyIdAndNameContaining(companyId, searchTerm);
+    }
+
+    @Override
+    public Page<Supplier> findPaginatedSuppliers(Long companyId, String searchTerm, Pageable pageable) {
+        if (searchTerm != null && !searchTerm.isEmpty()) {
+            return supplierRepository.findByCompanyIdAndNameContaining(companyId, searchTerm, pageable);
+        } else {
+            return supplierRepository.findByCompanyId(companyId, pageable);
+        }
     }
 
     public Optional<Supplier> findByCompanyIdAndId(Long companyId, Long id) {

@@ -7,6 +7,8 @@ import com.rayvision.inventory_management.repository.CategoryRepository;
 import com.rayvision.inventory_management.repository.CompanyRepository;
 import com.rayvision.inventory_management.repository.InventoryItemRepository;
 import com.rayvision.inventory_management.service.InventoryItemService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -87,5 +89,20 @@ public class InventoryItemServiceImpl implements InventoryItemService {
     @Override
     public List<InventoryItem> searchItems(Long companyId, String searchTerm) {
         return inventoryItemRepository.searchInventoryItems(companyId, searchTerm);
+    }
+
+    @Override
+    public Page<InventoryItem> getAllInventoryItemsPaginated(Long companyId, Pageable pageable) {
+        return inventoryItemRepository.findByCompanyId(companyId, pageable);
+    }
+
+    @Override
+    public Page<InventoryItem> searchItemsPaginated(Long companyId, String searchTerm, Pageable pageable) {
+        return inventoryItemRepository.searchInventoryItems(companyId, searchTerm, pageable);
+    }
+
+    @Override
+    public Page<InventoryItem> findByCompanyIdAndCategoryWithSearch(Long companyId, Long categoryId, String searchTerm, Pageable pageable) {
+        return inventoryItemRepository.findByCompanyIdAndCategoryWithSearch(companyId, categoryId, searchTerm, pageable);
     }
 }

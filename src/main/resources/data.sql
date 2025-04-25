@@ -1,95 +1,95 @@
---password is admin
--- INSERT INTO role (name) VALUES ('ROLE_USER');
--- INSERT INTO role (name) VALUES ('ROLE_ADMIN');
--- INSERT INTO role (name) VALUES ('ROLE_SUPER_ADMIN');
--- INSERT INTO users (username, password, email, status, first_name, last_name, phone) VALUES ('admin', '$2a$14$C2HvKTOQmGVMKZGQ0xa1NO8UUcRHoYgjESdZlEj51bZcSKye43Qdm', 'hussain.qurain@outlook.com', 'active', 'Hussain', 'Al-Qurain', '+966536071929');
+-- --password is admin
+-- -- INSERT INTO role (name) VALUES ('ROLE_USER');
+-- -- INSERT INTO role (name) VALUES ('ROLE_ADMIN');
+-- -- INSERT INTO role (name) VALUES ('ROLE_SUPER_ADMIN');
+-- -- INSERT INTO users (username, password, email, status, first_name, last_name, phone) VALUES ('admin', '$2a$14$C2HvKTOQmGVMKZGQ0xa1NO8UUcRHoYgjESdZlEj51bZcSKye43Qdm', 'hussain.qurain@outlook.com', 'active', 'Hussain', 'Al-Qurain', '+966536071929');
+-- -- INSERT INTO company (name, tax_id, phone, mobile, email, state, city, address, zip, add_purchased_items_to_favorites, logo, allowed_invoice_deviation, export_delivery_notes_as_bills)
+-- -- VALUES ('Company A', '3000000000000', '+966013555555', '+966555555555', 'hussain.qurain@outlook.com', 'khobar', 'khobar', 'khobar', '55555', TRUE, 'test.png', 3, TRUE);
+-- -- INSERT INTO user_roles (user_id, role_id) VALUES (1, 1);
+-- -- INSERT INTO user_roles (user_id, role_id) VALUES (1, 2);
+-- -- INSERT INTO user_roles (user_id, role_id) VALUES (1, 3);
+-- -- INSERT INTO company_user (id, company_id, users_id) VALUES (1, 1, 1)
+-- --change to update instead of create-drop for hibernate
+--
+-- INSERT INTO role (name)
+-- SELECT 'ROLE_USER'
+--     WHERE NOT EXISTS (SELECT 1 FROM role WHERE name = 'ROLE_USER');
+--
+-- INSERT INTO role (name)
+-- SELECT 'ROLE_STAFF'
+--     WHERE NOT EXISTS (SELECT 1 FROM role WHERE name = 'ROLE_STAFF');
+--
+-- INSERT INTO role (name)
+-- SELECT 'ROLE_MANAGER'
+--     WHERE NOT EXISTS (SELECT 1 FROM role WHERE name = 'ROLE_MANAGER');
+--
+-- INSERT INTO role (name)
+-- SELECT 'ROLE_ADMIN'
+--     WHERE NOT EXISTS (SELECT 1 FROM role WHERE name = 'ROLE_ADMIN');
+--
+-- INSERT INTO role (name)
+-- SELECT 'ROLE_SUPER_ADMIN'
+--     WHERE NOT EXISTS (SELECT 1 FROM role WHERE name = 'ROLE_SUPER_ADMIN');
+--
+-- INSERT INTO role (name)
+-- SELECT 'ROLE_SYSTEM_ADMIN'
+--     WHERE NOT EXISTS (SELECT 1 FROM role WHERE name = 'ROLE_SYSTEM_ADMIN');
+--
+-- INSERT INTO users (username, password, email, status, first_name, last_name, phone)
+-- SELECT 'admin', '$2a$14$C2HvKTOQmGVMKZGQ0xa1NO8UUcRHoYgjESdZlEj51bZcSKye43Qdm', 'hussain.qurain@outlook.com', 'active', 'Hussain', 'Al-Qurain', '+966536071929'
+--     WHERE NOT EXISTS (SELECT 1 FROM users WHERE username = 'admin');
+--
 -- INSERT INTO company (name, tax_id, phone, mobile, email, state, city, address, zip, add_purchased_items_to_favorites, logo, allowed_invoice_deviation, export_delivery_notes_as_bills)
--- VALUES ('Company A', '3000000000000', '+966013555555', '+966555555555', 'hussain.qurain@outlook.com', 'khobar', 'khobar', 'khobar', '55555', TRUE, 'test.png', 3, TRUE);
--- INSERT INTO user_roles (user_id, role_id) VALUES (1, 1);
--- INSERT INTO user_roles (user_id, role_id) VALUES (1, 2);
--- INSERT INTO user_roles (user_id, role_id) VALUES (1, 3);
--- INSERT INTO company_user (id, company_id, users_id) VALUES (1, 1, 1)
---change to update instead of create-drop for hibernate
-
-INSERT INTO role (name)
-SELECT 'ROLE_USER'
-    WHERE NOT EXISTS (SELECT 1 FROM role WHERE name = 'ROLE_USER');
-
-INSERT INTO role (name)
-SELECT 'ROLE_STAFF'
-    WHERE NOT EXISTS (SELECT 1 FROM role WHERE name = 'ROLE_STAFF');
-
-INSERT INTO role (name)
-SELECT 'ROLE_MANAGER'
-    WHERE NOT EXISTS (SELECT 1 FROM role WHERE name = 'ROLE_MANAGER');
-
-INSERT INTO role (name)
-SELECT 'ROLE_ADMIN'
-    WHERE NOT EXISTS (SELECT 1 FROM role WHERE name = 'ROLE_ADMIN');
-
-INSERT INTO role (name)
-SELECT 'ROLE_SUPER_ADMIN'
-    WHERE NOT EXISTS (SELECT 1 FROM role WHERE name = 'ROLE_SUPER_ADMIN');
-
-INSERT INTO role (name)
-SELECT 'ROLE_SYSTEM_ADMIN'
-    WHERE NOT EXISTS (SELECT 1 FROM role WHERE name = 'ROLE_SYSTEM_ADMIN');
-
-INSERT INTO users (username, password, email, status, first_name, last_name, phone)
-SELECT 'admin', '$2a$14$C2HvKTOQmGVMKZGQ0xa1NO8UUcRHoYgjESdZlEj51bZcSKye43Qdm', 'hussain.qurain@outlook.com', 'active', 'Hussain', 'Al-Qurain', '+966536071929'
-    WHERE NOT EXISTS (SELECT 1 FROM users WHERE username = 'admin');
-
-INSERT INTO company (name, tax_id, phone, mobile, email, state, city, address, zip, add_purchased_items_to_favorites, logo, allowed_invoice_deviation, export_delivery_notes_as_bills)
-SELECT 'Company A', '3000000000000', '+966013555555', '+966555555555', 'hussain.qurain@outlook.com', 'khobar', 'khobar', 'khobar', '55555', TRUE, 'test.png', 3, TRUE
-    WHERE NOT EXISTS (SELECT 1 FROM company WHERE name = 'Company A');
-
-
--- Insert a default location for Company A if it doesn't exist
-INSERT INTO location (name, code, address, city, state, zip, phone, company_id)
-SELECT 'Default Location', 'LOC1', '123 Main St', 'Khobar', 'Eastern Province', '12345', '+966123456789', 1
-    WHERE NOT EXISTS (
-  SELECT 1 FROM location WHERE name = 'Default Location' AND company_id = 1
-);
-
-
-INSERT INTO user_roles (user_id, role_id)
-SELECT 1, 1
-    WHERE NOT EXISTS (SELECT 1 FROM user_roles WHERE user_id = 1 AND role_id = 1);
-
-INSERT INTO user_roles (user_id, role_id)
-SELECT 1, 2
-    WHERE NOT EXISTS (SELECT 1 FROM user_roles WHERE user_id = 1 AND role_id = 2);
-
-INSERT INTO user_roles (user_id, role_id)
-SELECT 1, 3
-    WHERE NOT EXISTS (SELECT 1 FROM user_roles WHERE user_id = 1 AND role_id = 3);
-
-INSERT INTO company_user (id, company_id, users_id)
-SELECT 1, 1, 1
-    WHERE NOT EXISTS (SELECT 1 FROM company_user WHERE company_id = 1 AND users_id = 1);
-
-INSERT INTO location_user (id, location_id, user_id)
-SELECT 1, 1, 1
-    WHERE NOT EXISTS (SELECT 1 FROM location_user WHERE location_id = 1 AND user_id = 1);
-
-
--- Insert the "system" user with a fixed ID=999999999
--- We assume you want to store a placeholder password, email, etc.
-INSERT INTO users (id, username, password, email, status, first_name, last_name, phone)
-SELECT 999999999,
-       'system-user',
-       '$2a$14$C2HvKTOQmGVMKZGQ0xa1NO8UUcRHoYgjESdZlEj51bZcSKye43Qdm',
-       'system@example.com',
-       'active',
-       'SYSTEM',
-       'USER',
-       '+000000000000'
-    WHERE NOT EXISTS (SELECT 1 FROM users WHERE id = 999999999);
-
--- For example, give them an ADMIN role (role_id=2?),
--- or a different role_id as you see fit
-INSERT INTO user_roles (user_id, role_id)
-SELECT 999999999, 3
-    WHERE NOT EXISTS (
-    SELECT 1 FROM user_roles WHERE user_id=999999999 AND role_id=3
-);
+-- SELECT 'Company A', '3000000000000', '+966013555555', '+966555555555', 'hussain.qurain@outlook.com', 'khobar', 'khobar', 'khobar', '55555', TRUE, 'test.png', 3, TRUE
+--     WHERE NOT EXISTS (SELECT 1 FROM company WHERE name = 'Company A');
+--
+--
+-- -- Insert a default location for Company A if it doesn't exist
+-- INSERT INTO location (name, code, address, city, state, zip, phone, company_id)
+-- SELECT 'Default Location', 'LOC1', '123 Main St', 'Khobar', 'Eastern Province', '12345', '+966123456789', 1
+--     WHERE NOT EXISTS (
+--   SELECT 1 FROM location WHERE name = 'Default Location' AND company_id = 1
+-- );
+--
+--
+-- INSERT INTO user_roles (user_id, role_id)
+-- SELECT 1, 1
+--     WHERE NOT EXISTS (SELECT 1 FROM user_roles WHERE user_id = 1 AND role_id = 1);
+--
+-- INSERT INTO user_roles (user_id, role_id)
+-- SELECT 1, 2
+--     WHERE NOT EXISTS (SELECT 1 FROM user_roles WHERE user_id = 1 AND role_id = 2);
+--
+-- INSERT INTO user_roles (user_id, role_id)
+-- SELECT 1, 3
+--     WHERE NOT EXISTS (SELECT 1 FROM user_roles WHERE user_id = 1 AND role_id = 3);
+--
+-- INSERT INTO company_user (id, company_id, users_id)
+-- SELECT 1, 1, 1
+--     WHERE NOT EXISTS (SELECT 1 FROM company_user WHERE company_id = 1 AND users_id = 1);
+--
+-- INSERT INTO location_user (id, location_id, user_id)
+-- SELECT 1, 1, 1
+--     WHERE NOT EXISTS (SELECT 1 FROM location_user WHERE location_id = 1 AND user_id = 1);
+--
+--
+-- -- Insert the "system" user with a fixed ID=999999999
+-- -- We assume you want to store a placeholder password, email, etc.
+-- INSERT INTO users (id, username, password, email, status, first_name, last_name, phone)
+-- SELECT 999999999,
+--        'system-user',
+--        '$2a$14$C2HvKTOQmGVMKZGQ0xa1NO8UUcRHoYgjESdZlEj51bZcSKye43Qdm',
+--        'system@example.com',
+--        'active',
+--        'SYSTEM',
+--        'USER',
+--        '+000000000000'
+--     WHERE NOT EXISTS (SELECT 1 FROM users WHERE id = 999999999);
+--
+-- -- For example, give them an ADMIN role (role_id=2?),
+-- -- or a different role_id as you see fit
+-- INSERT INTO user_roles (user_id, role_id)
+-- SELECT 999999999, 3
+--     WHERE NOT EXISTS (
+--     SELECT 1 FROM user_roles WHERE user_id=999999999 AND role_id=3
+-- );

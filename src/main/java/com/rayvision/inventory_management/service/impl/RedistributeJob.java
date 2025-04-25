@@ -46,7 +46,7 @@ public class RedistributeJob {
        scheduler wrapper
      ------------------------------------------------------------------ */
     @Scheduled(fixedDelayString = "${inventory.scheduled.redistribute.delay:60000}")
-    @Transactional(readOnly = true)
+    @Transactional // Removed readOnly = true
     public void run() {
         LocalDateTime now = LocalDateTime.now();
 

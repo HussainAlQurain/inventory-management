@@ -476,6 +476,29 @@ public class AutoOrderScheduledService {
             createDraftOrder(setting, companyId, loc, supplierId, supplierName, items);
         }
 
+        // ---------------------------------------------------------
+        // Phase-2: Clean up drafts that no longer have shortages
+        // ---------------------------------------------------------
+        Long sysId = systemUserResolver.getSystemUserId();
+        List<Orders> systemDrafts = orderRepository.findAllSystemDraftsByLocation(locationId, sysId);
+
+        for (Orders draft : systemDrafts) {
+            Long supId = draft.getSentToSupplier().getId();
+
+            // If this supplier wasn't in today's shortage list -> delete draft
+            if (!itemsBySupplier.containsKey(supId)) {
+                log.info("No shortages for supplier {}, deleting draft {}", supId, draft.getId());
+                purchaseOrderService.deleteDraftOrder(draft.getId());
+
+                notificationService.createNotification(
+                        companyId,
+                        "Auto-Order Deleted",
+                        "Deleted draft PO (ID=" + draft.getId()
+                                + ") – all items now at/above Min level"
+                );
+            }
+        }
+
         // Log the total execution time for performance monitoring
         Duration duration = Duration.between(startTime, LocalDateTime.now());
         log.info("Auto-order for location {} completed in {} ms", locationId, duration.toMillis());
@@ -570,13 +593,21 @@ public class AutoOrderScheduledService {
             Long companyId,
             String locationName,
             String supplierName,
-            Orders draft,
+            Orders detachedDraft,
             List<ItemOrderInfoDTO> items
     ) {
-        log.info("Updating existing draft order ID: {}", draft.getId());
+        log.info("Updating existing draft order ID: {}", detachedDraft.getId());
         try {
+            // ---- re-attach once, right at the top ----
+            Orders draft = orderRepository.findById(detachedDraft.getId())
+                                       .orElseThrow(() ->
+                                           new RuntimeException("Draft not found"));
+    
+            // Initialize the items collection so the next service doesn't need to do it again
+            draft.getOrderItems().size();
+
             // Only update if created by system-user
-            Users creator = draft.getCreatedByUser();
+            Users creator = draft.getCreatedByUser();  // safe now
             if (creator != null && !"system-user".equals(creator.getUsername())) {
                 log.debug("Skipping update for order ID {} - not created by system-user", draft.getId());
                 return;
@@ -625,7 +656,7 @@ public class AutoOrderScheduledService {
             notificationService.createNotification(
                     companyId,
                     "Auto-Order Error",
-                    "Failed to update draft order (ID=" + draft.getId()
+                    "Failed to update draft order (ID=" + detachedDraft.getId()
                             + ") for supplier '" + supplierName
                             + "', location '" + locationName
                             + "'. Error: " + ex.getMessage()

@@ -137,4 +137,17 @@ public interface OrderRepository extends JpaRepository<Orders, Long>, JpaSpecifi
     GROUP  BY oi.inventoryItem.id
     """)
     List<Object[]> getDraftAndPendingQuantitiesByLocation(@Param("locationId") Long locationId);
+    
+    /**
+     * Find all draft orders created by system-user for a specific location
+     */
+    @Query("""
+    SELECT o
+    FROM   Orders o
+    WHERE  o.buyerLocation.id  = :locationId
+      AND  o.status            = 'DRAFT'
+      AND  o.createdByUser.id  = :systemUserId
+    """)
+    List<Orders> findAllSystemDraftsByLocation(@Param("locationId") Long locationId,
+                                              @Param("systemUserId") Long systemUserId);
 }

@@ -17,18 +17,14 @@ public interface AutoRedistributeSettingRepository extends JpaRepository<AutoRed
      * Find all enabled settings with company eagerly fetched
      * to avoid LazyInitializationException in async processing
      */
-    @Query("SELECT ars FROM AutoRedistributeSetting ars " +
-           "LEFT JOIN FETCH ars.company " +
-           "WHERE ars.enabled = true")
+    @Query("SELECT a FROM AutoRedistributeSetting a JOIN FETCH a.company WHERE a.enabled = true")
     List<AutoRedistributeSetting> findByEnabledTrueWithCompany();
     
     /**
      * Find one setting by ID with company eagerly fetched
      */
-    @Query("SELECT ars FROM AutoRedistributeSetting ars " +
-           "LEFT JOIN FETCH ars.company " +
-           "WHERE ars.id = :id")
-    Optional<AutoRedistributeSetting> findByIdWithCompany(Long id);
+    @Query("SELECT a FROM AutoRedistributeSetting a JOIN FETCH a.company WHERE a.id = :id")
+    Optional<AutoRedistributeSetting> findByIdWithCompany(@Param("id") Long id);
 
     /**
      * Find setting by company ID with company eagerly fetched

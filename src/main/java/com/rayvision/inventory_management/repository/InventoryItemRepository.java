@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -72,4 +73,39 @@ public interface InventoryItemRepository extends JpaRepository<InventoryItem, Lo
             @Param("searchTerm") String searchTerm,
             Pageable pageable
     );
+
+    @Query("SELECT i FROM InventoryItem i LEFT JOIN FETCH i.purchaseOptions WHERE i.company.id = :companyId")
+    List<InventoryItem> findByCompanyIdWithPurchaseOptions(@Param("companyId") Long companyId);
+
+    @Query("SELECT i FROM InventoryItem i LEFT JOIN FETCH i.purchaseOptions WHERE i.id = :id")
+    Optional<InventoryItem> findByIdWithPurchaseOptions(@Param("id") Long id);
+
+    /**
+     * Efficiently retrieves only the necessary data for auto-ordering in a single query
+     * Returns results as Object[] arrays containing:
+     * [0] - item.id (Long)
+     * [1] - item.name (String)
+     * [2] - po.id (Long)
+     * [3] - po.price (Double)
+     * [4] - supplier.id (Long)
+     * [5] - supplier.name (String)
+     */
+    @Query("SELECT i.id, i.name, po.id, po.price, s.id, s.name " +
+           "FROM InventoryItem i " +
+           "JOIN i.purchaseOptions po " +
+           "JOIN po.supplier s " +
+           "WHERE i.company.id = :companyId " +
+           "AND po.orderingEnabled = true")
+    List<Object[]> findAutoOrderDataByCompanyId(@Param("companyId") Long companyId);
+
+    /**
+     * Similar to findAutoOrderDataByCompanyId but filters by item IDs
+     */
+    @Query("SELECT i.id, i.name, po.id, po.price, s.id, s.name " +
+           "FROM InventoryItem i " +
+           "JOIN i.purchaseOptions po " +
+           "JOIN po.supplier s " +
+           "WHERE i.id IN :itemIds " +
+           "AND po.orderingEnabled = true")
+    List<Object[]> findAutoOrderDataByItemIds(@Param("itemIds") Collection<Long> itemIds);
 }

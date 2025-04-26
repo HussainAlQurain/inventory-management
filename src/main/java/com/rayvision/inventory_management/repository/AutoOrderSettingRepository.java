@@ -17,18 +17,13 @@ public interface AutoOrderSettingRepository extends JpaRepository<AutoOrderSetti
      * Find all settings with location and company eagerly fetched
      * to avoid LazyInitializationException in async processing
      */
-    @Query("SELECT aos FROM AutoOrderSetting aos " +
-           "LEFT JOIN FETCH aos.location loc " +
-           "LEFT JOIN FETCH loc.company")
+    @Query("SELECT a FROM AutoOrderSetting a JOIN FETCH a.location l JOIN FETCH l.company")
     List<AutoOrderSetting> findAllWithLocationAndCompany();
     
     /**
      * Find a specific setting with location and company eagerly fetched
      */
-    @Query("SELECT aos FROM AutoOrderSetting aos " +
-           "LEFT JOIN FETCH aos.location loc " +
-           "LEFT JOIN FETCH loc.company " +
-           "WHERE aos.id = :id")
+    @Query("SELECT a FROM AutoOrderSetting a JOIN FETCH a.location l JOIN FETCH l.company WHERE a.id = :id")
     Optional<AutoOrderSetting> findByIdWithLocationAndCompany(@Param("id") Long id);
 
 }

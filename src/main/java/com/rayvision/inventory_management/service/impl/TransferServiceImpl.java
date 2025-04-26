@@ -326,6 +326,8 @@ public class TransferServiceImpl implements TransferService {
         draft = transferRepository.findByIdWithLines(draft.getId())
                 .orElseThrow(() -> new RuntimeException("Draft not found"));
 
+        // Ensure lines collection is initialized to prevent LazyInitializationException
+        draft.getLines().size();
 
         /* Map existing lines by (item‑id) so we can merge quantities */
         Map<Long, TransferLine> existing = new HashMap<>();

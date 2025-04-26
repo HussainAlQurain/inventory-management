@@ -126,5 +126,5 @@ public interface TransferRepository extends JpaRepository<Transfer, Long> {
     AND t.createdByUser = :user
     AND (t.fromLocation.company.id = :companyId OR t.toLocation.company.id = :companyId)
     """)
-    List<Transfer> findAllByCompanyAndStatusAndCreatedByUser(Long companyId, String status, Users user);
+    List<Transfer> findAllByCompanyAndStatusAndCreatedByUser(Long companyId, TransferStatus status, Users user);
 }

@@ -193,7 +193,7 @@ public class RedistributeJob {
                 .orElseThrow(() -> new RuntimeException("System user not found"));
         
         List<Transfer> drafts = transferRepo
-                .findAllByCompanyAndStatusAndCreatedByUser(companyId, TransferStatus.DRAFT.name(), sysUser);
+                .findAllByCompanyAndStatusAndCreatedByUser(companyId, TransferStatus.DRAFT, sysUser);
 
         for (Transfer d : drafts) {
             var key = Pair.of(d.getFromLocation().getId(), d.getToLocation().getId());

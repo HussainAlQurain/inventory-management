@@ -7,6 +7,7 @@ import com.rayvision.inventory_management.model.dto.OrderItemDTO;
 import com.rayvision.inventory_management.repository.*;
 import com.rayvision.inventory_management.service.PurchaseOrderService;
 import com.rayvision.inventory_management.enums.OrderStatus;
+import com.rayvision.inventory_management.util.SystemUserResolver;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -30,6 +31,7 @@ public class AutoOrderScheduledService {
     private final UserRepository userRepository;
     private final OrderRepository orderRepository;
     private final TransferRepository transferRepository;
+    private final SystemUserResolver systemUserResolver;
 
     public AutoOrderScheduledService(
             AutoOrderSettingRepository settingRepo,
@@ -40,7 +42,8 @@ public class AutoOrderScheduledService {
             LocationRepository locationRepository,
             UserRepository userRepository,
             OrderRepository orderRepository,
-            TransferRepository transferRepository
+            TransferRepository transferRepository,
+            SystemUserResolver systemUserResolver
     ) {
         this.settingRepo = settingRepo;
         this.inventoryItemRepository = inventoryItemRepository;
@@ -51,6 +54,7 @@ public class AutoOrderScheduledService {
         this.userRepository = userRepository;
         this.orderRepository = orderRepository;
         this.transferRepository = transferRepository;
+        this.systemUserResolver = systemUserResolver;
     }
 
     /* ------------------------------------------------------------------
@@ -501,10 +505,8 @@ public class AutoOrderScheduledService {
         dto.setBuyerLocationId(loc.getId());
         dto.setSupplierId(supplierId);
         
-        // Fetch system user ID
-        Long systemUserId = userRepository.findByUsername("system-user")
-                .map(Users::getId)
-                .orElseThrow(() -> new RuntimeException("System user 'system-user' not found!"));
+        // Get system user ID from resolver
+        Long systemUserId = systemUserResolver.getSystemUserId();
         dto.setCreatedByUserId(systemUserId);
         
         dto.setComments(

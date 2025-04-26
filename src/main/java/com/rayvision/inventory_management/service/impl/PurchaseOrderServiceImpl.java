@@ -8,6 +8,7 @@ import com.rayvision.inventory_management.model.dto.*;
 import com.rayvision.inventory_management.repository.*;
 import com.rayvision.inventory_management.service.PurchaseOrderService;
 import com.rayvision.inventory_management.service.StockTransactionService;
+import com.rayvision.inventory_management.util.SystemUserResolver;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -34,6 +35,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
     private final AssortmentLocationRepository assortmentLocationRepository;
     private final InventoryItemLocationRepository inventoryItemLocationRepository;
     private final InventoryItemResponseMapper inventoryItemResponseMapper;
+    private final SystemUserResolver systemUserResolver;
 
     public PurchaseOrderServiceImpl(
             OrderRepository ordersRepository,
@@ -46,7 +48,8 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
             EmailSenderService emailSenderService,
             AssortmentLocationRepository assortmentLocationRepository,
             InventoryItemLocationRepository inventoryItemLocationRepository,
-            InventoryItemResponseMapper inventoryItemResponseMapper
+            InventoryItemResponseMapper inventoryItemResponseMapper,
+            SystemUserResolver systemUserResolver
     ) {
         this.ordersRepository = ordersRepository;
         this.locationRepository = locationRepository;
@@ -59,6 +62,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         this.assortmentLocationRepository = assortmentLocationRepository;
         this.inventoryItemLocationRepository = inventoryItemLocationRepository;
         this.inventoryItemResponseMapper = inventoryItemResponseMapper;
+        this.systemUserResolver = systemUserResolver;
     }
 
     // -------------------------------------------------------------
@@ -571,16 +575,18 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 
     @Override
     public Orders findDraftOrderForSupplierAndLocation(Long supplierId, Long locationId) {
+        Long sysId = systemUserResolver.getSystemUserId();
+        
         try {
-            return ordersRepository.findDraftBySupplierAndLocation(supplierId, locationId)
-                .orElse(null);
+            return ordersRepository.findSystemDraft(supplierId, locationId, sysId)
+                    .orElse(null);
         } catch (org.springframework.dao.IncorrectResultSizeDataAccessException ex) {
             // If multiple draft orders exist, log it and return the most recent one
             System.out.println("WARNING: Multiple draft orders found for supplier " + supplierId + 
                 " and location " + locationId + ". Using the most recent one.");
             
-            // Get all orders for this supplier/location with DRAFT status
-            List<Orders> allDrafts = ordersRepository.findAllDraftsBySupplierAndLocation(supplierId, locationId);
+            // Get all orders for this supplier/location with DRAFT status created by system user
+            List<Orders> allDrafts = ordersRepository.findAllSystemDrafts(supplierId, locationId, sysId);
             if (allDrafts.isEmpty()) {
                 return null;
             }

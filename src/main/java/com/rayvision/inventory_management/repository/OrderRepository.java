@@ -29,17 +29,19 @@ public interface OrderRepository extends JpaRepository<Orders, Long>, JpaSpecifi
             + "WHERE o.sentToSupplier.id = :supplierId "
             + "  AND o.buyerLocation.id = :locationId "
             + "  AND o.status = 'DRAFT'"
-            + "  AND o.createdByUser.id = 999999999")
-    Optional<Orders> findDraftBySupplierAndLocation(@Param("supplierId") Long supplierId,
-                                                    @Param("locationId") Long locationId);
+            + "  AND o.createdByUser.id = :systemUserId")
+    Optional<Orders> findSystemDraft(@Param("supplierId") Long supplierId,
+                                     @Param("locationId") Long locationId,
+                                     @Param("systemUserId") Long systemUserId);
 
     @Query("SELECT o FROM Orders o "
             + "WHERE o.sentToSupplier.id = :supplierId "
             + "  AND o.buyerLocation.id = :locationId "
             + "  AND o.status = 'DRAFT'"
-            + "  AND o.createdByUser.id = 999999999")
-    List<Orders> findAllDraftsBySupplierAndLocation(@Param("supplierId") Long supplierId,
-                                                    @Param("locationId") Long locationId);
+            + "  AND o.createdByUser.id = :systemUserId")
+    List<Orders> findAllSystemDrafts(@Param("supplierId") Long supplierId,
+                                     @Param("locationId") Long locationId,
+                                     @Param("systemUserId") Long systemUserId);
     
     @Query("SELECT o FROM Orders o "
            + "WHERE o.status = 'DRAFT' "
@@ -129,7 +131,7 @@ public interface OrderRepository extends JpaRepository<Orders, Long>, JpaSpecifi
            "FROM Orders o " +
            "JOIN o.orderItems oi " +
            "WHERE o.buyerLocation.id = :locationId " +
-           "AND (o.status = 'DRAFT' OR o.status = 'PENDING') " +
+           "AND (o.status = 'DRAFT' OR o.status = 'CREATED') " +
            "GROUP BY oi.inventoryItem.id")
     List<Object[]> getDraftAndPendingQuantitiesByLocation(@Param("locationId") Long locationId);
 }

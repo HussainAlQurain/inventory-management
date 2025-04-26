@@ -1,12 +1,15 @@
 package com.rayvision.inventory_management.service.impl;
 
+import com.rayvision.inventory_management.enums.TransferStatus;
 import com.rayvision.inventory_management.model.*;
 import com.rayvision.inventory_management.model.dto.TransferCreateDTO;
 import com.rayvision.inventory_management.model.dto.TransferLineDTO;
 import com.rayvision.inventory_management.repository.*;
 import com.rayvision.inventory_management.service.TransferService;
+import com.rayvision.inventory_management.util.SystemUserResolver;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.util.Pair;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,11 +22,9 @@ import java.util.concurrent.CompletableFuture;
 /**
  * Redistributes surplus stock from one location
  * to another location whose on‑hand is below its MIN.
- *
- *  •  Surplus = onHand − target      (target = PAR if set, otherwise MIN)
+  *  •  Surplus = onHand − target      (target = PAR if set, otherwise MIN)
  *  •  Shortage = target − onHand     (only when onHand &lt; MIN)
- *
- *  Draft transfers are appended or created; nothing is sent
+  *  Draft transfers are appended or created; nothing is sent
  *  if the donor would drop below its own MIN.
  */
 @Slf4j
@@ -40,6 +41,9 @@ public class RedistributeJob {
     private final UnitOfMeasureRepository           uomRepository;
     private final TransferService                   transferService;
     private final NotificationService               notificationService;
+    private final SystemUserResolver                systemUserResolver;
+    private final TransferRepository                transferRepo;
+    private final UserRepository                    userRepository;
 
     /* ------------------------------------------------------------------
        Core job execution method - called by DynamicSchedulerService
@@ -78,7 +82,7 @@ public class RedistributeJob {
     }
 
     /* ------------------------------------------------------------------
-       core logic
+       core logic with updated algorithm that considers incoming/outgoing quantities
      ------------------------------------------------------------------ */
     @Transactional
     public void redistributeForCompany(AutoRedistributeSetting cfg) {
@@ -98,10 +102,20 @@ public class RedistributeJob {
             return; // nothing to juggle
         }
 
+        /* ----------------------------------------------------------------
+           1) pre-load *all* quantity facts for this company in ONE go
+        ---------------------------------------------------------------- */
+        List<Object[]> outgoing = transferRepo.getOutgoingQty();
+        List<Object[]> incoming = transferRepo.getIncomingQty();
+
+        Map<Long, Map<Long, Double>> outMap = to2LevelMap(outgoing); // itemId->locId->qty
+        Map<Long, Map<Long, Double>> inMap = to2LevelMap(incoming);
+
         Map<Long, Set<Long>> allowedMap = buildAllowedItemMap(companyId, locs);
 
         Map<Long, List<Surplus>> surplus = new HashMap<>();
         Map<Long, List<Deficit>> deficit = new HashMap<>();
+        Map<Pair<Long,Long>, Boolean> stillNeeded = new HashMap<>();
 
         List<InventoryItemLocation> iilRows = iilRepo.findByLocationCompanyId(companyId);
         if (iilRows.isEmpty()) {
@@ -109,23 +123,30 @@ public class RedistributeJob {
             return;
         }
 
-
         for (InventoryItemLocation row : iilRows) {
-            long locId  = row.getLocation().getId();
+            long locId = row.getLocation().getId();
             long itemId = row.getInventoryItem().getId();
 
             if (!allowedMap.getOrDefault(locId, Set.of()).contains(itemId)) continue;
 
             double onHand = nz(row.getOnHand());
-            double min    = nz(row.getMinOnHand());
-            double par    = nz(row.getParLevel());
+            double min = nz(row.getMinOnHand());
+            double par = nz(row.getParLevel());
 
             /* skip items that have neither MIN nor PAR configured */
             if (min <= 0 && par <= 0) continue;
 
-            double target   = (par > 0) ? par : min;        // desired level
-            double surplusQ = Math.max(0, onHand - target); // over target
-            double shortage = (onHand < min) ? (target - onHand) : 0; // under min
+            double committedOut = outMap.getOrDefault(itemId, Map.of())
+                                        .getOrDefault(locId, 0d);
+            double committedIn = inMap.getOrDefault(itemId, Map.of())
+                                      .getOrDefault(locId, 0d);
+
+            /* EFFECTIVE stock that will remain after stuff leaves/arrives */
+            double futureStock = onHand - committedOut + committedIn;
+
+            double target = (par > 0) ? par : min;        // desired level
+            double surplusQ = Math.max(0, futureStock - target); // over target
+            double shortage = (futureStock < min) ? (target - futureStock) : 0; // under min
 
             if (surplusQ > 0.0001) {
                 surplus.computeIfAbsent(itemId, k -> new ArrayList<>())
@@ -134,6 +155,8 @@ public class RedistributeJob {
             if (shortage > 0.0001) {
                 deficit.computeIfAbsent(itemId, k -> new ArrayList<>())
                         .add(new Deficit(locId, shortage));
+                // Mark this pair as still needed for cleanup
+                stillNeeded.put(Pair.of(locId, itemId), true);
             }
         }
 
@@ -150,11 +173,55 @@ public class RedistributeJob {
                     cfg);
             matchedItems++;
         }
+        
+        // Clean up obsolete drafts
+        cleanupDraftTransfers(companyId, stillNeeded);
 
         // Log the total execution time for performance monitoring
         Duration duration = Duration.between(startTime, LocalDateTime.now());
         log.info("Auto-redistribute for company {} completed in {} ms (processed {} items)",
                 companyId, duration.toMillis(), matchedItems);
+    }
+
+    /**
+     * Clean up obsolete draft transfers that are no longer needed
+     */
+    private void cleanupDraftTransfers(long companyId,
+                                     Map<Pair<Long,Long>,Boolean> stillNeeded) {
+        Long sysUserId = systemUserResolver.getSystemUserId();
+        Users sysUser = userRepository.findById(sysUserId)
+                .orElseThrow(() -> new RuntimeException("System user not found"));
+        
+        List<Transfer> drafts = transferRepo
+                .findAllByCompanyAndStatusAndCreatedByUser(companyId, TransferStatus.DRAFT.name(), sysUser);
+
+        for (Transfer d : drafts) {
+            var key = Pair.of(d.getFromLocation().getId(), d.getToLocation().getId());
+            if (!stillNeeded.containsKey(key)) {
+                transferService.deleteTransfer(d.getId());
+                notificationService.createNotification(
+                    companyId,
+                    "Auto-Transfer Deleted",
+                    "Deleted draft #"+d.getId()+" (no shortages remain)"
+                );
+            }
+        }
+    }
+    
+    /**
+     * Convert a list of [itemId, locationId, quantity] rows into a two-level map
+     * for efficient lookup: itemId -> locationId -> quantity
+     */
+    private Map<Long,Map<Long,Double>> to2LevelMap(List<Object[]> rows){
+        Map<Long,Map<Long,Double>> m = new HashMap<>();
+        for (Object[] r: rows){
+            Long itemId = (Long)  r[0];
+            Long locId  = (Long)  r[1];
+            Double qty  = (Double)r[2];
+            m.computeIfAbsent(itemId,k->new HashMap<>())
+             .merge(locId, qty, Double::sum);
+        }
+        return m;
     }
 
     /* ------------------------------------------------------------------

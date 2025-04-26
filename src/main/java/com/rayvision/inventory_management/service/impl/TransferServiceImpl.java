@@ -1,5 +1,6 @@
 package com.rayvision.inventory_management.service.impl;
 
+import com.rayvision.inventory_management.enums.TransferStatus;
 import com.rayvision.inventory_management.model.*;
 import com.rayvision.inventory_management.model.dto.TransferCreateDTO;
 import com.rayvision.inventory_management.model.dto.TransferLineDTO;
@@ -26,6 +27,7 @@ public class TransferServiceImpl implements TransferService {
     private final StockTransactionService stockTransactionService;
     private final ItemCostCalculator itemCostCalculator;
     private final SubRecipeCostCalculationService subRecipeCostCalculationService;
+    private final UserRepository userRepository; // For handling createdByUser
 
     public TransferServiceImpl(TransferRepository transferRepository,
                                LocationRepository locationRepository,
@@ -34,7 +36,8 @@ public class TransferServiceImpl implements TransferService {
                                UnitOfMeasureRepository uomRepository,
                                SubRecipeRepository subRecipeRepository,
                                ItemCostCalculator itemCostCalculator,
-                               SubRecipeCostCalculationService subRecipeCostCalculationService) {
+                               SubRecipeCostCalculationService subRecipeCostCalculationService,
+                               UserRepository userRepository) {
         this.transferRepository = transferRepository;
         this.locationRepository = locationRepository;
         this.inventoryItemRepository = inventoryItemRepository;
@@ -43,6 +46,7 @@ public class TransferServiceImpl implements TransferService {
         this.subRecipeRepository = subRecipeRepository;
         this.itemCostCalculator = itemCostCalculator;
         this.subRecipeCostCalculationService = subRecipeCostCalculationService;
+        this.userRepository = userRepository;
     }
 
     /**
@@ -98,12 +102,23 @@ public class TransferServiceImpl implements TransferService {
                 .orElseThrow(() -> new RuntimeException("from‑location not found"));
         Location to   = locationRepository.findById(dto.getToLocationId())
                 .orElseThrow(() -> new RuntimeException("to‑location not found"));
+                
+        // Get the user who created the transfer
+        Users createdBy = null;
+        if (dto.getCreatedByUserId() != null) {
+            createdBy = userRepository.findById(dto.getCreatedByUserId())
+                    .orElseThrow(() -> new RuntimeException("User not found: " + dto.getCreatedByUserId()));
+        } else {
+            // Fallback to a default user if needed
+            throw new RuntimeException("createdByUserId is required");
+        }
 
         Transfer t = Transfer.builder()
                 .creationDate(LocalDate.now())
-                .status("DRAFT")
+                .status(TransferStatus.DRAFT)
                 .fromLocation(from)
                 .toLocation(to)
+                .createdByUser(createdBy)
                 .build();
 
         List<TransferLine> lines = new ArrayList<>();
@@ -142,41 +157,41 @@ public class TransferServiceImpl implements TransferService {
 
     @Override
     public List<Transfer> findOutgoingDraftsByLocation(Long locId) {
-        return transferRepository.findByFromLocationIdAndStatus(locId, "DRAFT");
+        return transferRepository.findByFromLocationIdAndStatus(locId, TransferStatus.DRAFT);
     }
 
     @Override
     public List<Transfer> findIncomingDraftsByLocation(Long locId) {
-        return transferRepository.findByToLocationIdAndStatus(locId, "DRAFT");
+        return transferRepository.findByToLocationIdAndStatus(locId, TransferStatus.DRAFT);
     }
 
     @Override
     public List<Transfer> findOutgoingDraftsByCompany(Long companyId) {
-        return transferRepository.findOutgoingDraftsByCompany(companyId, "DRAFT");
+        return transferRepository.findOutgoingDraftsByCompany(companyId, TransferStatus.DRAFT);
     }
 
     @Override
     public List<Transfer> findIncomingDraftsByCompany(Long companyId) {
-        return transferRepository.findIncomingDraftsByCompany(companyId, "DRAFT");
+        return transferRepository.findIncomingDraftsByCompany(companyId, TransferStatus.DRAFT);
     }
 
     @Override
     public List<Transfer> findCompletedTransfersByCompany(Long companyId) {
-        return transferRepository.findCompletedTransfersByCompany(companyId, "COMPLETED");
+        return transferRepository.findCompletedTransfersByCompany(companyId, TransferStatus.COMPLETED);
     }
 
     @Override
     public List<Transfer> findCompletedTransfersByLocation(Long locationId, boolean isFromLocation) {
         if (isFromLocation) {
-            return transferRepository.findByFromLocationIdAndStatus(locationId, "COMPLETED");
+            return transferRepository.findByFromLocationIdAndStatus(locationId, TransferStatus.COMPLETED);
         } else {
-            return transferRepository.findByToLocationIdAndStatus(locationId, "COMPLETED");
+            return transferRepository.findByToLocationIdAndStatus(locationId, TransferStatus.COMPLETED);
         }
     }
 
     @Override
     public List<Transfer> findAllCompletedTransfers() {
-        return transferRepository.findByStatus("COMPLETED");
+        return transferRepository.findByStatus(TransferStatus.COMPLETED);
     }
 
     /* ------------------------------------------------ draft update --------- */
@@ -187,7 +202,7 @@ public class TransferServiceImpl implements TransferService {
 
         Transfer t = getTransfer(transferId);
 
-        if (!"DRAFT".equalsIgnoreCase(t.getStatus())) {
+        if (t.getStatus() != TransferStatus.DRAFT) {
             throw new RuntimeException("Only DRAFT transfers can be edited");
         }
         if (!t.getToLocation().getId().equals(actingLocationId)) {
@@ -235,11 +250,11 @@ public class TransferServiceImpl implements TransferService {
 
         Transfer t = transferRepository.findById(transferId)
                 .orElseThrow(() -> new RuntimeException("Transfer not found"));
-        if (!"DRAFT".equalsIgnoreCase(t.getStatus())) {
+        if (t.getStatus() != TransferStatus.DRAFT) {
             throw new RuntimeException("Only DRAFT transfers can be completed");
         }
 
-        t.setStatus("COMPLETED");
+        t.setStatus(TransferStatus.COMPLETED);
         t.setCompletionDate(LocalDate.now());
 
         /*  create one OUT tx from the "from" location
@@ -286,7 +301,7 @@ public class TransferServiceImpl implements TransferService {
     @Override
     public void deleteTransfer(Long transferId) {
         Transfer transfer = getTransfer(transferId);
-        if ("COMPLETED".equalsIgnoreCase(transfer.getStatus())) {
+        if (TransferStatus.COMPLETED == transfer.getStatus()) {
             // remove the stock transactions
             stockTransactionService.deleteBySourceReferenceId(transferId);
         }
@@ -298,7 +313,7 @@ public class TransferServiceImpl implements TransferService {
     public Transfer findDraftBetween(Long from, Long to) {
         return transferRepository
                 .findFirstByFromLocationIdAndToLocationIdAndStatus(
-                        from, to, "DRAFT").orElse(null);
+                        from, to, TransferStatus.DRAFT).orElse(null);
     }
 
     @Override
@@ -361,7 +376,7 @@ public class TransferServiceImpl implements TransferService {
             }
         }
 
-        draft.setStatus("DRAFT");
+        draft.setStatus(TransferStatus.DRAFT);
         draft.setCreationDate(LocalDate.now());
         
         // Replace comments instead of appending them

@@ -1,5 +1,6 @@
 package com.rayvision.inventory_management.model;
 
+import com.rayvision.inventory_management.enums.TransferStatus;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -24,8 +25,16 @@ public class Transfer {
     private Long id;
 
     private LocalDate creationDate;     // date/time the transfer record was created
+    private LocalDate sentDate;          // NEW - date when the transfer was sent
+    private LocalDate deliveryDate;      // NEW - date when the transfer was delivered
     private LocalDate completionDate;   // date/time the transfer was actually done
-    private String status;             // "DRAFT", "COMPLETED", etc.
+    
+    @Enumerated(EnumType.STRING)
+    private TransferStatus status;      // Now using enum instead of String
+
+    /* audit ---------------------------------------------------------- */
+    @ManyToOne @JoinColumn(name = "created_by_user_id", nullable = false)
+    private Users createdByUser;        // manual or system-user
 
     @ManyToOne
     @JoinColumn(name = "from_location_id")

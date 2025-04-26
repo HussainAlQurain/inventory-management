@@ -8,7 +8,6 @@ import java.util.List;
 public class TransferCreateDTO {
     private Long fromLocationId;
     private Long toLocationId;
-    // possibly user ID or other fields
-
-    private List<TransferLineDTO> lines; // each line
+    private Long createdByUserId;   // NEW
+    private List<TransferLineDTO> lines;
 }

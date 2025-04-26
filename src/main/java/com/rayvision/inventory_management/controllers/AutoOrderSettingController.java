@@ -5,6 +5,7 @@ import com.rayvision.inventory_management.model.Location;
 import com.rayvision.inventory_management.model.dto.AutoOrderSettingDTO;
 import com.rayvision.inventory_management.repository.AutoOrderSettingRepository;
 import com.rayvision.inventory_management.repository.LocationRepository;
+import com.rayvision.inventory_management.service.impl.DynamicSchedulerService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -16,11 +17,15 @@ import java.util.Optional;
 public class AutoOrderSettingController {
     private final AutoOrderSettingRepository repo;
     private final LocationRepository locationRepository;
+    private final DynamicSchedulerService schedulerService;
 
-
-    public AutoOrderSettingController(AutoOrderSettingRepository repo, LocationRepository locationRepository) {
+    public AutoOrderSettingController(
+            AutoOrderSettingRepository repo, 
+            LocationRepository locationRepository,
+            DynamicSchedulerService schedulerService) {
         this.repo = repo;
         this.locationRepository = locationRepository;
+        this.schedulerService = schedulerService;
     }
 
     @GetMapping
@@ -56,6 +61,10 @@ public class AutoOrderSettingController {
         setting.setAutoOrderComment(dto.getAutoOrderComment());
 
         AutoOrderSetting saved = repo.save(setting);
+        
+        // Refresh scheduler after settings change
+        schedulerService.refreshAllJobs();
+        
         return ResponseEntity.ok(toDto(saved));
     }
 
@@ -68,5 +77,4 @@ public class AutoOrderSettingController {
         dto.setAutoOrderComment(s.getAutoOrderComment());
         return dto;
     }
-
 }

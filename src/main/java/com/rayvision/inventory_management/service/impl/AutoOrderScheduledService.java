@@ -12,7 +12,6 @@ import com.rayvision.inventory_management.service.InventoryItemLocationService;
 import com.rayvision.inventory_management.service.PurchaseOrderService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,7 +30,7 @@ public class AutoOrderScheduledService {
     private final LocationRepository locationRepository;
     private final InventoryItemRepository inventoryItemRepository;
     private final AssortmentLocationRepository assortmentLocationRepository;
-    private final UserRepository userRepository; // Add UserRepository dependency
+    private final UserRepository userRepository;
 
     public AutoOrderScheduledService(
             AutoOrderSettingRepository settingRepo,
@@ -41,7 +40,7 @@ public class AutoOrderScheduledService {
             LocationRepository locationRepository,
             InventoryItemRepository inventoryItemRepository,
             AssortmentLocationRepository assortmentLocationRepository,
-            UserRepository userRepository // Add to constructor
+            UserRepository userRepository
     ) {
         this.settingRepo = settingRepo;
         this.itemLocationService = itemLocationService;
@@ -50,75 +49,12 @@ public class AutoOrderScheduledService {
         this.locationRepository = locationRepository;
         this.inventoryItemRepository = inventoryItemRepository;
         this.assortmentLocationRepository = assortmentLocationRepository;
-        this.userRepository = userRepository; // Assign UserRepository
+        this.userRepository = userRepository;
     }
 
-    @Scheduled(fixedDelayString = "${inventory.scheduled.auto-order.delay:60000}")
-    @Transactional
-    public void checkAutoOrders() {
-        LocalDateTime now = LocalDateTime.now();
-        
-        // Use the new repository method to fetch settings with eager-loaded relationships
-        List<AutoOrderSetting> allSettings = settingRepo.findAllWithLocationAndCompany();
-
-        log.debug("Checking {} auto-order settings", allSettings.size());
-
-        for (AutoOrderSetting setting : allSettings) {
-            if (!setting.isEnabled()) {
-                continue; // skip if not enabled
-            }
-            if (setting.getFrequencySeconds() == null || setting.getFrequencySeconds() <= 0) {
-                continue; // skip invalid config
-            }
-
-            LocalDateTime last = Optional.ofNullable(setting.getLastCheckTime())
-                    .orElse(LocalDateTime.of(1970, 1, 1, 0, 0));
-            LocalDateTime nextAllowed = last.plusSeconds(setting.getFrequencySeconds());
-
-            if (now.isAfter(nextAllowed)) {
-                try {
-                    // Extract all necessary IDs now, with null checks
-                    Long locationId = null;
-                    Long companyId = null;
-                    Long settingId = setting.getId();
-                    
-                    Location location = setting.getLocation();
-                    if (location != null) {
-                        locationId = location.getId();
-                        Company company = location.getCompany();
-                        if (company != null) {
-                            companyId = company.getId();
-                        }
-                    }
-                    
-                    // Safety check - we should have both location and company by now
-                    if (locationId == null) {
-                        log.error("Location not available for setting ID {}", settingId);
-                        continue;
-                    }
-                    
-                    final Long finalLocationId = locationId;
-                    final Long finalCompanyId = companyId;
-                    
-                    log.info("Starting auto-order process for location ID: {}", finalLocationId);
-                    
-                    // Run asynchronously
-                    CompletableFuture<Boolean> future = processAutoOrderAsync(settingId);
-
-                    // We don't wait here - it will complete in the background
-                    future.thenAccept(success -> {
-                        if (success) {
-                            // Update the lastCheckTime only if successful - this is now done separately
-                            // in the processAutoOrderAsync method to avoid transaction issues
-                        }
-                    });
-                } catch (Exception ex) {
-                    log.error("Error scheduling auto-order for setting ID: {}", setting.getId(), ex);
-                }
-            }
-        }
-    }
-
+    /* ------------------------------------------------------------------
+       Core job execution method - called by DynamicSchedulerService
+     ------------------------------------------------------------------ */
     @Async("autoOrderExecutor")
     public CompletableFuture<Boolean> processAutoOrderAsync(Long settingId) {
         try {
@@ -126,10 +62,16 @@ public class AutoOrderScheduledService {
             AutoOrderSetting setting = settingRepo.findByIdWithLocationAndCompany(settingId)
                 .orElseThrow(() -> new RuntimeException("Setting not found: " + settingId));
             
+            // Skip if setting is disabled
+            if (!setting.isEnabled()) {
+                log.debug("Skipping auto-order for setting ID {} - disabled", settingId);
+                return CompletableFuture.completedFuture(false);
+            }
+            
             // Run the core logic
             runAutoOrderLogic(setting);
             
-            // Update lastCheckTime in a separate transaction
+            // Update last check time
             updateLastCheckTime(settingId);
             
             return CompletableFuture.completedFuture(true);

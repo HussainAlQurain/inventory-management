@@ -8,7 +8,6 @@ import com.rayvision.inventory_management.service.TransferService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,7 +17,7 @@ import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Periodically redistributes surplus stock from one location
+ * Redistributes surplus stock from one location
  * to another location whose on‑hand is below its MIN.
  *
  *  •  Surplus = onHand − target      (target = PAR if set, otherwise MIN)
@@ -43,78 +42,40 @@ public class RedistributeJob {
     private final NotificationService               notificationService;
 
     /* ------------------------------------------------------------------
-       scheduler wrapper
+       Core job execution method - called by DynamicSchedulerService
      ------------------------------------------------------------------ */
-    @Scheduled(fixedDelayString = "${inventory.scheduled.redistribute.delay:60000}")
-    @Transactional // Removed readOnly = true
-    public void run() {
-        LocalDateTime now = LocalDateTime.now();
-
-        // Use the new repository method to eagerly fetch settings with companies
-        List<AutoRedistributeSetting> enabledSettings = settingRepo.findByEnabledTrueWithCompany();
-
-        log.debug("Checking {} auto-redistribute settings", enabledSettings.size());
-
-        for (AutoRedistributeSetting cfg : enabledSettings) {
-            if (cfg.getFrequencySeconds() == null || cfg.getFrequencySeconds() <= 0) {
-                continue; // mis‑configured
-            }
-
-            LocalDateTime next = Optional.ofNullable(cfg.getLastCheckTime())
-                    .orElse(LocalDateTime.of(1970, 1, 1, 0, 0))
-                    .plusSeconds(cfg.getFrequencySeconds());
-
-            if (now.isBefore(next)) continue;  // cooldown not reached
-
-            try {
-                // Extract IDs from eagerly loaded entities
-                final Long companyId = cfg.getCompany() != null ? cfg.getCompany().getId() : null;
-                final Long settingId = cfg.getId();
-
-                if (companyId == null) {
-                    log.error("Company not available for setting ID {}", settingId);
-                    continue;
-                }
-
-                log.info("Starting auto-redistribute for company {}", companyId);
-
-                CompletableFuture<Boolean> future = processRedistributeAsync(settingId);
-
-                future.thenAccept(success -> {
-                    if (success) {
-                        try {
-                            AutoRedistributeSetting freshCfg = settingRepo.findById(settingId)
-                                    .orElseThrow(() -> new RuntimeException("Setting not found: " + settingId));
-                            freshCfg.setLastCheckTime(LocalDateTime.now());
-                            settingRepo.save(freshCfg);
-                            log.debug("Updated lastCheckTime for setting {}", settingId);
-                        } catch (Exception ex) {
-                            log.error("Failed to update lastCheckTime for setting {}", settingId, ex);
-                        }
-                    }
-                });
-            } catch (Exception ex) {
-                log.error("Failed to schedule auto‑redistribute for company {}",
-                        (cfg.getCompany() != null ? cfg.getCompany().getId() : "unknown"), ex);
-            }
-        }
-    }
-
-
     @Async("redistributeExecutor")
     public CompletableFuture<Boolean> processRedistributeAsync(Long settingId) {
         try {
             // Fetch setting with eagerly loaded company
             AutoRedistributeSetting cfg = settingRepo.findByIdWithCompany(settingId)
                     .orElseThrow(() -> new RuntimeException("Setting not found: " + settingId));
+            
+            // Skip if setting is disabled
+            if (!cfg.isEnabled()) {
+                log.debug("Skipping redistribute for setting ID {} - disabled", settingId);
+                return CompletableFuture.completedFuture(false);
+            }
+            
             redistributeForCompany(cfg);
+            
+            // Update last check time
+            try {
+                AutoRedistributeSetting freshCfg = settingRepo.findById(settingId)
+                        .orElseThrow(() -> new RuntimeException("Setting not found: " + settingId));
+                freshCfg.setLastCheckTime(LocalDateTime.now());
+                settingRepo.save(freshCfg);
+                log.debug("Updated lastCheckTime for setting {}", settingId);
+            } catch (Exception ex) {
+                log.error("Failed to update lastCheckTime for setting {}", settingId, ex);
+            }
+            
             return CompletableFuture.completedFuture(true);
         } catch (Exception ex) {
             log.error("Auto‑redistribute failed for setting ID: {}", settingId, ex);
             return CompletableFuture.completedFuture(false);
         }
     }
-
 
     /* ------------------------------------------------------------------
        core logic
@@ -237,6 +198,7 @@ public class RedistributeJob {
 
     /** build location‑id → Set&lt;itemId&gt; map, honouring assortments */
     private Map<Long, Set<Long>> buildAllowedItemMap(long companyId, List<Location> locs) {
+        // Existing implementation...
         Map<Long, Set<Long>> result = new HashMap<>();
         Set<Long> allCompanyItems   = itemRepo.findIdsByCompany(companyId); // add new lightweight query
 

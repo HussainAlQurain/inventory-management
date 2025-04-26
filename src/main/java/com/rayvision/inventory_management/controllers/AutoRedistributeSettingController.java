@@ -5,6 +5,7 @@ import com.rayvision.inventory_management.model.Company;
 import com.rayvision.inventory_management.model.dto.AutoRedistributeSettingDTO;
 import com.rayvision.inventory_management.repository.AutoRedistributeSettingRepository;
 import com.rayvision.inventory_management.repository.CompanyRepository;
+import com.rayvision.inventory_management.service.impl.DynamicSchedulerService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -15,11 +16,15 @@ public class AutoRedistributeSettingController {
 
     private final CompanyRepository companyRepo;
     private final AutoRedistributeSettingRepository settingRepo;
+    private final DynamicSchedulerService schedulerService;
 
-    public AutoRedistributeSettingController(CompanyRepository companyRepo,
-                                             AutoRedistributeSettingRepository settingRepo) {
+    public AutoRedistributeSettingController(
+            CompanyRepository companyRepo,
+            AutoRedistributeSettingRepository settingRepo,
+            DynamicSchedulerService schedulerService) {
         this.companyRepo = companyRepo;
         this.settingRepo = settingRepo;
+        this.schedulerService = schedulerService;
     }
 
     /* ----------------------------------------------------  GET current */
@@ -61,6 +66,10 @@ public class AutoRedistributeSettingController {
             setting.setAutoTransferComment(dto.getAutoTransferComment());
 
         AutoRedistributeSetting saved = settingRepo.save(setting);
+        
+        // Refresh scheduler after settings change
+        schedulerService.refreshAllJobs();
+        
         return ResponseEntity.ok(toDto(saved));
     }
 
@@ -72,6 +81,4 @@ public class AutoRedistributeSettingController {
         d.setAutoTransferComment(s.getAutoTransferComment());
         return d;
     }
-
-
 }

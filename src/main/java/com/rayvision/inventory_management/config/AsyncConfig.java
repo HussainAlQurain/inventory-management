@@ -4,18 +4,20 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.EnableAsync;
+import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import java.util.concurrent.Executor;
 
 @Configuration
 @EnableAsync
+@EnableScheduling
 public class AsyncConfig {
 
-    @Value("${inventory.scheduler.auto-order.pool-size:3}")
+    @Value("${inventory.scheduler.auto-order.pool-size:5}")
     private int autoOrderPoolSize;
     
-    @Value("${inventory.scheduler.redistribute.pool-size:3}")
+    @Value("${inventory.scheduler.redistribute.pool-size:5}")
     private int redistributePoolSize;
     
     @Value("${inventory.scheduler.queue-capacity:25}")
@@ -25,9 +27,9 @@ public class AsyncConfig {
     public Executor autoOrderExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
         executor.setCorePoolSize(autoOrderPoolSize);
-        executor.setMaxPoolSize(autoOrderPoolSize);
+        executor.setMaxPoolSize(autoOrderPoolSize * 2);
         executor.setQueueCapacity(queueCapacity);
-        executor.setThreadNamePrefix("AutoOrder-");
+        executor.setThreadNamePrefix("auto-order-");
         executor.initialize();
         return executor;
     }
@@ -36,9 +38,9 @@ public class AsyncConfig {
     public Executor redistributeExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
         executor.setCorePoolSize(redistributePoolSize);
-        executor.setMaxPoolSize(redistributePoolSize);
+        executor.setMaxPoolSize(redistributePoolSize * 2);
         executor.setQueueCapacity(queueCapacity);
-        executor.setThreadNamePrefix("Redistribute-");
+        executor.setThreadNamePrefix("redistribute-");
         executor.initialize();
         return executor;
     }

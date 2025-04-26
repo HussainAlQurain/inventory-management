@@ -124,14 +124,17 @@ public interface OrderRepository extends JpaRepository<Orders, Long>, JpaSpecifi
     List<Object[]> getInTransitQuantitiesByLocation(@Param("locationId") Long locationId);
     
     /**
-     * Get quantities for items in DRAFT and PENDING orders at a specific location.
+     * Get quantities for items in DRAFT and in-progress orders at a specific location.
      * Returns arrays of [itemId, quantity]
      */
-    @Query("SELECT oi.inventoryItem.id, SUM(oi.quantity) " +
-           "FROM Orders o " +
-           "JOIN o.orderItems oi " +
-           "WHERE o.buyerLocation.id = :locationId " +
-           "AND (o.status = 'DRAFT' OR o.status = 'CREATED') " +
-           "GROUP BY oi.inventoryItem.id")
+    @Query("""
+    SELECT oi.inventoryItem.id, SUM(oi.quantity)
+    FROM   Orders o
+    JOIN   o.orderItems oi
+    WHERE  o.buyerLocation.id = :locationId
+      AND  o.status IN ('DRAFT', 'CREATED', 'SUBMITTED_FOR_APPROVAL',
+                      'APPROVED')
+    GROUP  BY oi.inventoryItem.id
+    """)
     List<Object[]> getDraftAndPendingQuantitiesByLocation(@Param("locationId") Long locationId);
 }

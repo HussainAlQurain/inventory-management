@@ -599,7 +599,16 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 
     @Override
     @Transactional
-    public Orders updateDraftOrderWithShortages(Orders draft, List<AutoOrderScheduledService.ShortageLine> lines, String comment) {
+    public Orders updateDraftOrderWithShortages(Orders detachedDraft, List<AutoOrderScheduledService.ShortageLine> lines, String comment) {
+        // Re-attach the detached entity
+        Orders draft = ordersRepository
+                .findById(detachedDraft.getId())     // re-attach
+                .orElseThrow(() ->
+                    new RuntimeException("Draft not found"));
+
+        // Make sure the collection is initialized once
+        draft.getOrderItems().size();
+        
         boolean orderChanged = false;
         
         // 1) for each line => either add or update

@@ -6,6 +6,7 @@ import com.rayvision.inventory_management.model.dto.OrderCreateDTO;
 import com.rayvision.inventory_management.model.dto.OrderItemDTO;
 import com.rayvision.inventory_management.repository.*;
 import com.rayvision.inventory_management.service.PurchaseOrderService;
+import com.rayvision.inventory_management.enums.OrderStatus;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -28,6 +29,7 @@ public class AutoOrderScheduledService {
     private final LocationRepository locationRepository;
     private final UserRepository userRepository;
     private final OrderRepository orderRepository;
+    private final TransferRepository transferRepository;
 
     public AutoOrderScheduledService(
             AutoOrderSettingRepository settingRepo,
@@ -37,7 +39,8 @@ public class AutoOrderScheduledService {
             NotificationService notificationService,
             LocationRepository locationRepository,
             UserRepository userRepository,
-            OrderRepository orderRepository
+            OrderRepository orderRepository,
+            TransferRepository transferRepository
     ) {
         this.settingRepo = settingRepo;
         this.inventoryItemRepository = inventoryItemRepository;
@@ -47,6 +50,7 @@ public class AutoOrderScheduledService {
         this.locationRepository = locationRepository;
         this.userRepository = userRepository;
         this.orderRepository = orderRepository;
+        this.transferRepository = transferRepository;
     }
 
     /* ------------------------------------------------------------------
@@ -103,7 +107,7 @@ public class AutoOrderScheduledService {
         // Step 1: Get all relevant item data in a single query including inventory location data
         List<Object[]> rawData = inventoryItemRepository.findCompleteAutoOrderDataByLocationAndCompany(locationId, companyId);
         
-        // Step 2: Get in-transit quantities in a single query
+        // Step 2: Get in-transit quantities in a single query (orders with SENT status)
         Map<Long, Double> inTransitMap = new HashMap<>();
         List<Object[]> inTransitData = orderRepository.getInTransitQuantitiesByLocation(locationId);
         for (Object[] row : inTransitData) {
@@ -112,35 +116,152 @@ public class AutoOrderScheduledService {
             inTransitMap.put(itemId, quantity);
         }
         
-        // Step 3: Process the raw data into DTOs with in-transit quantities
+        // Step 3: Get draft and pending order quantities in a single query
+        Map<Long, Double> draftOrderMap = new HashMap<>();
+        List<Object[]> draftOrderData = orderRepository.getDraftAndPendingQuantitiesByLocation(locationId);
+        for (Object[] row : draftOrderData) {
+            Long itemId = (Long) row[0];
+            Double quantity = (Double) row[1];
+            draftOrderMap.put(itemId, quantity);
+        }
+        
+        // Step 4: Get incoming transfer quantities
+        Map<Long, Double> incomingTransferMap = new HashMap<>();
+        List<Object[]> transferData = transferRepository.getIncomingTransferQuantitiesByLocation(locationId);
+        for (Object[] row : transferData) {
+            Long itemId = (Long) row[0];
+            Double quantity = (Double) row[1];
+            incomingTransferMap.put(itemId, quantity);
+        }
+        
+        // Step 5: Process the raw data into DTOs with all quantity information
+        Map<Long, List<PurchaseOptionInfo>> itemToPurchaseOptions = new HashMap<>();
+        
+        // First pass: collect all purchase options for each item
         for (Object[] row : rawData) {
             Long itemId = (Long) row[0];
-            String itemName = (String) row[1];
-            
             Long purchaseOptionId = (Long) row[2];
             Double price = (Double) row[3];
             Boolean isMainOption = (Boolean) row[4];
+            String purchaseUom = (String) row[10]; // Added UOM fields to query
+            Double conversionFactor = (Double) row[11];
             
+            itemToPurchaseOptions
+                .computeIfAbsent(itemId, k -> new ArrayList<>())
+                .add(new PurchaseOptionInfo(
+                    purchaseOptionId, price, isMainOption, purchaseUom, conversionFactor
+                ));
+        }
+        
+        // Second pass: process items with the best purchase option
+        Map<Long, ItemOrderInfoDTO> processedItems = new HashMap<>();
+        for (Object[] row : rawData) {
+            Long itemId = (Long) row[0];
+            
+            // Skip if we've already processed this item
+            if (processedItems.containsKey(itemId)) {
+                continue;
+            }
+            
+            String itemName = (String) row[1];
             Long supplierId = (Long) row[5];
             String supplierName = (String) row[6];
-            
             Double onHand = (Double) row[7];
             Double minOnHand = (Double) row[8];
             Double parLevel = (Double) row[9];
+            String inventoryUom = (String) row[12];
             
-            // Get in-transit quantity from our map, defaulting to 0.0 if not found
+            // Find the best purchase option based on priority
+            PurchaseOptionInfo bestOption = findBestPurchaseOption(
+                itemToPurchaseOptions.getOrDefault(itemId, Collections.emptyList()),
+                inventoryUom
+            );
+            
+            if (bestOption == null) {
+                // No purchase option available - create notification
+                notificationService.createNotification(
+                    companyId,
+                    "Auto-Order Warning",
+                    "No purchase option available for item '" + itemName + "' (ID=" + itemId + ")"
+                );
+                continue;
+            }
+            
+            // Get quantities from our maps, defaulting to 0.0 if not found
             Double inTransitQty = inTransitMap.getOrDefault(itemId, 0.0);
+            Double inDraftOrdersQty = draftOrderMap.getOrDefault(itemId, 0.0);
+            Double inPendingTransfersQty = incomingTransferMap.getOrDefault(itemId, 0.0);
             
-            result.add(new ItemOrderInfoDTO(
-                itemId, itemName,
-                purchaseOptionId, price, isMainOption,
-                supplierId, supplierName,
-                onHand, minOnHand, parLevel,
-                inTransitQty
-            ));
+            ItemOrderInfoDTO dto = new ItemOrderInfoDTO();
+            dto.setItemId(itemId);
+            dto.setItemName(itemName);
+            dto.setPurchaseOptionId(bestOption.purchaseOptionId);
+            dto.setPrice(bestOption.price);
+            dto.setIsMainOption(bestOption.isMainOption);
+            dto.setInventoryUom(inventoryUom);
+            dto.setPurchaseUom(bestOption.purchaseUom);
+            dto.setConversionFactor(bestOption.conversionFactor);
+            dto.setSupplierId(supplierId);
+            dto.setSupplierName(supplierName);
+            dto.setOnHand(onHand != null ? onHand : 0.0);
+            dto.setMinOnHand(minOnHand != null ? minOnHand : 0.0);
+            dto.setParLevel(parLevel != null ? parLevel : 0.0);
+            dto.setInTransitQty(inTransitQty);
+            dto.setInDraftOrdersQty(inDraftOrdersQty);
+            dto.setInPendingTransfersQty(inPendingTransfersQty);
+            
+            result.add(dto);
+            processedItems.put(itemId, dto);
         }
         
         return result;
+    }
+    
+    /**
+     * Find the best purchase option based on priority:
+     * 1. Main purchase option
+     * 2. Option with matching UOM to inventory item
+     * 3. First available option
+     */
+    private PurchaseOptionInfo findBestPurchaseOption(List<PurchaseOptionInfo> options, String inventoryUom) {
+        if (options.isEmpty()) {
+            return null;
+        }
+        
+        // Priority 1: Main option
+        for (PurchaseOptionInfo option : options) {
+            if (Boolean.TRUE.equals(option.isMainOption)) {
+                return option;
+            }
+        }
+        
+        // Priority 2: Matching UOM
+        for (PurchaseOptionInfo option : options) {
+            if (inventoryUom != null && inventoryUom.equals(option.purchaseUom)) {
+                return option;
+            }
+        }
+        
+        // Priority 3: First available option
+        return options.get(0);
+    }
+    
+    // Helper class to store purchase option information during processing
+    private static class PurchaseOptionInfo {
+        final Long purchaseOptionId;
+        final Double price;
+        final Boolean isMainOption;
+        final String purchaseUom;
+        final Double conversionFactor;
+        
+        PurchaseOptionInfo(Long purchaseOptionId, Double price, Boolean isMainOption, 
+                           String purchaseUom, Double conversionFactor) {
+            this.purchaseOptionId = purchaseOptionId;
+            this.price = price;
+            this.isMainOption = isMainOption;
+            this.purchaseUom = purchaseUom;
+            this.conversionFactor = conversionFactor;
+        }
     }
     
     /**
@@ -168,31 +289,95 @@ public class AutoOrderScheduledService {
             }
         }
         
-        // Step 3: Process into DTOs
+        // Step 3: Get draft and pending order quantities
+        Map<Long, Double> draftOrderMap = new HashMap<>();
+        List<Object[]> draftOrderData = orderRepository.getDraftAndPendingQuantitiesByLocation(locationId);
+        for (Object[] row : draftOrderData) {
+            Long itemId = (Long) row[0];
+            Double quantity = (Double) row[1];
+            if (itemIds.contains(itemId)) {
+                draftOrderMap.put(itemId, quantity);
+            }
+        }
+        
+        // Step 4: Get incoming transfer quantities
+        Map<Long, Double> incomingTransferMap = new HashMap<>();
+        List<Object[]> transferData = transferRepository.getIncomingTransferQuantitiesByLocation(locationId);
+        for (Object[] row : transferData) {
+            Long itemId = (Long) row[0];
+            Double quantity = (Double) row[1];
+            if (itemIds.contains(itemId)) {
+                incomingTransferMap.put(itemId, quantity);
+            }
+        }
+        
+        // Follow the same processing pattern as loadCompleteAutoOrderData
+        Map<Long, List<PurchaseOptionInfo>> itemToPurchaseOptions = new HashMap<>();
+        
         for (Object[] row : rawData) {
             Long itemId = (Long) row[0];
-            String itemName = (String) row[1];
-            
             Long purchaseOptionId = (Long) row[2];
             Double price = (Double) row[3];
             Boolean isMainOption = (Boolean) row[4];
+            String purchaseUom = (String) row[10];
+            Double conversionFactor = (Double) row[11];
             
+            itemToPurchaseOptions
+                .computeIfAbsent(itemId, k -> new ArrayList<>())
+                .add(new PurchaseOptionInfo(
+                    purchaseOptionId, price, isMainOption, purchaseUom, conversionFactor
+                ));
+        }
+        
+        Map<Long, ItemOrderInfoDTO> processedItems = new HashMap<>();
+        for (Object[] row : rawData) {
+            Long itemId = (Long) row[0];
+            
+            if (processedItems.containsKey(itemId)) {
+                continue;
+            }
+            
+            String itemName = (String) row[1];
             Long supplierId = (Long) row[5];
             String supplierName = (String) row[6];
-            
             Double onHand = (Double) row[7];
             Double minOnHand = (Double) row[8];
             Double parLevel = (Double) row[9];
+            String inventoryUom = (String) row[12];
+            
+            PurchaseOptionInfo bestOption = findBestPurchaseOption(
+                itemToPurchaseOptions.getOrDefault(itemId, Collections.emptyList()),
+                inventoryUom
+            );
+            
+            if (bestOption == null) {
+                continue;
+            }
             
             Double inTransitQty = inTransitMap.getOrDefault(itemId, 0.0);
+            Double inDraftOrdersQty = draftOrderMap.getOrDefault(itemId, 0.0);
+            Double inPendingTransfersQty = incomingTransferMap.getOrDefault(itemId, 0.0);
             
-            result.add(new ItemOrderInfoDTO(
-                itemId, itemName,
-                purchaseOptionId, price, isMainOption,
-                supplierId, supplierName,
-                onHand, minOnHand, parLevel,
-                inTransitQty
-            ));
+            ItemOrderInfoDTO dto = new ItemOrderInfoDTO();
+            dto.setItemId(itemId);
+            dto.setItemName(itemName);
+            dto.setPurchaseOptionId(bestOption.purchaseOptionId);
+            dto.setPrice(bestOption.price);
+            dto.setIsMainOption(bestOption.isMainOption);
+            dto.setInventoryUom(inventoryUom);
+            dto.setPurchaseUom(bestOption.purchaseUom);
+            dto.setConversionFactor(bestOption.conversionFactor);
+            dto.setSupplierId(supplierId);
+            dto.setSupplierName(supplierName);
+            dto.setOnHand(onHand != null ? onHand : 0.0);
+            dto.setMinOnHand(minOnHand != null ? minOnHand : 0.0);
+            dto.setParLevel(parLevel != null ? parLevel : 0.0);
+            dto.setInTransitQty(inTransitQty);
+            dto.setInDraftOrdersQty(inDraftOrdersQty);
+            dto.setInPendingTransfersQty(inPendingTransfersQty);
+            
+            result.add(dto);
+            processedItems.put(itemId, dto);
         }
         
         return result;
@@ -272,7 +457,7 @@ public class AutoOrderScheduledService {
         
         // Group by supplier for order creation
         Map<Long, List<ItemOrderInfoDTO>> itemsBySupplier = itemsToOrder.stream()
-                .collect(Collectors.groupingBy(ItemOrderInfoDTO::supplierId));
+                .collect(Collectors.groupingBy(ItemOrderInfoDTO::getSupplierId));
                 
         // Create or update orders for each supplier
         for (Map.Entry<Long, List<ItemOrderInfoDTO>> entry : itemsBySupplier.entrySet()) {
@@ -281,18 +466,10 @@ public class AutoOrderScheduledService {
             
             if (items.isEmpty()) continue;
             
-            String supplierName = items.get(0).supplierName();
+            String supplierName = items.get(0).getSupplierName();
             
-            // Find draft order for this supplier/location
-            Orders draft = purchaseOrderService.findDraftOrderForSupplierAndLocation(supplierId, locationId);
-            
-            if (draft == null) {
-                // Create new draft order
-                createDraftOrder(setting, companyId, loc, supplierId, supplierName, items);
-            } else {
-                // Update existing draft order
-                updateDraftOrder(setting, companyId, loc.getName(), supplierName, draft, items);
-            }
+            // Create draft order for this supplier/location
+            createDraftOrder(setting, companyId, loc, supplierId, supplierName, items);
         }
 
         // Log the total execution time for performance monitoring
@@ -309,6 +486,17 @@ public class AutoOrderScheduledService {
             String supplierName,
             List<ItemOrderInfoDTO> items
     ) {
+        // Check if there's already an existing order for this supplier/location
+        // created by any user (not just system-user)
+        Orders draft = purchaseOrderService.findDraftOrderForSupplierAndLocation(supplierId, loc.getId());
+        
+        if (draft != null) {
+            // If a draft already exists, update it instead of creating a new one
+            updateDraftOrder(setting, companyId, loc.getName(), supplierName, draft, items);
+            return;
+        }
+        
+        // If no draft exists, create a new one
         OrderCreateDTO dto = new OrderCreateDTO();
         dto.setBuyerLocationId(loc.getId());
         dto.setSupplierId(supplierId);
@@ -327,11 +515,25 @@ public class AutoOrderScheduledService {
 
         List<OrderItemDTO> itemDtos = new ArrayList<>();
         for (ItemOrderInfoDTO item : items) {
+            if (!item.needsOrdering()) continue;
+            
             OrderItemDTO idto = new OrderItemDTO();
-            idto.setInventoryItemId(item.itemId());
-            idto.setQuantity(item.calculateShortage());
+            idto.setInventoryItemId(item.getItemId());
+            
+            // Use the converted purchase quantity
+            idto.setQuantity(item.calculatePurchaseQuantity());
+            
+            // Add purchase option ID
+            idto.setPurchaseOptionId(item.getPurchaseOptionId());
             itemDtos.add(idto);
         }
+        
+        // Only create order if we have items to order
+        if (itemDtos.isEmpty()) {
+            log.debug("No items need ordering for supplier {}", supplierName);
+            return;
+        }
+        
         dto.setItems(itemDtos);
 
         log.info("Creating new draft order for supplier {} with {} items", supplierName, itemDtos.size());
@@ -371,15 +573,38 @@ public class AutoOrderScheduledService {
     ) {
         log.info("Updating existing draft order ID: {}", draft.getId());
         try {
+            // Only update if created by system-user
+            Users creator = draft.getCreatedByUser();
+            if (creator != null && !"system-user".equals(creator.getUsername())) {
+                log.debug("Skipping update for order ID {} - not created by system-user", draft.getId());
+                return;
+            }
+            
             // Convert ItemOrderInfoDTO objects to what purchaseOrderService expects (ShortageLine)
             List<ShortageLine> shortageLines = items.stream()
+                    .filter(ItemOrderInfoDTO::needsOrdering)
                     .map(item -> new ShortageLine(
-                            item.itemId(), 
-                            item.calculateShortage(), 
-                            item.price(), 
-                            item.itemName()
+                            item.getItemId(), 
+                            item.calculatePurchaseQuantity(), // Use the converted purchase quantity 
+                            item.getPrice(), 
+                            item.getItemName()
                     ))
                     .collect(Collectors.toList());
+            
+            if (shortageLines.isEmpty()) {
+                // If no items need ordering, delete the draft order
+                if (OrderStatus.DRAFT.equals(draft.getStatus())) {
+                    purchaseOrderService.deleteDraftOrder(draft.getId());
+                    log.info("Deleted draft order ID: {} as no items need ordering", draft.getId());
+                    
+                    notificationService.createNotification(
+                        companyId,
+                        "Auto-Order Deleted",
+                        "Deleted draft order (ID=" + draft.getId() + ") as no items need ordering"
+                    );
+                }
+                return;
+            }
             
             Orders updatedDraft = purchaseOrderService.updateDraftOrderWithShortages(
                     draft, 
@@ -406,6 +631,6 @@ public class AutoOrderScheduledService {
         }
     }
 
-    // We'll define a small record for shortage lines for compatibility with existing code
+    // We'll define a record for shortage lines for compatibility with existing code
     public record ShortageLine(Long itemId, double shortageQty, Double price, String itemName) {}
 }

@@ -9,6 +9,9 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Repository for inventory transfers between locations
+ */
 @Repository
 public interface TransferRepository extends JpaRepository<Transfer, Long> {
 
@@ -57,5 +60,17 @@ public interface TransferRepository extends JpaRepository<Transfer, Long> {
 """)
     Optional<Transfer> findByIdWithLines(@Param("id") Long id);
 
-
+    /**
+     * Get quantities for items that are scheduled to be transferred to a location.
+     * Returns arrays of [itemId, quantityToBeReceived]
+     * 
+     * This query calculates quantities for items in transfers that are not CANCELED or COMPLETED
+     */
+    @Query("SELECT l.inventoryItem.id, SUM(l.quantity) " +
+           "FROM Transfer t " +
+           "JOIN t.lines l " +
+           "WHERE t.toLocation.id = :locationId " +
+           "AND t.status <> 'CANCELED' AND t.status <> 'COMPLETED' " +
+           "GROUP BY l.inventoryItem.id")
+    List<Object[]> getIncomingTransferQuantitiesByLocation(@Param("locationId") Long locationId);
 }

@@ -110,25 +110,27 @@ public interface InventoryItemRepository extends JpaRepository<InventoryItem, Lo
     List<Object[]> findAutoOrderDataByItemIds(@Param("itemIds") Collection<Long> itemIds);
 
     /**
-     * Comprehensive query that retrieves all data needed for auto-ordering in a single operation.
-     * Returns all necessary data to populate the enhanced ItemOrderInfoDTO.
+     * Enhanced query that includes UOM information for proper unit conversion
      * 
      * @param locationId The location ID to get inventory data for
      * @param companyId The company ID to filter items by
-     * @return Array of Object[] containing all data needed for auto-ordering
+     * @return Arrays containing all data needed for auto-ordering with UOM information
      */
-    @Query("SELECT i.id, i.name, " +
-           "po.id, po.price, po.mainPurchaseOption, " +
-           "s.id, s.name, " +
-           "iil.onHand, iil.minOnHand, iil.parLevel " +
-           "FROM InventoryItem i " +
-           "JOIN i.purchaseOptions po " +
-           "JOIN po.supplier s " +
-           "JOIN InventoryItemLocation iil ON iil.inventoryItem.id = i.id " +
-           "WHERE i.company.id = :companyId " +
-           "AND iil.location.id = :locationId " +
-           "AND po.orderingEnabled = true " +
-           "AND (iil.parLevel > 0 OR iil.minOnHand > 0)")
+    @Query("""
+        SELECT i.id, i.name, 
+               po.id, po.price, po.mainPurchaseOption, 
+               s.id, s.name, 
+               iil.onHand, iil.minOnHand, iil.parLevel, 
+               po.orderingUom.abbreviation, po.orderingUom.conversionFactor, 
+               i.inventoryUom.abbreviation
+        FROM InventoryItem i 
+        JOIN i.purchaseOptions po 
+        JOIN po.supplier s 
+        JOIN InventoryItemLocation iil ON iil.inventoryItem.id = i.id 
+        WHERE i.company.id = :companyId 
+        AND iil.location.id = :locationId 
+        AND po.orderingEnabled = true
+    """)
     List<Object[]> findCompleteAutoOrderDataByLocationAndCompany(
         @Param("locationId") Long locationId,
         @Param("companyId") Long companyId
@@ -137,18 +139,21 @@ public interface InventoryItemRepository extends JpaRepository<InventoryItem, Lo
     /**
      * Similar to findCompleteAutoOrderDataByLocationAndCompany but filters by item IDs
      */
-    @Query("SELECT i.id, i.name, " +
-           "po.id, po.price, po.mainPurchaseOption, " +
-           "s.id, s.name, " +
-           "iil.onHand, iil.minOnHand, iil.parLevel " +
-           "FROM InventoryItem i " +
-           "JOIN i.purchaseOptions po " +
-           "JOIN po.supplier s " +
-           "JOIN InventoryItemLocation iil ON iil.inventoryItem.id = i.id " +
-           "WHERE i.id IN :itemIds " +
-           "AND iil.location.id = :locationId " +
-           "AND po.orderingEnabled = true " +
-           "AND (iil.parLevel > 0 OR iil.minOnHand > 0)")
+    @Query("""
+        SELECT i.id, i.name, 
+               po.id, po.price, po.mainPurchaseOption, 
+               s.id, s.name, 
+               iil.onHand, iil.minOnHand, iil.parLevel, 
+               po.orderingUom.abbreviation, po.orderingUom.conversionFactor, 
+               i.inventoryUom.abbreviation
+        FROM InventoryItem i 
+        JOIN i.purchaseOptions po 
+        JOIN po.supplier s 
+        JOIN InventoryItemLocation iil ON iil.inventoryItem.id = i.id 
+        WHERE i.id IN :itemIds 
+        AND iil.location.id = :locationId 
+        AND po.orderingEnabled = true
+    """)
     List<Object[]> findCompleteAutoOrderDataByItemIdsAndLocation(
         @Param("itemIds") Collection<Long> itemIds,
         @Param("locationId") Long locationId

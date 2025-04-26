@@ -40,6 +40,14 @@ public interface OrderRepository extends JpaRepository<Orders, Long>, JpaSpecifi
             + "  AND o.createdByUser.id = 999999999")
     List<Orders> findAllDraftsBySupplierAndLocation(@Param("supplierId") Long supplierId,
                                                     @Param("locationId") Long locationId);
+    
+    @Query("SELECT o FROM Orders o "
+           + "WHERE o.status = 'DRAFT' "
+           + "AND o.sentToSupplier.id = :supplierId "
+           + "AND o.buyerLocation.id = :locationId")
+    List<Orders> findDraftOrdersBySupplierAndLocation(
+           @Param("supplierId") Long supplierId,
+           @Param("locationId") Long locationId);
                                                     
     /**
      * Find all orders with a specific status for a given buyer location
@@ -109,7 +117,19 @@ public interface OrderRepository extends JpaRepository<Orders, Long>, JpaSpecifi
            "FROM Orders o " +
            "JOIN o.orderItems oi " +
            "WHERE o.buyerLocation.id = :locationId " +
-           "AND o.status <> 'DRAFT' AND o.status <> 'CANCELED' " +
+           "AND o.status = 'SENT' " +
            "GROUP BY oi.inventoryItem.id")
     List<Object[]> getInTransitQuantitiesByLocation(@Param("locationId") Long locationId);
+    
+    /**
+     * Get quantities for items in DRAFT and PENDING orders at a specific location.
+     * Returns arrays of [itemId, quantity]
+     */
+    @Query("SELECT oi.inventoryItem.id, SUM(oi.quantity) " +
+           "FROM Orders o " +
+           "JOIN o.orderItems oi " +
+           "WHERE o.buyerLocation.id = :locationId " +
+           "AND (o.status = 'DRAFT' OR o.status = 'PENDING') " +
+           "GROUP BY oi.inventoryItem.id")
+    List<Object[]> getDraftAndPendingQuantitiesByLocation(@Param("locationId") Long locationId);
 }

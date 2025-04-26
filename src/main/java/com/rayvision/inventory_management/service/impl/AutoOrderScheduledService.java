@@ -5,7 +5,6 @@ import com.rayvision.inventory_management.model.dto.ItemOrderInfoDTO;
 import com.rayvision.inventory_management.model.dto.OrderCreateDTO;
 import com.rayvision.inventory_management.model.dto.OrderItemDTO;
 import com.rayvision.inventory_management.repository.*;
-import com.rayvision.inventory_management.service.InventoryItemLocationService;
 import com.rayvision.inventory_management.service.PurchaseOrderService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
@@ -22,35 +21,32 @@ import java.util.stream.Collectors;
 @Service
 public class AutoOrderScheduledService {
     private final AutoOrderSettingRepository settingRepo;
-    private final InventoryItemLocationService itemLocationService;
+    private final InventoryItemRepository inventoryItemRepository;
+    private final AssortmentLocationRepository assortmentLocationRepository;
     private final PurchaseOrderService purchaseOrderService;
     private final NotificationService notificationService;
     private final LocationRepository locationRepository;
-    private final InventoryItemRepository inventoryItemRepository;
-    private final AssortmentLocationRepository assortmentLocationRepository;
     private final UserRepository userRepository;
-    private final SupplierRepository supplierRepository;
+    private final OrderRepository orderRepository;
 
     public AutoOrderScheduledService(
             AutoOrderSettingRepository settingRepo,
-            InventoryItemLocationService itemLocationService,
+            InventoryItemRepository inventoryItemRepository,
+            AssortmentLocationRepository assortmentLocationRepository,
             PurchaseOrderService purchaseOrderService,
             NotificationService notificationService,
             LocationRepository locationRepository,
-            InventoryItemRepository inventoryItemRepository,
-            AssortmentLocationRepository assortmentLocationRepository,
             UserRepository userRepository,
-            SupplierRepository supplierRepository
+            OrderRepository orderRepository
     ) {
         this.settingRepo = settingRepo;
-        this.itemLocationService = itemLocationService;
+        this.inventoryItemRepository = inventoryItemRepository;
+        this.assortmentLocationRepository = assortmentLocationRepository;
         this.purchaseOrderService = purchaseOrderService;
         this.notificationService = notificationService;
         this.locationRepository = locationRepository;
-        this.inventoryItemRepository = inventoryItemRepository;
-        this.assortmentLocationRepository = assortmentLocationRepository;
         this.userRepository = userRepository;
-        this.supplierRepository = supplierRepository;
+        this.orderRepository = orderRepository;
     }
 
     /* ------------------------------------------------------------------
@@ -96,27 +92,51 @@ public class AutoOrderScheduledService {
     }
 
     /**
-     * Efficiently prepares order information DTOs for the given set of item IDs.
-     * This loads all necessary data in a single query to avoid LazyInitializationException.
+     * Efficiently loads all auto-order data for a specific company and location.
+     * This comprehensive query loads items, purchase options, supplier info, and inventory data
+     * in a single database call.
      */
     @Transactional(readOnly = true)
-    public List<ItemOrderInfoDTO> prepareOrderInfoForItems(Collection<Long> itemIds) {
-        if (itemIds.isEmpty()) {
-            return Collections.emptyList();
+    public List<ItemOrderInfoDTO> loadCompleteAutoOrderData(Long locationId, Long companyId) {
+        List<ItemOrderInfoDTO> result = new ArrayList<>();
+        
+        // Step 1: Get all relevant item data in a single query including inventory location data
+        List<Object[]> rawData = inventoryItemRepository.findCompleteAutoOrderDataByLocationAndCompany(locationId, companyId);
+        
+        // Step 2: Get in-transit quantities in a single query
+        Map<Long, Double> inTransitMap = new HashMap<>();
+        List<Object[]> inTransitData = orderRepository.getInTransitQuantitiesByLocation(locationId);
+        for (Object[] row : inTransitData) {
+            Long itemId = (Long) row[0];
+            Double quantity = (Double) row[1];
+            inTransitMap.put(itemId, quantity);
         }
         
-        List<ItemOrderInfoDTO> result = new ArrayList<>();
-        List<Object[]> queryResults = inventoryItemRepository.findAutoOrderDataByItemIds(itemIds);
-        
-        // Process query results into DTOs
-        for (Object[] row : queryResults) {
+        // Step 3: Process the raw data into DTOs with in-transit quantities
+        for (Object[] row : rawData) {
+            Long itemId = (Long) row[0];
+            String itemName = (String) row[1];
+            
+            Long purchaseOptionId = (Long) row[2];
+            Double price = (Double) row[3];
+            Boolean isMainOption = (Boolean) row[4];
+            
+            Long supplierId = (Long) row[5];
+            String supplierName = (String) row[6];
+            
+            Double onHand = (Double) row[7];
+            Double minOnHand = (Double) row[8];
+            Double parLevel = (Double) row[9];
+            
+            // Get in-transit quantity from our map, defaulting to 0.0 if not found
+            Double inTransitQty = inTransitMap.getOrDefault(itemId, 0.0);
+            
             result.add(new ItemOrderInfoDTO(
-                (Long) row[0],      // item.id
-                (String) row[1],     // item.name
-                (Long) row[2],      // po.id
-                (Double) row[3],    // po.price
-                (Long) row[4],      // supplier.id
-                (String) row[5]      // supplier.name
+                itemId, itemName,
+                purchaseOptionId, price, isMainOption,
+                supplierId, supplierName,
+                onHand, minOnHand, parLevel,
+                inTransitQty
             ));
         }
         
@@ -124,23 +144,54 @@ public class AutoOrderScheduledService {
     }
     
     /**
-     * Efficiently prepares order information DTOs for all items in a company.
-     * This loads all necessary data in a single query to avoid LazyInitializationException.
+     * Similar to loadCompleteAutoOrderData but filters by specific item IDs from assortments.
      */
     @Transactional(readOnly = true)
-    public List<ItemOrderInfoDTO> prepareOrderInfoForCompany(Long companyId) {
-        List<ItemOrderInfoDTO> result = new ArrayList<>();
-        List<Object[]> queryResults = inventoryItemRepository.findAutoOrderDataByCompanyId(companyId);
+    public List<ItemOrderInfoDTO> loadCompleteAutoOrderDataForItemIds(Collection<Long> itemIds, Long locationId) {
+        if (itemIds.isEmpty()) {
+            return Collections.emptyList();
+        }
         
-        // Process query results into DTOs
-        for (Object[] row : queryResults) {
+        List<ItemOrderInfoDTO> result = new ArrayList<>();
+        
+        // Step 1: Get item data including inventory location info
+        List<Object[]> rawData = inventoryItemRepository.findCompleteAutoOrderDataByItemIdsAndLocation(itemIds, locationId);
+        
+        // Step 2: Get in-transit quantities
+        Map<Long, Double> inTransitMap = new HashMap<>();
+        List<Object[]> inTransitData = orderRepository.getInTransitQuantitiesByLocation(locationId);
+        for (Object[] row : inTransitData) {
+            Long itemId = (Long) row[0];
+            Double quantity = (Double) row[1];
+            if (itemIds.contains(itemId)) { // Only include items in our filter list
+                inTransitMap.put(itemId, quantity);
+            }
+        }
+        
+        // Step 3: Process into DTOs
+        for (Object[] row : rawData) {
+            Long itemId = (Long) row[0];
+            String itemName = (String) row[1];
+            
+            Long purchaseOptionId = (Long) row[2];
+            Double price = (Double) row[3];
+            Boolean isMainOption = (Boolean) row[4];
+            
+            Long supplierId = (Long) row[5];
+            String supplierName = (String) row[6];
+            
+            Double onHand = (Double) row[7];
+            Double minOnHand = (Double) row[8];
+            Double parLevel = (Double) row[9];
+            
+            Double inTransitQty = inTransitMap.getOrDefault(itemId, 0.0);
+            
             result.add(new ItemOrderInfoDTO(
-                (Long) row[0],      // item.id
-                (String) row[1],     // item.name
-                (Long) row[2],      // po.id
-                (Double) row[3],    // po.price
-                (Long) row[4],      // supplier.id
-                (String) row[5]      // supplier.name
+                itemId, itemName,
+                purchaseOptionId, price, isMainOption,
+                supplierId, supplierName,
+                onHand, minOnHand, parLevel,
+                inTransitQty
             ));
         }
         
@@ -176,16 +227,22 @@ public class AutoOrderScheduledService {
         }
         
         Long companyId = company.getId();
+        Long locationId = loc.getId();
         
-        // Get assortments for this location
+        // Get assortments for this location to determine which items to check
         List<AssortmentLocation> bridgingAssortments = 
-                assortmentLocationRepository.findByLocationId(loc.getId());
+                assortmentLocationRepository.findByLocationId(locationId);
 
-        // Prepare collection of item IDs we need to process
-        Set<Long> itemIds = new HashSet<>();
+        List<ItemOrderInfoDTO> orderInfoItems;
         
-        // If there are assortments, collect all item IDs from them
-        if (!bridgingAssortments.isEmpty()) {
+        if (bridgingAssortments.isEmpty()) {
+            // If no assortments, process all company items
+            orderInfoItems = loadCompleteAutoOrderData(locationId, companyId);
+            log.debug("No assortments found, loaded {} items with purchase options and inventory data", 
+                      orderInfoItems.size());
+        } else {
+            // If we have assortments, collect item IDs and only process those
+            Set<Long> itemIds = new HashSet<>();
             for (AssortmentLocation al : bridgingAssortments) {
                 Assortment assortment = al.getAssortment();
                 if (assortment != null && assortment.getInventoryItems() != null) {
@@ -194,154 +251,53 @@ public class AutoOrderScheduledService {
                     }
                 }
             }
-            log.debug("Found {} items in assortments for location ID: {}", itemIds.size(), loc.getId());
-        }
-        
-        // Load order information using the efficient DTO-based approach
-        List<ItemOrderInfoDTO> orderInfoItems;
-        if (bridgingAssortments.isEmpty()) {
-            // If no assortments, load data for all company items
-            orderInfoItems = prepareOrderInfoForCompany(companyId);
-            log.debug("No assortments found, loaded {} items with purchase options", orderInfoItems.size());
-        } else {
-            // If we have assortments, load data only for those items
-            orderInfoItems = prepareOrderInfoForItems(itemIds);
-            log.debug("Loaded {} items with purchase options from assortments", orderInfoItems.size());
-        }
-        
-        // Create a map from item ID to order info for quick lookup
-        Map<Long, List<ItemOrderInfoDTO>> itemOrderInfoMap = orderInfoItems.stream()
-                .collect(Collectors.groupingBy(ItemOrderInfoDTO::itemId));
-        
-        // Get itemLocation bridging rows
-        List<InventoryItemLocation> bridgingList = itemLocationService.getByLocation(loc.getId());
-        if (bridgingList.isEmpty()) {
-            log.warn("No inventory item location bridging rows found for location: {}", loc.getId());
-            return; // no items
-        }
-
-        // Build a map itemId -> bridging row
-        Map<Long, InventoryItemLocation> iilMap = new HashMap<>();
-        for (InventoryItemLocation bil : bridgingList) {
-            iilMap.put(bil.getInventoryItem().getId(), bil);
-        }
-
-        // Get in-transit quantities from sent orders
-        Map<Long, Double> inTransitMap = purchaseOrderService
-                .calculateInTransitQuantitiesByLocation(loc.getId());
-        log.debug("Found {} items with in-transit quantities", inTransitMap.size());
-
-        // For each item, compute shortage if par > 0
-        // We organize shortages by supplier ID (using the efficient DTO approach)
-        Map<Long, List<ShortageInfo>> shortagesBySupplier = new HashMap<>();
-        int itemsProcessed = 0;
-        int shortagesFound = 0;
-
-        // Process each item that has inventory location data
-        for (Long itemId : itemOrderInfoMap.keySet()) {
-            itemsProcessed++;
-            InventoryItemLocation bil = iilMap.get(itemId);
-            if (bil == null) {
-                // No bridging row => skip
-                continue;
-            }
-
-            // Skip items with both minOnHand & par=0
-            double min = (bil.getMinOnHand() != null) ? bil.getMinOnHand() : 0.0;
-            double par = (bil.getParLevel() != null) ? bil.getParLevel() : 0.0;
-            if ((min <= 0) && (par <= 0)) {
-                // User doesn't want auto-order
-                continue;
-            }
-
-            // Compute shortage from par - onHand
-            double onHand = (bil.getOnHand() != null) ? bil.getOnHand() : 0.0;
-            double inTransitQty = inTransitMap.getOrDefault(itemId, 0.0);
-            double effectiveOnHand = onHand + inTransitQty;
-            double shortage = par - effectiveOnHand;
-
-            if (shortage <= 0) {
-                // No ordering needed
-                continue;
-            }
-
-            // Find the best purchase option using our DTO data
-            List<ItemOrderInfoDTO> options = itemOrderInfoMap.get(itemId);
-            if (options == null || options.isEmpty()) {
-                log.info("No purchase options found for item ID: {}", itemId);
-                notificationService.createNotification(
-                        companyId,
-                        "Auto-Order Skipped",
-                        "Cannot auto-order item '" + bil.getInventoryItem().getName()
-                                + "' for location '" + loc.getName()
-                                + "' because no enabled purchase option found."
-                );
-                continue;
-            }
-
-            // Find the main purchase option or the first one
-            ItemOrderInfoDTO selectedOption = findBestPurchaseOption(options);
-            if (selectedOption == null) {
-                continue;
-            }
-
-            shortagesFound++;
-            log.debug("Item {} - {} has shortage of {} (Par: {}, OnHand: {}, In-transit: {}, Min: {})",
-                    itemId, selectedOption.itemName(), shortage, par, onHand, inTransitQty, min);
-
-            // Add to our shortage map by supplier ID
-            ShortageInfo shortageInfo = new ShortageInfo(
-                    itemId, 
-                    selectedOption.itemName(),
-                    shortage, 
-                    selectedOption.price()
-            );
             
-            shortagesBySupplier.computeIfAbsent(selectedOption.supplierId(), k -> new ArrayList<>())
-                    .add(shortageInfo);
+            if (itemIds.isEmpty()) {
+                log.warn("No items found in assortments for location ID: {}", locationId);
+                return;
+            }
+            
+            orderInfoItems = loadCompleteAutoOrderDataForItemIds(itemIds, locationId);
+            log.debug("Loaded {} items with purchase options and inventory data from assortments", 
+                      orderInfoItems.size());
         }
 
-        log.debug("Processed {} items, found {} with shortages across {} suppliers",
-                itemsProcessed, shortagesFound, shortagesBySupplier.size());
-
-        // Create or update draft order for each supplier
-        for (Map.Entry<Long, List<ShortageInfo>> entry : shortagesBySupplier.entrySet()) {
+        // Filter to only include items that need ordering
+        List<ItemOrderInfoDTO> itemsToOrder = orderInfoItems.stream()
+                .filter(ItemOrderInfoDTO::needsOrdering)
+                .toList();
+        
+        log.debug("Found {} items that need ordering out of {} total items", 
+                 itemsToOrder.size(), orderInfoItems.size());
+        
+        // Group by supplier for order creation
+        Map<Long, List<ItemOrderInfoDTO>> itemsBySupplier = itemsToOrder.stream()
+                .collect(Collectors.groupingBy(ItemOrderInfoDTO::supplierId));
+                
+        // Create or update orders for each supplier
+        for (Map.Entry<Long, List<ItemOrderInfoDTO>> entry : itemsBySupplier.entrySet()) {
             Long supplierId = entry.getKey();
-            List<ShortageInfo> shortages = entry.getValue();
-            if (shortages.isEmpty()) continue;
-
-            // Find the supplier name from any of the shortage items
-            String supplierName = orderInfoItems.stream()
-                    .filter(info -> info.supplierId().equals(supplierId))
-                    .findFirst()
-                    .map(ItemOrderInfoDTO::supplierName)
-                    .orElse("Unknown Supplier");
-
-            // Find draft order
-            Orders draft = purchaseOrderService.findDraftOrderForSupplierAndLocation(supplierId, loc.getId());
+            List<ItemOrderInfoDTO> items = entry.getValue();
+            
+            if (items.isEmpty()) continue;
+            
+            String supplierName = items.get(0).supplierName();
+            
+            // Find draft order for this supplier/location
+            Orders draft = purchaseOrderService.findDraftOrderForSupplierAndLocation(supplierId, locationId);
+            
             if (draft == null) {
                 // Create new draft order
-                createDraftOrder(setting, companyId, loc, supplierId, supplierName, shortages);
+                createDraftOrder(setting, companyId, loc, supplierId, supplierName, items);
             } else {
                 // Update existing draft order
-                updateDraftOrder(setting, companyId, loc.getName(), supplierName, draft, shortages);
+                updateDraftOrder(setting, companyId, loc.getName(), supplierName, draft, items);
             }
         }
 
         // Log the total execution time for performance monitoring
         Duration duration = Duration.between(startTime, LocalDateTime.now());
-        log.info("Auto-order for location {} completed in {} ms", loc.getId(), duration.toMillis());
-    }
-    
-    private ItemOrderInfoDTO findBestPurchaseOption(List<ItemOrderInfoDTO> options) {
-        // First try to find a "main" purchase option (the one set as default)
-        // Since we can't filter by mainPurchaseOption in our DTO query, we'll use the first option
-        // This is a limitation of the DTO approach, but in practice it's often acceptable
-        
-        if (!options.isEmpty()) {
-            return options.get(0); // Take the first one which will be enabled due to our query
-        }
-        return null;
+        log.info("Auto-order for location {} completed in {} ms", locationId, duration.toMillis());
     }
     
     @Transactional
@@ -349,9 +305,9 @@ public class AutoOrderScheduledService {
             AutoOrderSetting setting, 
             Long companyId, 
             Location loc, 
-            Long supplierId,
+            Long supplierId, 
             String supplierName,
-            List<ShortageInfo> shortages
+            List<ItemOrderInfoDTO> items
     ) {
         OrderCreateDTO dto = new OrderCreateDTO();
         dto.setBuyerLocationId(loc.getId());
@@ -370,10 +326,10 @@ public class AutoOrderScheduledService {
         );
 
         List<OrderItemDTO> itemDtos = new ArrayList<>();
-        for (ShortageInfo shortage : shortages) {
+        for (ItemOrderInfoDTO item : items) {
             OrderItemDTO idto = new OrderItemDTO();
-            idto.setInventoryItemId(shortage.itemId);
-            idto.setQuantity(shortage.shortageQty);
+            idto.setInventoryItemId(item.itemId());
+            idto.setQuantity(item.calculateShortage());
             itemDtos.add(idto);
         }
         dto.setItems(itemDtos);
@@ -384,7 +340,6 @@ public class AutoOrderScheduledService {
             Orders createdDraft = purchaseOrderService.createOrder(companyId, dto);
             log.info("Successfully created draft order with ID: {}", createdDraft.getId());
 
-            // Show notification for newly created orders
             notificationService.createNotification(
                     companyId,
                     "Auto-Order Created",
@@ -395,7 +350,6 @@ public class AutoOrderScheduledService {
         } catch (Exception ex) {
             log.error("Error creating draft order: {}", ex.getMessage(), ex);
 
-            // Show notification for errors
             notificationService.createNotification(
                     companyId,
                     "Auto-Order Error",
@@ -413,23 +367,26 @@ public class AutoOrderScheduledService {
             String locationName,
             String supplierName,
             Orders draft,
-            List<ShortageInfo> shortages
+            List<ItemOrderInfoDTO> items
     ) {
         log.info("Updating existing draft order ID: {}", draft.getId());
         try {
-            // Convert our ShortageInfo objects to what purchaseOrderService expects (ShortageLine)
-            List<ShortageLine> shortageLines = shortages.stream()
-                    .map(s -> new ShortageLine(s.itemId, s.shortageQty, s.price, s.itemName))
+            // Convert ItemOrderInfoDTO objects to what purchaseOrderService expects (ShortageLine)
+            List<ShortageLine> shortageLines = items.stream()
+                    .map(item -> new ShortageLine(
+                            item.itemId(), 
+                            item.calculateShortage(), 
+                            item.price(), 
+                            item.itemName()
+                    ))
                     .collect(Collectors.toList());
-                    
+            
             Orders updatedDraft = purchaseOrderService.updateDraftOrderWithShortages(
                     draft, 
                     shortageLines, 
                     setting.getAutoOrderComment()
             );
 
-            // Don't show notification for routine updates
-            // Only show notification if there was an actual change
             if (updatedDraft != draft) {
                 log.debug("Order was updated with changes");
             } else {
@@ -438,7 +395,6 @@ public class AutoOrderScheduledService {
         } catch (Exception ex) {
             log.error("Error updating draft order: {}", ex.getMessage(), ex);
 
-            // Show notification for errors
             notificationService.createNotification(
                     companyId,
                     "Auto-Order Error",
@@ -447,21 +403,6 @@ public class AutoOrderScheduledService {
                             + "', location '" + locationName
                             + "'. Error: " + ex.getMessage()
             );
-        }
-    }
-
-    // ShortageInfo class to hold shortage information internally
-    private static class ShortageInfo {
-        final Long itemId;
-        final String itemName;
-        final double shortageQty;
-        final Double price;
-        
-        ShortageInfo(Long itemId, String itemName, double shortageQty, Double price) {
-            this.itemId = itemId;
-            this.itemName = itemName;
-            this.shortageQty = shortageQty;
-            this.price = price;
         }
     }
 

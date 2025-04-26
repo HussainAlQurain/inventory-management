@@ -97,4 +97,19 @@ public interface OrderRepository extends JpaRepository<Orders, Long>, JpaSpecifi
             @Param("start") LocalDateTime start,
             @Param("end") LocalDateTime end,
             Pageable pageable);
+            
+    /**
+     * Get in-transit quantities for items at a specific location.
+     * Returns arrays of [itemId, inTransitQty]
+     * 
+     * This query calculates quantities for items that have been ordered but not yet
+     * fully delivered, based on orders that are not in DRAFT or CANCELED status.
+     */
+    @Query("SELECT oi.inventoryItem.id, SUM(oi.quantity) " +
+           "FROM Orders o " +
+           "JOIN o.orderItems oi " +
+           "WHERE o.buyerLocation.id = :locationId " +
+           "AND o.status <> 'DRAFT' AND o.status <> 'CANCELED' " +
+           "GROUP BY oi.inventoryItem.id")
+    List<Object[]> getInTransitQuantitiesByLocation(@Param("locationId") Long locationId);
 }

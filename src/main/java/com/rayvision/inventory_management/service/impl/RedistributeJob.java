@@ -362,6 +362,7 @@ public class RedistributeJob {
             TransferCreateDTO dto = new TransferCreateDTO();
             dto.setFromLocationId(fromId);
             dto.setToLocationId(toId);
+            dto.setCreatedByUserId(systemUserResolver.getSystemUserId());  // NEW: Set the system user ID
 
             // Fetch UoM eagerly to prevent LazyInitialization - use transactional wrapper
             UnitOfMeasure uom = requiredUomTransaction(itemId);
@@ -415,6 +416,15 @@ public class RedistributeJob {
                 log.error("Cannot update draft: UoM not found for item {}", itemId);
                 return;
             }
+
+            // Ensure the draft has a createdByUser set (for older drafts that might not have it)
+            // if (draft.getCreatedByUser() == null) {
+            //     Long sysUserId = systemUserResolver.getSystemUserId();
+            //     Users sysUser = userRepository.findById(sysUserId)
+            //             .orElseThrow(() -> new RuntimeException("System user not found"));
+            //     draft.setCreatedByUser(sysUser);
+            //     transferRepo.save(draft);
+            // }
 
             Transfer updatedDraft = transferService.updateDraftWithLines(
                     draft,

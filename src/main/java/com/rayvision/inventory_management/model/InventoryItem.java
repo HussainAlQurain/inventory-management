@@ -13,6 +13,12 @@ import java.util.Set;
 @NoArgsConstructor
 @Builder
 @Entity
+@Table(indexes = {
+    @Index(name = "idx_inventory_item_name", columnList = "name"),
+    @Index(name = "idx_inventory_item_sku", columnList = "sku"),
+    @Index(name = "idx_inventory_item_product_code", columnList = "productCode"),
+    @Index(name = "idx_inventory_item_company", columnList = "company_id")
+})
 public class InventoryItem {
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "inventory_item_id_seq")
     @SequenceGenerator(name = "inventory_item_id_seq", sequenceName = "inventory_item_id_seq", allocationSize = 50)

@@ -12,6 +12,9 @@ import java.util.Set;
 @NoArgsConstructor
 @Builder
 @Entity
+@Table(indexes = {
+    @Index(name = "idx_assortment_company", columnList = "company_id")
+})
 public class Assortment {
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "assortment_id_seq")
@@ -28,7 +31,11 @@ public class Assortment {
     @JoinTable(
             name = "assortment_inventory_item",
             joinColumns = @JoinColumn(name = "assortment_id"),
-            inverseJoinColumns = @JoinColumn(name = "inventory_item_id")
+            inverseJoinColumns = @JoinColumn(name = "inventory_item_id"),
+            indexes = {
+                @Index(name = "idx_assortment_items_assortment", columnList = "assortment_id"),
+                @Index(name = "idx_assortment_items_item", columnList = "inventory_item_id")
+            }
     )
     private Set<InventoryItem> inventoryItems;
 

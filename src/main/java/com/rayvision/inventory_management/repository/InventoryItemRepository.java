@@ -2,6 +2,7 @@ package com.rayvision.inventory_management.repository;
 
 import com.rayvision.inventory_management.model.Company;
 import com.rayvision.inventory_management.model.InventoryItem;
+import com.rayvision.inventory_management.model.dto.AvailableItemDTO;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -16,8 +17,11 @@ import java.util.Set;
 
 @Repository
 public interface InventoryItemRepository extends JpaRepository<InventoryItem, Long> {
-    List<InventoryItem> company(Company company);
     List<InventoryItem> findByCompanyId(Long companyId);
+    
+    @Query("SELECT i FROM InventoryItem i WHERE i.company.id = :companyId")
+    List<InventoryItem> findAllByCompanyId(@Param("companyId") Long companyId);
+    
     Optional<InventoryItem> findByCompanyIdAndId(Long companyId, Long inventoryId);
 
     @Query("""
@@ -32,7 +36,7 @@ public interface InventoryItemRepository extends JpaRepository<InventoryItem, Lo
             @Param("searchTerm") String searchTerm
     );
 
-    /**     /**
+    /**
      * Return only the primary‑key values for all items that belong to the company.
      * No entities are loaded, so it is cheap even for thousands of rows.
      */
@@ -43,7 +47,7 @@ public interface InventoryItemRepository extends JpaRepository<InventoryItem, Lo
     """)
     Set<Long> findIdsByCompany(@Param("companyId") Long companyId);
 
-    // New paginated methods
+    // Paginated methods
     Page<InventoryItem> findByCompanyId(Long companyId, Pageable pageable);
     
     @Query("""
@@ -157,5 +161,114 @@ public interface InventoryItemRepository extends JpaRepository<InventoryItem, Lo
     List<Object[]> findCompleteAutoOrderDataByItemIdsAndLocation(
         @Param("itemIds") Collection<Long> itemIds,
         @Param("locationId") Long locationId
+    );
+    
+    /**
+     * Optimized query for retrieving inventory items available for order from a specific supplier
+     * with pagination, search, and optional assortment filtering directly in the database.
+     * Fixed version that removes the IS EMPTY check for parameters.
+     *
+     * @param supplierId Supplier ID to filter items by
+     * @param assortmentIds Optional list of assortment IDs to filter items by
+     * @param search Optional search term to filter items by name/sku/productCode
+     * @param pageable Pagination and sorting parameters
+     * @return Page of inventory items available for ordering
+     */
+    @Query(value = """
+        SELECT DISTINCT i
+        FROM InventoryItem i
+        JOIN i.purchaseOptions po
+        JOIN po.supplier s
+        WHERE s.id = :supplierId
+        AND po.orderingEnabled = true
+        AND (:assortmentIds IS NULL OR i.id IN (
+            SELECT ai.id FROM Assortment a
+            JOIN a.inventoryItems ai
+            WHERE a.id IN :assortmentIds
+        ))
+        AND (COALESCE(:search, '') = ''
+            OR LOWER(i.name) LIKE LOWER(CONCAT('%', :search, '%'))
+            OR LOWER(i.sku) LIKE LOWER(CONCAT('%', :search, '%'))
+            OR LOWER(i.productCode) LIKE LOWER(CONCAT('%', :search, '%')))
+        """,
+        countQuery = """
+        SELECT COUNT(DISTINCT i)
+        FROM InventoryItem i
+        JOIN i.purchaseOptions po
+        JOIN po.supplier s
+        WHERE s.id = :supplierId
+        AND po.orderingEnabled = true
+        AND (:assortmentIds IS NULL OR i.id IN (
+            SELECT ai.id FROM Assortment a
+            JOIN a.inventoryItems ai
+            WHERE a.id IN :assortmentIds
+        ))
+        AND (COALESCE(:search, '') = ''
+            OR LOWER(i.name) LIKE LOWER(CONCAT('%', :search, '%'))
+            OR LOWER(i.sku) LIKE LOWER(CONCAT('%', :search, '%'))
+            OR LOWER(i.productCode) LIKE LOWER(CONCAT('%', :search, '%')))
+        """)
+    Page<InventoryItem> findAvailableItems(
+        @Param("supplierId") Long supplierId,
+        @Param("assortmentIds") List<Long> assortmentIds,
+        @Param("search") String search,
+        Pageable pageable
+    );
+    
+    /**
+     * Optimized DTO projection query for retrieving only necessary inventory item data
+     * for available items from a specific supplier with pagination, search, and optional 
+     * assortment filtering directly in the database.
+     */
+    @Query(value = """
+        SELECT new com.rayvision.inventory_management.model.dto.AvailableItemDTO(
+            i.id,
+            i.name,
+            i.sku,
+            i.productCode,
+            po.price,
+            COALESCE(i.inventoryUom.abbreviation, ''),
+            COALESCE(po.orderingUom.abbreviation, ''),
+            po.mainPurchaseOption
+        )
+        FROM InventoryItem i
+        JOIN i.purchaseOptions po
+        JOIN po.supplier s
+        LEFT JOIN i.inventoryUom
+        LEFT JOIN po.orderingUom
+        WHERE s.id = :supplierId
+        AND po.orderingEnabled = true
+        AND (:assortmentIds IS NULL OR i.id IN (
+            SELECT ai.id FROM Assortment a
+            JOIN a.inventoryItems ai
+            WHERE a.id IN :assortmentIds
+        ))
+        AND (COALESCE(:search, '') = ''
+            OR LOWER(i.name) LIKE LOWER(CONCAT('%', :search, '%'))
+            OR LOWER(i.sku) LIKE LOWER(CONCAT('%', :search, '%'))
+            OR LOWER(i.productCode) LIKE LOWER(CONCAT('%', :search, '%')))
+        """,
+        countQuery = """
+        SELECT COUNT(DISTINCT i)
+        FROM InventoryItem i
+        JOIN i.purchaseOptions po
+        JOIN po.supplier s
+        WHERE s.id = :supplierId
+        AND po.orderingEnabled = true
+        AND (:assortmentIds IS NULL OR i.id IN (
+            SELECT ai.id FROM Assortment a
+            JOIN a.inventoryItems ai
+            WHERE a.id IN :assortmentIds
+        ))
+        AND (COALESCE(:search, '') = ''
+            OR LOWER(i.name) LIKE LOWER(CONCAT('%', :search, '%'))
+            OR LOWER(i.sku) LIKE LOWER(CONCAT('%', :search, '%'))
+            OR LOWER(i.productCode) LIKE LOWER(CONCAT('%', :search, '%')))
+        """)
+    Page<AvailableItemDTO> findAvailableItemsDto(
+        @Param("supplierId") Long supplierId,
+        @Param("assortmentIds") List<Long> assortmentIds,
+        @Param("search") String search,
+        Pageable pageable
     );
 }

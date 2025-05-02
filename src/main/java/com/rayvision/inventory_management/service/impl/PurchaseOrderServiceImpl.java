@@ -963,97 +963,56 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
     public Page<InventoryItemResponseDTO> availableItemsPaginated(Long supplierId, Long locationId, 
                                                                  String searchTerm, Pageable pageable) {
         // Normalize search term
-        String normalizedSearch = (searchTerm == null || searchTerm.isBlank()) ? null : searchTerm.toLowerCase();
+        String normalizedSearch = (searchTerm == null || searchTerm.isBlank()) ? null : searchTerm.trim();
         
-        // 1. First check if the location has any assortments with inventory items
-        List<AssortmentLocation> assortmentLocations = assortmentLocationRepository.findByLocationId(locationId);
-        Set<InventoryItem> assortmentItems = new HashSet<>();
-        
-        if (!assortmentLocations.isEmpty()) {
-            // Collect all inventory items from all assortments linked to this location
-            for (AssortmentLocation al : assortmentLocations) {
-                if (al.getAssortment() != null && al.getAssortment().getInventoryItems() != null) {
-                    assortmentItems.addAll(al.getAssortment().getInventoryItems());
-                }
-            }
-        }
-        
-        // 2. Get the base list of items
-        List<InventoryItem> baseItemList;
-        if (!assortmentItems.isEmpty()) {
-            // Filter using assortment items as the base list
-            baseItemList = new ArrayList<>(assortmentItems);
-        } else {
-            // If no assortment items, get all items from the company
-            Supplier supplier = supplierRepository.findById(supplierId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Supplier", "id", supplierId));
-            Long companyId = supplier.getCompany().getId();
-            baseItemList = inventoryItemRepository.findByCompanyId(companyId);
-        }
-        
-        // 3. Filter the baseItemList for the supplier relationship and search term
-        List<InventoryItem> filteredItems = baseItemList.stream()
-            .filter(item -> {
-                // Filter by supplier purchase options
-                boolean hasValidPurchaseOption = item.getPurchaseOptions() != null && 
-                    item.getPurchaseOptions().stream()
-                        .anyMatch(po -> po.getSupplier() != null && 
-                                po.getSupplier().getId().equals(supplierId) && 
-                                po.isOrderingEnabled());
-                
-                // Filter by search term if provided
-                boolean matchesSearch = normalizedSearch == null || 
-                    (item.getName() != null && item.getName().toLowerCase().contains(normalizedSearch)) ||
-                    (item.getSku() != null && item.getSku().toLowerCase().contains(normalizedSearch)) ||
-                    (item.getProductCode() != null && item.getProductCode().toLowerCase().contains(normalizedSearch));
-                
-                return hasValidPurchaseOption && matchesSearch;
-            })
+        // Get assortment IDs for this location (if any)
+        List<Long> assortmentIds = assortmentLocationRepository.findByLocationId(locationId)
+            .stream()
+            .map(al -> al.getAssortment().getId())
             .collect(Collectors.toList());
         
-        // 4. Apply pagination manually
-        int start = (int) pageable.getOffset();
-        int end = Math.min((start + pageable.getPageSize()), filteredItems.size());
-        
-        // Handle sorting if needed
-        if (pageable.getSort().isSorted()) {
-            // Sort the list before pagination according to the pageable sort
-            final List<InventoryItem> sortedItems = new ArrayList<>(filteredItems);
-            pageable.getSort().forEach(order -> {
-                String property = order.getProperty();
-                boolean isAscending = order.getDirection().isAscending();
-                
-                sortedItems.sort((item1, item2) -> {
-                    int result = 0;
-                    if ("name".equals(property)) {
-                        result = compareStrings(item1.getName(), item2.getName());
-                    } else if ("sku".equals(property)) {
-                        result = compareStrings(item1.getSku(), item2.getSku());
-                    } else if ("productCode".equals(property)) {
-                        result = compareStrings(item1.getProductCode(), item2.getProductCode());
-                    }
-                    return isAscending ? result : -result;
-                });
-            });
-            filteredItems = sortedItems;
-        }
-        
-        // Create a sublist for the current page
-        List<InventoryItem> pagedItems = start < end 
-            ? filteredItems.subList(start, end) 
-            : Collections.emptyList();
-        
-        // 5. Convert to DTOs
-        List<InventoryItemResponseDTO> dtos = pagedItems.stream()
-            .map(inventoryItemResponseMapper::toInventoryItemResponseDTO)
-            .collect(Collectors.toList());
-        
-        // Create page implementation
-        return new org.springframework.data.domain.PageImpl<>(
-            dtos, 
-            pageable, 
-            filteredItems.size()
+        // Use the optimized DTO projection query that fetches only necessary data in a single database operation
+        // This prevents N+1 queries and reduces memory usage
+        Page<AvailableItemDTO> dtoPage = inventoryItemRepository.findAvailableItemsDto(
+            supplierId,
+            assortmentIds.isEmpty() ? null : assortmentIds,
+            normalizedSearch,
+            pageable
         );
+        
+        // Convert the lightweight DTOs to the expected response format
+        return dtoPage.map(dto -> {
+            InventoryItemResponseDTO responseDTO = new InventoryItemResponseDTO();
+            responseDTO.setId(dto.getId());
+            responseDTO.setName(dto.getName());
+            responseDTO.setSku(dto.getSku());
+            responseDTO.setProductCode(dto.getProductCode());
+            responseDTO.setCurrentPrice(dto.getPrice());
+            
+            // Set basic UOM info without causing additional queries
+            if (dto.getInventoryUom() != null && !dto.getInventoryUom().isEmpty()) {
+                UnitOfMeasureResponseDTO uomDTO = new UnitOfMeasureResponseDTO();
+                uomDTO.setAbbreviation(dto.getInventoryUom());
+                responseDTO.setInventoryUom(uomDTO);
+            }
+            
+            // Only include necessary purchase option data for display
+            if (dto.getOrderingUom() != null || dto.getPrice() != null) {
+                PurchaseOptionResponseDTO poDTO = new PurchaseOptionResponseDTO();
+                poDTO.setPrice(dto.getPrice());
+                poDTO.setMainPurchaseOption(dto.isMainPurchaseOption());
+                
+                if (dto.getOrderingUom() != null && !dto.getOrderingUom().isEmpty()) {
+                    UnitOfMeasureResponseDTO orderingUomDTO = new UnitOfMeasureResponseDTO();
+                    orderingUomDTO.setAbbreviation(dto.getOrderingUom());
+                    poDTO.setOrderingUom(orderingUomDTO);
+                }
+                
+                responseDTO.setPurchaseOptions(Collections.singletonList(poDTO));
+            }
+            
+            return responseDTO;
+        });
     }
     
     // Helper method for string comparison with null safety

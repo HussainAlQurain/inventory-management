@@ -12,6 +12,10 @@ import java.util.Set;
 @Getter
 @Setter
 @Builder
+@Table(indexes = {
+    @Index(name = "idx_purchase_option_supplier_enabled", columnList = "supplier_id, orderingEnabled"),
+    @Index(name = "idx_purchase_option_inventory_item", columnList = "inventory_item_id")
+})
 public class PurchaseOption {
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "purchase_option_id_seq")

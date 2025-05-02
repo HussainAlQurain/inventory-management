@@ -9,6 +9,10 @@ import lombok.*;
 @Getter
 @Builder
 @Entity
+@Table(indexes = {
+    @Index(name = "idx_assortment_location_location", columnList = "location_id"),
+    @Index(name = "idx_assortment_location_assortment", columnList = "assortment_id")
+})
 public class AssortmentLocation {
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "assortment_location_id_seq")

@@ -10,6 +10,8 @@ import com.rayvision.inventory_management.repository.LocationUserRepository;
 import com.rayvision.inventory_management.repository.UserRepository;
 import com.rayvision.inventory_management.service.LocationService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -99,6 +101,13 @@ public class LocationServiceImpl implements LocationService {
         return locationRepository.findAll().stream()
                 .filter(location -> location.getCompany().getId().equals(companyId))
                 .toList();
+    }
+
+    @Override
+    public Page<Location> findByCompanyIdPaginated(Long companyId, String search, Pageable pageable) {
+        // Normalize search term - empty or blank search should be treated as null
+        String searchTerm = (search == null || search.isBlank()) ? null : search;
+        return locationRepository.findByCompanyIdWithSearch(companyId, searchTerm, pageable);
     }
 
     @Override

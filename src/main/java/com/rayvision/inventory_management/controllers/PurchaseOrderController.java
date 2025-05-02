@@ -205,14 +205,38 @@ public class PurchaseOrderController {
     }
 
     // ----------------------------------------------------------------
-    // Get inventory items available for ordering from a specific supplier and location
+    // Get inventory items available for ordering from a specific supplier and location (paginated)
     // ----------------------------------------------------------------
     @GetMapping("/available-items")
-    public ResponseEntity<List<InventoryItemResponseDTO>> getAvailableInventoryItems(
+    public ResponseEntity<?> getAvailableInventoryItems(
             @RequestParam Long supplierId,
-            @RequestParam Long locationId) {
-        List<InventoryItemResponseDTO> items = purchaseOrderService.getInventoryItemsBySupplierAndLocation(supplierId, locationId);
-        return ResponseEntity.ok(items);
+            @RequestParam Long locationId,
+            @RequestParam(required = false, defaultValue = "0") int page,
+            @RequestParam(required = false, defaultValue = "10") int size,
+            @RequestParam(required = false, defaultValue = "") String search) {
+        
+        // If pagination params are provided, use the paginated method
+        if (page != 0 || size != 10 || !search.isEmpty()) {
+            Page<InventoryItemResponseDTO> items = purchaseOrderService
+                .availableItemsPaginated(supplierId, locationId, search, PageRequest.of(page, size));
+                
+            PageResponseDTO<InventoryItemResponseDTO> response = new PageResponseDTO<>(
+                items.getContent(),
+                items.getTotalElements(),
+                items.getTotalPages(),
+                items.getNumber(),
+                items.getSize(),
+                items.hasNext(),
+                items.hasPrevious()
+            );
+            
+            return ResponseEntity.ok(response);
+        } else {
+            // Fall back to the existing non-paginated method for backward compatibility
+            List<InventoryItemResponseDTO> items = purchaseOrderService
+                .getInventoryItemsBySupplierAndLocation(supplierId, locationId);
+            return ResponseEntity.ok(items);
+        }
     }
 
     // ----------------------------------------------------------------

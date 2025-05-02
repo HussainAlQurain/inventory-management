@@ -48,4 +48,16 @@ public interface PurchaseOrderService {
     Page<Orders> searchOrders(Long companyId, Long supplierId, Long locationId, 
                              OrderStatus status, LocalDateTime start, LocalDateTime end,
                              Pageable pageable);
+
+    /**
+     * Get paginated inventory items available for ordering from a specific supplier and location
+     *
+     * @param supplierId The supplier ID
+     * @param locationId The location ID
+     * @param searchTerm Optional search term to filter items
+     * @param pageable Pagination information
+     * @return Page of inventory items available for ordering
+     */
+    Page<InventoryItemResponseDTO> availableItemsPaginated(Long supplierId, Long locationId, 
+                                                          String searchTerm, Pageable pageable);
 }

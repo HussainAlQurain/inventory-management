@@ -5,15 +5,22 @@ import com.rayvision.inventory_management.model.InventoryItem;
 import com.rayvision.inventory_management.model.InventoryItemLocation;
 import com.rayvision.inventory_management.model.Location;
 import com.rayvision.inventory_management.model.dto.InventoryItemLocationDTO;
+import com.rayvision.inventory_management.model.dto.ItemOnHandTotalsDTO;
+import com.rayvision.inventory_management.model.records.LocationInventoryDTO;
 import com.rayvision.inventory_management.repository.InventoryItemLocationRepository;
 import com.rayvision.inventory_management.repository.InventoryItemRepository;
 import com.rayvision.inventory_management.repository.LocationRepository;
 import com.rayvision.inventory_management.service.InventoryItemLocationService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -238,5 +245,114 @@ public class InventoryItemLocationServiceImpl implements InventoryItemLocationSe
         }
     }
 
+    /**
+     * Efficiently calculate the total on-hand quantity and value for an inventory item
+     * across all locations in a company.
+     * 
+     * @param itemId The inventory item ID
+     * @param companyId The company ID to filter locations
+     * @return A DTO containing the total quantity and value
+     */
+    @Override
+    public ItemOnHandTotalsDTO getItemOnHandTotals(Long itemId, Long companyId) {
+        // Get the inventory item to access its current price
+        InventoryItem item = itemRepository.findById(itemId)
+                .orElseThrow(() -> new RuntimeException("Item not found: " + itemId));
+        
+        // Find all inventory item locations for this item
+        List<InventoryItemLocation> locations = repository.findByInventoryItemId(itemId);
+        
+        // Filter by company and calculate totals in a single pass
+        double totalQuantity = 0.0;
+        double currentPrice = item.getCurrentPrice() != null ? item.getCurrentPrice() : 0.0;
+        
+        for (InventoryItemLocation loc : locations) {
+            // Only include locations that belong to the specified company
+            if (loc.getLocation().getCompany().getId().equals(companyId)) {
+                // Add to the total quantity if onHand is not null
+                if (loc.getOnHand() != null) {
+                    totalQuantity += loc.getOnHand();
+                }
+            }
+        }
+        
+        // Calculate total value
+        double totalValue = totalQuantity * currentPrice;
+        
+        // Return the totals in a DTO
+        return ItemOnHandTotalsDTO.builder()
+                .itemId(itemId)
+                .totalQuantity(totalQuantity)
+                .totalValue(totalValue)
+                .build();
+    }
 
+    /**
+     * Get paginated and searchable inventory item locations for an item
+     * 
+     * @param itemId The inventory item ID
+     * @param companyId The company ID
+     * @param locationSearch Optional search term for location names
+     * @param pageable Pagination and sorting parameters
+     * @return A Page of LocationInventoryDTO
+     */
+    @Override
+    public Page<LocationInventoryDTO> getPaginatedLocationsForItem(
+            Long itemId,
+            Long companyId,
+            String locationSearch,
+            Pageable pageable
+    ) {
+        // Get the inventory item to access its current price
+        InventoryItem item = itemRepository.findById(itemId)
+                .orElseThrow(() -> new RuntimeException("Item not found: " + itemId));
+        
+        // Get the current price
+        double currentPrice = item.getCurrentPrice() != null ? item.getCurrentPrice() : 0.0;
+        
+        // Get all inventory item locations for this item
+        List<InventoryItemLocation> allLocations = repository.findByInventoryItemId(itemId);
+        
+        // Filter locations by company and optionally by search term
+        List<InventoryItemLocation> filteredLocations = allLocations.stream()
+                .filter(loc -> loc.getLocation().getCompany().getId().equals(companyId))
+                .filter(loc -> {
+                    if (!StringUtils.hasText(locationSearch)) {
+                        return true; // No search filter
+                    }
+                    // Search in location name (case-insensitive)
+                    return loc.getLocation().getName().toLowerCase().contains(locationSearch.toLowerCase());
+                })
+                .collect(Collectors.toList());
+        
+        // Calculate total elements for pagination info
+        int totalElements = filteredLocations.size();
+        
+        // Apply pagination manually
+        int start = (int) pageable.getOffset();
+        int end = Math.min(start + pageable.getPageSize(), filteredLocations.size());
+        
+        // If start is beyond list size, return empty page
+        List<InventoryItemLocation> pagedLocations = start < end 
+                ? filteredLocations.subList(start, end) 
+                : List.of();
+        
+        // Convert to DTOs with quantity and value
+        List<LocationInventoryDTO> dtos = pagedLocations.stream()
+                .map(loc -> {
+                    double qty = Optional.ofNullable(loc.getOnHand()).orElse(0.0);
+                    double value = qty * currentPrice;
+                    
+                    return new LocationInventoryDTO(
+                            loc.getLocation().getId(),
+                            loc.getLocation().getName(),
+                            qty,
+                            value
+                    );
+                })
+                .collect(Collectors.toList());
+        
+        // Create and return the Page object
+        return new PageImpl<>(dtos, pageable, totalElements);
+    }
 }

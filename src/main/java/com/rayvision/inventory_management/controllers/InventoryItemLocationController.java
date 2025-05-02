@@ -3,9 +3,15 @@ package com.rayvision.inventory_management.controllers;
 import com.rayvision.inventory_management.mappers.InventoryItemLocationMapper;
 import com.rayvision.inventory_management.model.InventoryItemLocation;
 import com.rayvision.inventory_management.model.dto.InventoryItemLocationDTO;
+import com.rayvision.inventory_management.model.dto.ItemOnHandTotalsDTO;
+import com.rayvision.inventory_management.model.dto.PageResponseDTO;
 import com.rayvision.inventory_management.model.records.BulkUpdateRequest;
 import com.rayvision.inventory_management.model.records.LocationInventoryDTO;
 import com.rayvision.inventory_management.service.InventoryItemLocationService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -76,7 +82,7 @@ public class InventoryItemLocationController {
 
         // 3) build a DTO that has { location: {id,name}, quantity, value }
         //    Possibly compute 'value = quantity * item.currentPrice'
-        //    For that, we might need the item’s currentPrice or bridgingList might hold it.
+        //    For that, we might need the item's currentPrice or bridgingList might hold it.
         //    If you store item in bridging, you can do bridging.getInventoryItem().getCurrentPrice().
 
         List<LocationInventoryDTO> dtos = bridgingList.stream().map(b -> {
@@ -98,6 +104,49 @@ public class InventoryItemLocationController {
         return ResponseEntity.ok(dtos);
     }
 
+    // NEW ENDPOINT: Get paginated location inventory for an item
+    @GetMapping("/item/{itemId}/company/{companyId}/paginated")
+    public ResponseEntity<PageResponseDTO<LocationInventoryDTO>> getPaginatedLocationsForItem(
+            @PathVariable Long itemId,
+            @PathVariable Long companyId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String locationSearch
+    ) {
+        // Create pageable object
+        Pageable pageable = PageRequest.of(page, size, Sort.by("location.name").ascending());
+        
+        // Get paginated results
+        Page<LocationInventoryDTO> pageResult = service.getPaginatedLocationsForItem(
+                itemId, 
+                companyId, 
+                locationSearch, 
+                pageable
+        );
+        
+        // Convert to standard PageResponseDTO format
+        PageResponseDTO<LocationInventoryDTO> response = new PageResponseDTO<>(
+                pageResult.getContent(),
+                pageResult.getTotalElements(),
+                pageResult.getTotalPages(),
+                pageResult.getNumber(),
+                pageResult.getSize(),
+                pageResult.hasNext(),
+                pageResult.hasPrevious()
+        );
+        
+        return ResponseEntity.ok(response);
+    }
+
+    // NEW ENDPOINT: Get on-hand totals for an item without fetching all locations
+    @GetMapping("/item/{itemId}/company/{companyId}/totals")
+    public ResponseEntity<ItemOnHandTotalsDTO> getItemOnHandTotals(
+            @PathVariable Long itemId,
+            @PathVariable Long companyId
+    ) {
+        ItemOnHandTotalsDTO totals = service.getItemOnHandTotals(itemId, companyId);
+        return ResponseEntity.ok(totals);
+    }
 
     @PutMapping("/items/{itemId}/locations/{locationId}/thresholds")
     public ResponseEntity<Void> setThresholdsForLocation(
@@ -155,7 +204,4 @@ public class InventoryItemLocationController {
     }
 
     public record ThresholdUpdateRequest(Double minOnHand, Double parLevel) {}
-
-
-
 }

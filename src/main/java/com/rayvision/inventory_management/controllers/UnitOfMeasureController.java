@@ -4,11 +4,17 @@ import com.rayvision.inventory_management.mappers.UnitOfMeasureCategoryMapper;
 import com.rayvision.inventory_management.mappers.UnitOfMeasureMapper;
 import com.rayvision.inventory_management.model.UnitOfMeasure;
 import com.rayvision.inventory_management.model.UnitOfMeasureCategory;
+import com.rayvision.inventory_management.model.dto.PageResponseDTO;
 import com.rayvision.inventory_management.model.dto.UnitOfMeasureCreateDTO;
 import com.rayvision.inventory_management.model.dto.UnitOfMeasureResponseDTO;
+import com.rayvision.inventory_management.model.dto.UomFilterOptionDTO;
 import com.rayvision.inventory_management.service.UnitOfMeasureCategoryService;
 import com.rayvision.inventory_management.service.UnitOfMeasureService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -113,4 +119,28 @@ public class UnitOfMeasureController {
     }
 
 
+    @GetMapping("/company/{companyId}/filter-options/paginated")
+    public ResponseEntity<PageResponseDTO<UomFilterOptionDTO>> getPaginatedUomFilterOptions(
+            @PathVariable Long companyId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false, defaultValue = "") String search) {
+
+        Sort sorting = Sort.by(Sort.Direction.ASC, "name");
+        Pageable pageable = PageRequest.of(page, size, sorting);
+
+        Page<UomFilterOptionDTO> optionsPage = uomService.findPaginatedFilterOptions(companyId, search, pageable);
+
+        PageResponseDTO<UomFilterOptionDTO> response = new PageResponseDTO<>(
+                optionsPage.getContent(),
+                optionsPage.getTotalElements(),
+                optionsPage.getTotalPages(),
+                optionsPage.getNumber(),
+                optionsPage.getSize(),
+                optionsPage.hasNext(),
+                optionsPage.hasPrevious()
+        );
+
+        return ResponseEntity.ok(response);
+    }
 }

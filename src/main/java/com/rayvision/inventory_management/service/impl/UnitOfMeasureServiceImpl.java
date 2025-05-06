@@ -1,9 +1,12 @@
 package com.rayvision.inventory_management.service.impl;
 
 import com.rayvision.inventory_management.model.UnitOfMeasure;
+import com.rayvision.inventory_management.model.dto.UomFilterOptionDTO;
 import com.rayvision.inventory_management.repository.CompanyRepository;
 import com.rayvision.inventory_management.repository.UnitOfMeasureRepository;
 import com.rayvision.inventory_management.service.UnitOfMeasureService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -67,5 +70,10 @@ public class UnitOfMeasureServiceImpl implements UnitOfMeasureService {
         uomRepository.delete(uom);
     }
 
+    @Override
+    public Page<UomFilterOptionDTO> findPaginatedFilterOptions(Long companyId, String search, Pageable pageable) {
+        if (search == null) search = "";
+        return uomRepository.findPaginatedFilterOptions(companyId, search, pageable);
+    }
 
 }

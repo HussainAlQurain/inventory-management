@@ -105,3 +105,6 @@ private LocalDateTime lastModifiedDate;
 - During receiving, we must carefully handle cost updates (moving average or last purchase price).
 - Email sending can be done using Spring’s `JavaMailSender`, triggered when order transitions to `SENT`.
 
+### Bugs
+
+- Frontend in purchase option modal, when opening ordering uom it doesnt load at first when it is blank.

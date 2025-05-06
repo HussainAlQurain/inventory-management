@@ -1,6 +1,7 @@
 package com.rayvision.inventory_management.service;
 
 import com.rayvision.inventory_management.model.InventoryItem;
+import com.rayvision.inventory_management.model.dto.InventoryItemListDTO;
 import com.rayvision.inventory_management.model.dto.InventoryItemPartialUpdateDTO;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -20,4 +21,12 @@ public interface InventoryItemService {
     Page<InventoryItem> getAllInventoryItemsPaginated(Long companyId, Pageable pageable);
     Page<InventoryItem> searchItemsPaginated(Long companyId, String searchTerm, Pageable pageable);
     Page<InventoryItem> findByCompanyIdAndCategoryWithSearch(Long companyId, Long categoryId, String searchTerm, Pageable pageable);
+
+    // Add this method to your service interface
+
+    Page<InventoryItemListDTO> findInventoryItemsForListView(
+            Long companyId,
+            Long categoryId,
+            String search,
+            Pageable pageable);
 }

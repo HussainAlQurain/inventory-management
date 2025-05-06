@@ -3,6 +3,7 @@ package com.rayvision.inventory_management.repository;
 import com.rayvision.inventory_management.model.Company;
 import com.rayvision.inventory_management.model.InventoryItem;
 import com.rayvision.inventory_management.model.dto.AvailableItemDTO;
+import com.rayvision.inventory_management.model.dto.InventoryItemListDTO;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -271,4 +272,30 @@ public interface InventoryItemRepository extends JpaRepository<InventoryItem, Lo
         @Param("search") String search,
         Pageable pageable
     );
+
+    // Add this method to your repository
+
+    @Query("""
+    SELECT new com.rayvision.inventory_management.model.dto.InventoryItemListDTO(
+        i.id, i.name, i.sku, i.productCode, i.currentPrice,
+        i.category.id, i.category.name,
+        i.inventoryUom.id, i.inventoryUom.abbreviation,
+        po.supplier.id, po.supplier.name, po.orderingEnabled, po.taxRate,
+        i.cumulativeQty, i.cumulativeValue)
+    FROM InventoryItem i
+    LEFT JOIN i.category
+    LEFT JOIN i.inventoryUom
+    LEFT JOIN i.purchaseOptions po
+    WHERE i.company.id = :companyId
+    AND (:categoryId IS NULL OR i.category.id = :categoryId)
+    AND (LOWER(i.name) LIKE LOWER(CONCAT('%', :search, '%')) OR
+         LOWER(i.sku) LIKE LOWER(CONCAT('%', :search, '%')) OR
+         LOWER(i.productCode) LIKE LOWER(CONCAT('%', :search, '%')))
+    AND (po.mainPurchaseOption = true OR po IS NULL)
+""")
+    Page<InventoryItemListDTO> findInventoryItemsForListView(
+            @Param("companyId") Long companyId,
+            @Param("categoryId") Long categoryId,
+            @Param("search") String search,
+            Pageable pageable);
 }

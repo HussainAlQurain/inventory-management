@@ -2,6 +2,7 @@ package com.rayvision.inventory_management.service.impl;
 
 import com.rayvision.inventory_management.model.Category;
 import com.rayvision.inventory_management.model.InventoryItem;
+import com.rayvision.inventory_management.model.dto.InventoryItemListDTO;
 import com.rayvision.inventory_management.model.dto.InventoryItemPartialUpdateDTO;
 import com.rayvision.inventory_management.repository.CategoryRepository;
 import com.rayvision.inventory_management.repository.CompanyRepository;
@@ -104,5 +105,21 @@ public class InventoryItemServiceImpl implements InventoryItemService {
     @Override
     public Page<InventoryItem> findByCompanyIdAndCategoryWithSearch(Long companyId, Long categoryId, String searchTerm, Pageable pageable) {
         return inventoryItemRepository.findByCompanyIdAndCategoryWithSearch(companyId, categoryId, searchTerm, pageable);
+    }
+
+    // Implement the method in your service implementation
+
+    @Override
+    public Page<InventoryItemListDTO> findInventoryItemsForListView(
+            Long companyId,
+            Long categoryId,
+            String search,
+            Pageable pageable) {
+
+        return inventoryItemRepository.findInventoryItemsForListView(
+                companyId,
+                categoryId,
+                search != null ? search : "",
+                pageable);
     }
 }

@@ -4,10 +4,7 @@ import com.rayvision.inventory_management.exceptions.ResourceNotFoundException;
 import com.rayvision.inventory_management.facade.InventoryItemFacade;
 import com.rayvision.inventory_management.mappers.InventoryItemResponseMapper;
 import com.rayvision.inventory_management.model.InventoryItem;
-import com.rayvision.inventory_management.model.dto.InventoryItemCreateDTO;
-import com.rayvision.inventory_management.model.dto.InventoryItemPartialUpdateDTO;
-import com.rayvision.inventory_management.model.dto.InventoryItemResponseDTO;
-import com.rayvision.inventory_management.model.dto.PageResponseDTO;
+import com.rayvision.inventory_management.model.dto.*;
 import com.rayvision.inventory_management.service.InventoryItemService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -122,6 +119,7 @@ public class InventoryItemController {
      * New endpoint for paginated inventory items
      * GET /inventory-items/company/{companyId}/paginated?page=0&size=10&sort=name,asc&search=apple
      */
+    @Deprecated
     @GetMapping("/company/{companyId}/paginated")
     public ResponseEntity<PageResponseDTO<InventoryItemResponseDTO>> getPaginatedInventoryItems(
             @PathVariable Long companyId,
@@ -165,6 +163,50 @@ public class InventoryItemController {
                 dtoPage.hasPrevious()
         );
         
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Optimized endpoint for paginated inventory items - uses lightweight DTOs to avoid N+1 queries
+     */
+    @GetMapping("/company/{companyId}/paginated-list")
+    public ResponseEntity<PageResponseDTO<InventoryItemListDTO>> getInventoryItemsList(
+            @PathVariable Long companyId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String sort,
+            @RequestParam(required = false, defaultValue = "") String search,
+            @RequestParam(required = false) Long categoryId) {
+
+        // Create sorting if provided
+        Sort sorting = Sort.unsorted();
+        if (sort != null && !sort.isEmpty()) {
+            String[] sortParams = sort.split(",");
+            String sortField = sortParams[0];
+            Sort.Direction direction = sortParams.length > 1 && sortParams[1].equalsIgnoreCase("desc") ?
+                    Sort.Direction.DESC : Sort.Direction.ASC;
+            sorting = Sort.by(direction, sortField);
+        } else {
+            // Default sort by name ascending
+            sorting = Sort.by(Sort.Direction.ASC, "name");
+        }
+
+        Pageable pageable = PageRequest.of(page, size, sorting);
+
+        // Use the optimized query that returns lightweight DTOs
+        Page<InventoryItemListDTO> itemsPage = inventoryItemService.findInventoryItemsForListView(
+                companyId, categoryId, search, pageable);
+
+        PageResponseDTO<InventoryItemListDTO> response = new PageResponseDTO<>(
+                itemsPage.getContent(),
+                itemsPage.getTotalElements(),
+                itemsPage.getTotalPages(),
+                itemsPage.getNumber(),
+                itemsPage.getSize(),
+                itemsPage.hasNext(),
+                itemsPage.hasPrevious()
+        );
+
         return ResponseEntity.ok(response);
     }
 }

@@ -5,6 +5,8 @@ import com.rayvision.inventory_management.model.dto.FilterOptionDTO;
 import com.rayvision.inventory_management.repository.CategoryRepository;
 import com.rayvision.inventory_management.repository.CompanyRepository;
 import com.rayvision.inventory_management.service.CategoryService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -81,4 +83,9 @@ public class CategoryServiceImpl implements CategoryService {
         return categoryRepository.findFilterOptions(companyId, search);
     }
 
+    @Override
+    public Page<FilterOptionDTO> findPaginatedFilterOptions(Long companyId, String search, Pageable pageable) {
+        if (search == null) search = "";
+        return categoryRepository.findPaginatedFilterOptions(companyId, search, pageable);
+    }
 }

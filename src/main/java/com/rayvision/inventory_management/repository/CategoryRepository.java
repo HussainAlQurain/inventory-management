@@ -2,6 +2,8 @@ package com.rayvision.inventory_management.repository;
 
 import com.rayvision.inventory_management.model.Category;
 import com.rayvision.inventory_management.model.dto.FilterOptionDTO;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -43,4 +45,13 @@ public interface CategoryRepository extends JpaRepository<Category, Long> {
     List<FilterOptionDTO> findFilterOptions(
             @Param("companyId") Long companyId,
             @Param("search") String search);
+
+    // In CategoryRepository
+    @Query("SELECT new com.rayvision.inventory_management.model.dto.FilterOptionDTO(c.id, c.name) " +
+            "FROM Category c WHERE c.company.id = :companyId " +
+            "AND (:search = '' OR LOWER(c.name) LIKE LOWER(CONCAT('%', :search, '%'))) ")
+    Page<FilterOptionDTO> findPaginatedFilterOptions(
+            @Param("companyId") Long companyId,
+            @Param("search") String search,
+            Pageable pageable);
 }

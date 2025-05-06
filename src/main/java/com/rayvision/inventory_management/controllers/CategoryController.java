@@ -6,6 +6,7 @@ import com.rayvision.inventory_management.model.Category;
 import com.rayvision.inventory_management.model.dto.CategoryCreateDTO;
 import com.rayvision.inventory_management.model.dto.CategoryPartialUpdateDTO;
 import com.rayvision.inventory_management.model.dto.CategoryResponseDTO;
+import com.rayvision.inventory_management.model.dto.FilterOptionDTO;
 import com.rayvision.inventory_management.service.CategoryService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -119,4 +120,13 @@ public class CategoryController {
     }
 
 
+    // Add to CategoryController
+    @GetMapping("/company/{companyId}/filter-options")
+    public ResponseEntity<List<FilterOptionDTO>> getCategoryFilterOptions(
+            @PathVariable Long companyId,
+            @RequestParam(required = false, defaultValue = "") String search) {
+
+        List<FilterOptionDTO> options = categoryService.findFilterOptions(companyId, search);
+        return ResponseEntity.ok(options);
+    }
 }

@@ -1,6 +1,7 @@
 package com.rayvision.inventory_management.service.impl;
 
 import com.rayvision.inventory_management.model.*;
+import com.rayvision.inventory_management.model.dto.FilterOptionDTO;
 import com.rayvision.inventory_management.repository.CategoryRepository;
 import com.rayvision.inventory_management.repository.CompanyRepository;
 import com.rayvision.inventory_management.repository.LocationRepository;
@@ -143,4 +144,15 @@ public class SupplierServiceImpl implements SupplierService {
         return supplierRepository.findByCompanyIdAndId(companyId, id);
     }
 
+    @Override
+    public List<FilterOptionDTO> findFilterOptions(Long companyId, String search) {
+        if (search == null) search = "";
+        return supplierRepository.findFilterOptions(companyId, search);
+    }
+
+    @Override
+    public Page<FilterOptionDTO> findPaginatedFilterOptions(Long companyId, String search, Pageable pageable) {
+        if (search == null) search = "";
+        return supplierRepository.findPaginatedFilterOptions(companyId, search, pageable);
+    }
 }

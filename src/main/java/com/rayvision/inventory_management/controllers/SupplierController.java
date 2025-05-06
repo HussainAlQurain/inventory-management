@@ -442,4 +442,39 @@ public class SupplierController {
         existing.getOrderPhones().addAll(mergedSet);
     }
 
+
+    // Add to SupplierController
+    @GetMapping("/company/{companyId}/filter-options")
+    public ResponseEntity<List<FilterOptionDTO>> getSupplierFilterOptions(
+            @PathVariable Long companyId,
+            @RequestParam(required = false, defaultValue = "") String search) {
+
+        List<FilterOptionDTO> options = supplierService.findFilterOptions(companyId, search);
+        return ResponseEntity.ok(options);
+    }
+
+    @GetMapping("/company/{companyId}/filter-options/paginated")
+    public ResponseEntity<PageResponseDTO<FilterOptionDTO>> getPaginatedSupplierFilterOptions(
+            @PathVariable Long companyId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false, defaultValue = "") String search) {
+
+        Sort sorting = Sort.by(Sort.Direction.ASC, "name");
+        Pageable pageable = PageRequest.of(page, size, sorting);
+
+        Page<FilterOptionDTO> optionsPage = supplierService.findPaginatedFilterOptions(companyId, search, pageable);
+
+        PageResponseDTO<FilterOptionDTO> response = new PageResponseDTO<>(
+                optionsPage.getContent(),
+                optionsPage.getTotalElements(),
+                optionsPage.getTotalPages(),
+                optionsPage.getNumber(),
+                optionsPage.getSize(),
+                optionsPage.hasNext(),
+                optionsPage.hasPrevious()
+        );
+
+        return ResponseEntity.ok(response);
+    }
 }

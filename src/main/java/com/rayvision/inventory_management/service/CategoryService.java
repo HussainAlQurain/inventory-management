@@ -1,6 +1,7 @@
 package com.rayvision.inventory_management.service;
 
 import com.rayvision.inventory_management.model.Category;
+import com.rayvision.inventory_management.model.dto.FilterOptionDTO;
 
 import java.util.List;
 import java.util.Optional;
@@ -13,4 +14,5 @@ public interface CategoryService {
     Category partialUpdate(Long companyId, Category category);
     void deleteCategoryById(Long companyId, Long id);
     List<Category> searchForInventoryItemsOrUnused(Long companyId, String search);
+    List<FilterOptionDTO> findFilterOptions(Long companyId, String search);
 }

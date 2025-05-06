@@ -1,6 +1,7 @@
 package com.rayvision.inventory_management.service;
 
 import com.rayvision.inventory_management.model.Supplier;
+import com.rayvision.inventory_management.model.dto.FilterOptionDTO;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -26,4 +27,8 @@ public interface SupplierService {
      * @return Page of suppliers
      */
     Page<Supplier> findPaginatedSuppliers(Long companyId, String searchTerm, Pageable pageable);
+
+    // Add to SupplierService interface
+    List<FilterOptionDTO> findFilterOptions(Long companyId, String search);
+    Page<FilterOptionDTO> findPaginatedFilterOptions(Long companyId, String search, Pageable pageable);
 }

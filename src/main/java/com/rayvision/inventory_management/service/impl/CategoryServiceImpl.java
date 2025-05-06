@@ -1,6 +1,7 @@
 package com.rayvision.inventory_management.service.impl;
 
 import com.rayvision.inventory_management.model.Category;
+import com.rayvision.inventory_management.model.dto.FilterOptionDTO;
 import com.rayvision.inventory_management.repository.CategoryRepository;
 import com.rayvision.inventory_management.repository.CompanyRepository;
 import com.rayvision.inventory_management.service.CategoryService;
@@ -71,6 +72,13 @@ public class CategoryServiceImpl implements CategoryService {
         // If we want to treat null as empty, do:
         if (search == null) search = "";
         return categoryRepository.searchForInventoryItemsOrUnused(companyId, search);
+    }
+
+    // Add to CategoryServiceImpl
+    @Override
+    public List<FilterOptionDTO> findFilterOptions(Long companyId, String search) {
+        if (search == null) search = "";
+        return categoryRepository.findFilterOptions(companyId, search);
     }
 
 }

@@ -4,6 +4,7 @@ import com.rayvision.inventory_management.mappers.SubRecipeMapper;
 import com.rayvision.inventory_management.model.SubRecipe;
 import com.rayvision.inventory_management.model.dto.SubRecipeCreateDTO;
 import com.rayvision.inventory_management.model.dto.SubRecipeDTO;
+import com.rayvision.inventory_management.model.dto.SubRecipeListDTO;
 import com.rayvision.inventory_management.service.SubRecipeService;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
@@ -105,5 +106,31 @@ public class SubRecipeController {
         } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();
         }
+    }
+
+    @GetMapping("/company/{companyId}/list")
+    public ResponseEntity<Map<String, Object>> getSubRecipesList(
+            @PathVariable Long companyId,
+            @RequestParam(name = "search", required = false, defaultValue = "") String searchTerm,
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size,
+            @RequestParam(name = "sort", defaultValue = "name") String sortBy,
+            @RequestParam(name = "direction", defaultValue = "asc") String direction
+    ) {
+        Sort.Direction sortDirection = direction.equalsIgnoreCase("desc") ?
+                Sort.Direction.DESC : Sort.Direction.ASC;
+
+        Pageable pageable = PageRequest.of(page, size, Sort.by(sortDirection, sortBy));
+        Page<SubRecipeListDTO> pageResults = subRecipeService.searchSubRecipesLight(companyId, searchTerm, pageable);
+
+        List<SubRecipeListDTO> dtoList = pageResults.getContent();
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("items", dtoList);
+        response.put("currentPage", pageResults.getNumber());
+        response.put("totalItems", pageResults.getTotalElements());
+        response.put("totalPages", pageResults.getTotalPages());
+
+        return ResponseEntity.ok(response);
     }
 }

@@ -4,6 +4,7 @@ import com.rayvision.inventory_management.exceptions.ResourceNotFoundException;
 import com.rayvision.inventory_management.model.*;
 import com.rayvision.inventory_management.model.dto.SubRecipeCreateDTO;
 import com.rayvision.inventory_management.model.dto.SubRecipeLineDTO;
+import com.rayvision.inventory_management.model.dto.SubRecipeListDTO;
 import com.rayvision.inventory_management.repository.*;
 import com.rayvision.inventory_management.service.SubRecipeService;
 import org.springframework.data.domain.Page;
@@ -330,4 +331,8 @@ public class SubRecipeServiceImpl implements SubRecipeService {
         return subRecipeRepository.searchSubRecipes(companyId, searchTerm, pageable);
     }
 
+    @Override
+    public Page<SubRecipeListDTO> searchSubRecipesLight(Long companyId, String searchTerm, Pageable pageable) {
+        return subRecipeRepository.searchSubRecipesLight(companyId, searchTerm, pageable);
+    }
 }

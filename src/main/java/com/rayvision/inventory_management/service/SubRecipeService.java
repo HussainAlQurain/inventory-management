@@ -2,6 +2,7 @@ package com.rayvision.inventory_management.service;
 
 import com.rayvision.inventory_management.model.SubRecipe;
 import com.rayvision.inventory_management.model.dto.SubRecipeCreateDTO;
+import com.rayvision.inventory_management.model.dto.SubRecipeListDTO;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -46,4 +47,6 @@ public interface SubRecipeService {
      * @return Page of sub-recipes
      */
     Page<SubRecipe> searchSubRecipes(Long companyId, String searchTerm, Pageable pageable);
+
+    Page<SubRecipeListDTO> searchSubRecipesLight(Long companyId, String searchTerm, Pageable pageable);
 }

@@ -1,5 +1,6 @@
 package com.rayvision.inventory_management.controllers;
 
+import com.rayvision.inventory_management.enums.SubRecipeType;
 import com.rayvision.inventory_management.mappers.SubRecipeMapper;
 import com.rayvision.inventory_management.model.SubRecipe;
 import com.rayvision.inventory_management.model.dto.SubRecipeCreateDTO;
@@ -109,28 +110,29 @@ public class SubRecipeController {
     }
 
     @GetMapping("/company/{companyId}/list")
-    public ResponseEntity<Map<String, Object>> getSubRecipesList(
+    public ResponseEntity<Map<String,Object>> list(
             @PathVariable Long companyId,
-            @RequestParam(name = "search", required = false, defaultValue = "") String searchTerm,
-            @RequestParam(name = "page", defaultValue = "0") int page,
-            @RequestParam(name = "size", defaultValue = "10") int size,
-            @RequestParam(name = "sort", defaultValue = "name") String sortBy,
-            @RequestParam(name = "direction", defaultValue = "asc") String direction
-    ) {
-        Sort.Direction sortDirection = direction.equalsIgnoreCase("desc") ?
-                Sort.Direction.DESC : Sort.Direction.ASC;
+            @RequestParam(defaultValue = "")     String search,
+            @RequestParam(required = false)      Long   categoryId,
+            @RequestParam(required = false) SubRecipeType type,
+            @RequestParam(defaultValue = "0")    int page,
+            @RequestParam(defaultValue = "10")   int size,
+            @RequestParam(defaultValue = "name") String sort,
+            @RequestParam(defaultValue = "asc")  String direction) {
 
-        Pageable pageable = PageRequest.of(page, size, Sort.by(sortDirection, sortBy));
-        Page<SubRecipeListDTO> pageResults = subRecipeService.searchSubRecipesLight(companyId, searchTerm, pageable);
+        Pageable pageable = PageRequest.of(
+                page, size,
+                direction.equalsIgnoreCase("desc") ? Sort.Direction.DESC : Sort.Direction.ASC,
+                sort);
 
-        List<SubRecipeListDTO> dtoList = pageResults.getContent();
+        Page<SubRecipeListDTO> slice =
+                subRecipeService.searchSubRecipesLight(companyId, search, categoryId, type, pageable);
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("items", dtoList);
-        response.put("currentPage", pageResults.getNumber());
-        response.put("totalItems", pageResults.getTotalElements());
-        response.put("totalPages", pageResults.getTotalPages());
-
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(Map.of(
+                "items",       slice.getContent(),
+                "currentPage", slice.getNumber(),
+                "totalItems",  slice.getTotalElements(),
+                "totalPages",  slice.getTotalPages()));
     }
+
 }

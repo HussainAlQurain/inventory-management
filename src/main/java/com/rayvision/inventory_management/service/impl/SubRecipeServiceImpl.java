@@ -1,5 +1,6 @@
 package com.rayvision.inventory_management.service.impl;
 
+import com.rayvision.inventory_management.enums.SubRecipeType;
 import com.rayvision.inventory_management.exceptions.ResourceNotFoundException;
 import com.rayvision.inventory_management.model.*;
 import com.rayvision.inventory_management.model.dto.SubRecipeCreateDTO;
@@ -7,6 +8,7 @@ import com.rayvision.inventory_management.model.dto.SubRecipeLineDTO;
 import com.rayvision.inventory_management.model.dto.SubRecipeListDTO;
 import com.rayvision.inventory_management.repository.*;
 import com.rayvision.inventory_management.service.SubRecipeService;
+import jakarta.persistence.EntityNotFoundException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -331,8 +333,24 @@ public class SubRecipeServiceImpl implements SubRecipeService {
         return subRecipeRepository.searchSubRecipes(companyId, searchTerm, pageable);
     }
 
-    @Override
-    public Page<SubRecipeListDTO> searchSubRecipesLight(Long companyId, String searchTerm, Pageable pageable) {
-        return subRecipeRepository.searchSubRecipesLight(companyId, searchTerm, pageable);
+    public Page<SubRecipeListDTO> searchSubRecipesLight(
+            Long companyId,
+            String search,
+            Long categoryId,
+            SubRecipeType type,
+            Pageable pageable) {
+
+        // null-out empty inputs
+        String safeSearch = (search == null) ? "" : search.trim();   // never null
+        Long   c = (categoryId == null || categoryId == 0)  ? null : categoryId;
+        SubRecipeType t = type;
+
+        return subRecipeRepository.findGridSlice(companyId, safeSearch, c, t, pageable);
     }
+
+    public SubRecipe getFull(Long companyId, Long id) {
+        return subRecipeRepository.findByCompanyIdAndId(companyId, id)
+                .orElseThrow(() -> new EntityNotFoundException("Sub-recipe not found"));
+    }
+
 }

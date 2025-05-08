@@ -1,5 +1,6 @@
 package com.rayvision.inventory_management.service;
 
+import com.rayvision.inventory_management.enums.SubRecipeType;
 import com.rayvision.inventory_management.model.SubRecipe;
 import com.rayvision.inventory_management.model.dto.SubRecipeCreateDTO;
 import com.rayvision.inventory_management.model.dto.SubRecipeListDTO;
@@ -48,5 +49,12 @@ public interface SubRecipeService {
      */
     Page<SubRecipe> searchSubRecipes(Long companyId, String searchTerm, Pageable pageable);
 
-    Page<SubRecipeListDTO> searchSubRecipesLight(Long companyId, String searchTerm, Pageable pageable);
+    Page<SubRecipeListDTO> searchSubRecipesLight(
+            Long companyId,
+            String search,
+            Long categoryId,
+            SubRecipeType type,
+            Pageable pageable);
+
+    SubRecipe getFull(Long companyId, Long id);
 }

@@ -15,6 +15,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -135,6 +137,12 @@ public class UserService {
 
         // Fetch all users in a single query
         return userRepository.findAllById(userIds);
+    }
+
+    public Page<Users> findUsersByCompanyIdPaginated(Long companyId, String search, Pageable pageable) {
+        // Normalize search term - empty or blank search should be treated as null
+        String searchTerm = (search == null || search.isBlank()) ? null : search;
+        return userRepository.findByCompanyIdWithSearch(companyId, searchTerm, pageable);
     }
 
     public void assignRole(Users assigningUser, Users targetUser, userRoles roleToAssign) {

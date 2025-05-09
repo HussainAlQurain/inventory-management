@@ -15,6 +15,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
 import java.util.List;
 
@@ -137,5 +141,29 @@ public class UserController {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("{\"error\": \"Authentication failed\"}");
         }
+    }
+
+    /**
+     * Get paginated users for a company with optional search term
+     */
+    @GetMapping("/companies/{companyId}/paginated")
+    public ResponseEntity<Page<UserResponseDTO>> getPaginatedUsersByCompany(
+            @PathVariable Long companyId,
+            @RequestParam(required = false) String search,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "lastName,asc") String sort) {
+        
+        String[] sortParams = sort.split(",");
+        String sortField = sortParams[0];
+        Sort.Direction direction = sortParams.length > 1 && sortParams[1].equalsIgnoreCase("desc") ? 
+                Sort.Direction.DESC : Sort.Direction.ASC;
+        
+        Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortField));
+        
+        Page<Users> usersPage = userService.findUsersByCompanyIdPaginated(companyId, search, pageable);
+        Page<UserResponseDTO> responsePage = usersPage.map(userResponseMapper::toDto);
+        
+        return ResponseEntity.ok(responsePage);
     }
 }

@@ -2,10 +2,15 @@ package com.rayvision.inventory_management.controllers;
 
 import com.rayvision.inventory_management.mappers.TransferMapper;
 import com.rayvision.inventory_management.model.Transfer;
+import com.rayvision.inventory_management.model.dto.PageResponseDTO;
 import com.rayvision.inventory_management.model.dto.TransferCreateDTO;
 import com.rayvision.inventory_management.model.dto.TransferDTO;
 import com.rayvision.inventory_management.model.dto.TransferLineDTO;
 import com.rayvision.inventory_management.service.TransferService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -107,4 +112,107 @@ public class TransferController {
         Transfer t = transferService.updateDraft(id, lines, actingLocationId);
         return transferMapper.toDto(t);
     }
+
+
+    /* ─────────────────────────── PAGINATED LISTS (Company) ─────────────────── */
+
+    /**
+     * Draft / sent transfers **leaving** any location that belongs to the company,
+     * optionally narrowed to one location.
+     */
+    @GetMapping("/company/{compId}/outgoing/paginated")
+    public PageResponseDTO<TransferDTO> paginatedOutgoingByCompany(
+            @PathVariable                       Long    compId,
+            @RequestParam(defaultValue = "0")    int     page,
+            @RequestParam(defaultValue = "10")   int     size,
+            @RequestParam(required = false)      String  search,
+            @RequestParam(defaultValue = "creationDate,desc")
+            String  sort,
+            @RequestParam(required = false)      Long    locationId) {
+
+        Pageable pageable  = pageable(sort, page, size);
+
+        Page<Transfer> slice = transferService
+                .findOutgoingDraftsByCompanyPaginated(
+                        compId, locationId, search, pageable);
+
+        return toPageDto(slice);
+    }
+
+    /**
+     * Draft / sent transfers **incoming** to a location that belongs to the
+     * company, optionally narrowed to one location.
+     */
+    @GetMapping("/company/{compId}/incoming/paginated")
+    public PageResponseDTO<TransferDTO> paginatedIncomingByCompany(
+            @PathVariable                       Long    compId,
+            @RequestParam(defaultValue = "0")    int     page,
+            @RequestParam(defaultValue = "10")   int     size,
+            @RequestParam(required = false)      String  search,
+            @RequestParam(defaultValue = "creationDate,desc")
+            String  sort,
+            @RequestParam(required = false)      Long    locationId) {
+
+        Pageable pageable  = pageable(sort, page, size);
+
+        Page<Transfer> slice = transferService
+                .findIncomingDraftsByCompanyPaginated(
+                        compId, locationId, search, pageable);
+
+        return toPageDto(slice);
+    }
+
+    /**
+     * **Completed** transfers for the company.<br>
+     * If <code>locationId</code> is supplied you can further decide whether you
+     * want transfers that started **from** that location or those that were
+     * received **into** it by toggling <code>fromLocation=true|false</code>.
+     */
+    @GetMapping("/company/{compId}/completed/paginated")
+    public PageResponseDTO<TransferDTO> paginatedCompletedByCompany(
+            @PathVariable                       Long    compId,
+            @RequestParam(defaultValue = "0")    int     page,
+            @RequestParam(defaultValue = "10")   int     size,
+            @RequestParam(required = false)      String  search,
+            @RequestParam(defaultValue = "completionDate,desc")
+            String  sort,
+            @RequestParam(required = false)      Long    locationId,
+            @RequestParam(defaultValue = "false")
+            boolean fromLocation) {
+
+        Pageable pageable  = pageable(sort, page, size);
+
+        Page<Transfer> slice = transferService
+                .findCompletedTransfersByCompanyPaginated(
+                        compId, locationId, fromLocation, search, pageable);
+
+        return toPageDto(slice);
+    }
+
+    /* ────────────────────────────────────────────────────────────────────────── */
+
+    private Pageable pageable(String sort, int page, int size) {
+        /* "field,direction"  →  Sort object  */
+        String[] split   = sort.split(",");
+        String   field   = split[0];
+        Sort.Direction dir =
+                split.length > 1 && split[1].equalsIgnoreCase("desc")
+                        ? Sort.Direction.DESC
+                        : Sort.Direction.ASC;
+
+        return PageRequest.of(page, size, Sort.by(dir, field));
+    }
+
+
+    private PageResponseDTO<TransferDTO> toPageDto(Page<Transfer> slice) {
+        return new PageResponseDTO<>(
+                slice.getContent().stream().map(transferMapper::toDto).toList(),
+                slice.getTotalElements(),
+                slice.getTotalPages(),
+                slice.getNumber(),
+                slice.getSize(),
+                slice.hasNext(),
+                slice.hasPrevious());
+    }
+
 }

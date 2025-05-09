@@ -3,6 +3,8 @@ package com.rayvision.inventory_management.repository;
 import com.rayvision.inventory_management.enums.TransferStatus;
 import com.rayvision.inventory_management.model.Transfer;
 import com.rayvision.inventory_management.model.Users;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -86,7 +88,7 @@ public interface TransferRepository extends JpaRepository<Transfer, Long> {
            SUM(tl.quantity)
     FROM   Transfer t
     JOIN   t.lines tl
-    WHERE  t.status IN ('DRAFT','SENT')
+    WHERE  t.status IN (com.rayvision.inventory_management.enums.TransferStatus.DRAFT,com.rayvision.inventory_management.enums.TransferStatus.SENT)
     GROUP  BY tl.inventoryItem.id, t.fromLocation.id
     """)
     List<Object[]> getOutgoingQty();
@@ -100,7 +102,7 @@ public interface TransferRepository extends JpaRepository<Transfer, Long> {
            SUM(tl.quantity)
     FROM   Transfer t
     JOIN   t.lines tl
-    WHERE  t.status IN ('DRAFT','SENT')
+    WHERE  t.status IN (com.rayvision.inventory_management.enums.TransferStatus.DRAFT,com.rayvision.inventory_management.enums.TransferStatus.SENT)
     GROUP  BY tl.inventoryItem.id, t.toLocation.id
     """)
     List<Object[]> getIncomingQty();
@@ -127,4 +129,106 @@ public interface TransferRepository extends JpaRepository<Transfer, Long> {
     AND (t.fromLocation.company.id = :companyId OR t.toLocation.company.id = :companyId)
     """)
     List<Transfer> findAllByCompanyAndStatusAndCreatedByUser(Long companyId, TransferStatus status, Users user);
+
+
+    /* =================================================================== */
+    /* 3.  By-location (from)                                              */
+    /* =================================================================== */
+    @Query("""
+SELECT t FROM Transfer t
+JOIN  t.fromLocation fl
+JOIN  t.toLocation   tl
+WHERE fl.id    = :locationId
+  AND t.status = :status
+  AND ( :searchTerm IS NULL
+        OR fl.name ILIKE CONCAT('%', CAST(:searchTerm AS string), '%')
+        OR tl.name ILIKE CONCAT('%', CAST(:searchTerm AS string), '%')
+        OR CAST(t.id AS string) ILIKE CONCAT('%', CAST(:searchTerm AS string), '%') )
+""")
+    Page<Transfer> findByFromLocationIdAndStatusPaginated(
+            @Param("locationId") Long locationId,
+            @Param("status")      TransferStatus status,
+            @Param("searchTerm")  String searchTerm,
+            Pageable pageable);
+
+    /* =================================================================== */
+    /* 4.  By-location (to)                                                */
+    /* =================================================================== */
+    @Query("""
+SELECT t FROM Transfer t
+JOIN  t.fromLocation fl
+JOIN  t.toLocation   tl
+WHERE tl.id    = :locationId
+  AND t.status = :status
+  AND ( :searchTerm IS NULL
+        OR fl.name ILIKE CONCAT('%', CAST(:searchTerm AS string), '%')
+        OR tl.name ILIKE CONCAT('%', CAST(:searchTerm AS string), '%')
+        OR CAST(t.id AS string) ILIKE CONCAT('%', CAST(:searchTerm AS string), '%') )
+""")
+    Page<Transfer> findByToLocationIdAndStatusPaginated(
+            @Param("locationId") Long locationId,
+            @Param("status")      TransferStatus status,
+            @Param("searchTerm")  String searchTerm,
+            Pageable pageable);
+
+    /* =================================================================== */
+    /* 1.  Outgoing drafts (whole company)                                 */
+    /* =================================================================== */
+    @Query("""
+SELECT t FROM Transfer t
+JOIN  t.fromLocation fl
+JOIN  t.toLocation   tl
+WHERE fl.company.id = :companyId
+  AND t.status       = :status
+  AND ( :searchTerm IS NULL
+        OR fl.name ILIKE CONCAT('%', CAST(:searchTerm AS string), '%')
+        OR tl.name ILIKE CONCAT('%', CAST(:searchTerm AS string), '%')
+        OR CAST(t.id AS string) ILIKE CONCAT('%', CAST(:searchTerm AS string), '%') )
+""")
+    Page<Transfer> findOutgoingDraftsByCompanyPaginated(
+            @Param("companyId")   Long companyId,
+            @Param("status")      TransferStatus status,
+            @Param("searchTerm")  String searchTerm,
+            Pageable pageable);
+
+    /* =================================================================== */
+    /* 2.  Incoming drafts (whole company)                                 */
+    /* =================================================================== */
+    @Query("""
+SELECT t FROM Transfer t
+JOIN  t.fromLocation fl
+JOIN  t.toLocation   tl
+WHERE tl.company.id = :companyId
+  AND t.status       = :status
+  AND ( :searchTerm IS NULL
+        OR fl.name ILIKE CONCAT('%', CAST(:searchTerm AS string), '%')
+        OR tl.name ILIKE CONCAT('%', CAST(:searchTerm AS string), '%')
+        OR CAST(t.id AS string) ILIKE CONCAT('%', CAST(:searchTerm AS string), '%') )
+""")
+    Page<Transfer> findIncomingDraftsByCompanyPaginated(
+            @Param("companyId")   Long companyId,
+            @Param("status")      TransferStatus status,
+            @Param("searchTerm")  String searchTerm,
+            Pageable pageable);
+
+    /* =================================================================== */
+    /* 5.  Completed transfers (whole company)                             */
+    /* =================================================================== */
+    @Query("""
+SELECT t FROM Transfer t
+JOIN  t.fromLocation fl
+JOIN  t.toLocation   tl
+WHERE ( fl.company.id = :companyId OR tl.company.id = :companyId )
+  AND t.status       = :status
+  AND ( :searchTerm IS NULL
+        OR fl.name ILIKE CONCAT('%', CAST(:searchTerm AS string), '%')
+        OR tl.name ILIKE CONCAT('%', CAST(:searchTerm AS string), '%')
+        OR CAST(t.id AS string) ILIKE CONCAT('%', CAST(:searchTerm AS string), '%') )
+""")
+    Page<Transfer> findCompletedTransfersByCompanyPaginated(
+            @Param("companyId")   Long companyId,
+            @Param("status")      TransferStatus status,
+            @Param("searchTerm")  String searchTerm,
+            Pageable pageable);
+
 }

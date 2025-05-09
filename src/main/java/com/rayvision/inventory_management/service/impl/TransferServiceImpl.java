@@ -7,6 +7,8 @@ import com.rayvision.inventory_management.model.dto.TransferLineDTO;
 import com.rayvision.inventory_management.repository.*;
 import com.rayvision.inventory_management.service.StockTransactionService;
 import com.rayvision.inventory_management.service.TransferService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -387,5 +389,41 @@ public class TransferServiceImpl implements TransferService {
         return transferRepository.save(draft);
     }
 
+    @Override
+    public Page<Transfer> findOutgoingDraftsByCompanyPaginated(Long companyId, Long locationId, String searchTerm, Pageable pageable) {
+        if (locationId != null) {
+            // Filter by specific location
+            return transferRepository.findByFromLocationIdAndStatusPaginated(locationId, TransferStatus.DRAFT, searchTerm, pageable);
+        } else {
+            // Get for entire company
+            return transferRepository.findOutgoingDraftsByCompanyPaginated(companyId, TransferStatus.DRAFT, searchTerm, pageable);
+        }
+    }
+
+    @Override
+    public Page<Transfer> findIncomingDraftsByCompanyPaginated(Long companyId, Long locationId, String searchTerm, Pageable pageable) {
+        if (locationId != null) {
+            // Filter by specific location
+            return transferRepository.findByToLocationIdAndStatusPaginated(locationId, TransferStatus.DRAFT, searchTerm, pageable);
+        } else {
+            // Get for entire company
+            return transferRepository.findIncomingDraftsByCompanyPaginated(companyId, TransferStatus.DRAFT, searchTerm, pageable);
+        }
+    }
+
+    @Override
+    public Page<Transfer> findCompletedTransfersByCompanyPaginated(Long companyId, Long locationId, boolean fromLocation, String searchTerm, Pageable pageable) {
+        if (locationId != null) {
+            // Filter by specific location
+            if (fromLocation) {
+                return transferRepository.findByFromLocationIdAndStatusPaginated(locationId, TransferStatus.COMPLETED, searchTerm, pageable);
+            } else {
+                return transferRepository.findByToLocationIdAndStatusPaginated(locationId, TransferStatus.COMPLETED, searchTerm, pageable);
+            }
+        } else {
+            // Get for entire company
+            return transferRepository.findCompletedTransfersByCompanyPaginated(companyId, TransferStatus.COMPLETED, searchTerm, pageable);
+        }
+    }
 
 }

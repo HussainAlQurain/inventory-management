@@ -108,3 +108,4 @@ private LocalDateTime lastModifiedDate;
 ### Bugs
 
 - Frontend in purchase option modal, when opening ordering uom it doesnt load at first when it is blank.
+- Fix assortment loading forever

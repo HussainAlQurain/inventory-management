@@ -4,6 +4,8 @@ import com.rayvision.inventory_management.model.Transfer;
 import com.rayvision.inventory_management.model.dto.TransferCreateDTO;
 import com.rayvision.inventory_management.model.dto.TransferLineDTO;
 import com.rayvision.inventory_management.service.impl.RedistributeJob;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 
@@ -37,4 +39,16 @@ public interface TransferService {
                                   List<RedistributeJob.ShortLine> lines,
                                   String comment);
 
+    /* ───── TransferService */
+    Page<Transfer> findOutgoingDraftsByCompanyPaginated(
+            Long companyId, Long locationId,
+            String searchTerm, Pageable pageable);
+
+    Page<Transfer> findIncomingDraftsByCompanyPaginated(
+            Long companyId, Long locationId,
+            String searchTerm, Pageable pageable);
+
+    Page<Transfer> findCompletedTransfersByCompanyPaginated(
+            Long companyId, Long locationId, boolean fromLocation,
+            String searchTerm, Pageable pageable);
 }

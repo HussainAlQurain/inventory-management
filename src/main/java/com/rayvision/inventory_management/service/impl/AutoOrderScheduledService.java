@@ -587,7 +587,7 @@ public class AutoOrderScheduledService {
         }
     }
     
-    @Transactional
+    @Transactional(readOnly = true)
     public void updateDraftOrder(
             AutoOrderSetting setting,
             Long companyId,
@@ -598,11 +598,10 @@ public class AutoOrderScheduledService {
     ) {
         log.info("Updating existing draft order ID: {}", detachedDraft.getId());
         try {
-            // ---- re-attach once, right at the top ----
-            Orders draft = orderRepository.findById(detachedDraft.getId())
-                                       .orElseThrow(() ->
-                                           new RuntimeException("Draft not found"));
-    
+            Orders draft = orderRepository.findByIdWithItems(detachedDraft.getId())
+                    .orElseThrow(() ->
+                            new RuntimeException("Draft not found"));
+
             // Initialize the items collection so the next service doesn't need to do it again
             draft.getOrderItems().size();
 

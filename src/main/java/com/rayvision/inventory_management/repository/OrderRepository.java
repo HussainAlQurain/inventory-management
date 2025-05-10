@@ -150,4 +150,14 @@ public interface OrderRepository extends JpaRepository<Orders, Long>, JpaSpecifi
     """)
     List<Orders> findAllSystemDraftsByLocation(@Param("locationId") Long locationId,
                                               @Param("systemUserId") Long systemUserId);
+
+
+    @Query("""
+    SELECT o
+    FROM   Orders o
+    LEFT   JOIN FETCH o.orderItems i
+    WHERE  o.id = :id
+    """)
+    Optional<Orders> findByIdWithItems(Long id);
+
 }

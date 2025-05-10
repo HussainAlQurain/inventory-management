@@ -14,7 +14,10 @@ import com.rayvision.inventory_management.service.MenuItemService;
 import com.rayvision.inventory_management.service.SubRecipeService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.BeansException;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.ApplicationContextAware;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -33,7 +36,7 @@ import java.util.stream.Collectors;
 
 @Configuration
 @Profile("!test") // Don't run during tests
-public class DataInitializerConfig implements CommandLineRunner {
+public class DataInitializerConfig implements CommandLineRunner, ApplicationContextAware {
 
     private static final Logger log = LoggerFactory.getLogger(DataInitializerConfig.class);
     private static final int NUM_SUPPLIERS = 1000;
@@ -69,6 +72,11 @@ public class DataInitializerConfig implements CommandLineRunner {
     private final Random random = ThreadLocalRandom.current();
     private final PlatformTransactionManager transactionManager;
     private final TransactionTemplate transactionTemplate;
+    private final AutoOrderSettingRepository autoOrderSettingRepository;
+    private final AutoRedistributeSettingRepository autoRedistributeSettingRepository;
+    private final LocationIntegrationSettingRepository locationIntegrationSettingRepository;
+
+    private ApplicationContext applicationContext;
 
     public DataInitializerConfig(CompanyRepository companyRepository,
                                  LocationRepository locationRepository,
@@ -86,7 +94,10 @@ public class DataInitializerConfig implements CommandLineRunner {
                                  SubRecipeService subRecipeService,
                                  MenuItemService menuItemService,
                                  PasswordEncoder passwordEncoder,
-                                 PlatformTransactionManager transactionManager) { // Add transactionManager
+                                 PlatformTransactionManager transactionManager,
+                                 AutoOrderSettingRepository autoOrderSettingRepository,
+                                 AutoRedistributeSettingRepository autoRedistributeSettingRepository,
+                                 LocationIntegrationSettingRepository locationIntegrationSettingRepository) {
         this.companyRepository = companyRepository;
         this.locationRepository = locationRepository;
         this.categoryService = categoryService;
@@ -103,9 +114,17 @@ public class DataInitializerConfig implements CommandLineRunner {
         this.subRecipeService = subRecipeService;
         this.menuItemService = menuItemService;
         this.passwordEncoder = passwordEncoder;
-        this.transactionManager = transactionManager; // Assign transactionManager
-        this.transactionTemplate = new TransactionTemplate(transactionManager); // Initialize transactionTemplate
-        this.transactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW); // Ensure find runs in new transaction
+        this.transactionManager = transactionManager;
+        this.transactionTemplate = new TransactionTemplate(transactionManager);
+        this.transactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        this.autoOrderSettingRepository = autoOrderSettingRepository;
+        this.autoRedistributeSettingRepository = autoRedistributeSettingRepository;
+        this.locationIntegrationSettingRepository = locationIntegrationSettingRepository;
+    }
+
+    @Override
+    public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
+        this.applicationContext = applicationContext;
     }
 
     @Override
@@ -115,7 +134,7 @@ public class DataInitializerConfig implements CommandLineRunner {
 
         // First, initialize core system data that was previously in data.sql
         initializeCoreSystemData();
-        
+
         // Check if a specific category exists for Company 1 to prevent re-initialization
         boolean alreadyInitialized = categoryRepository.findByCompanyId(COMPANY_ID)
                 .stream()
@@ -163,50 +182,59 @@ public class DataInitializerConfig implements CommandLineRunner {
 
     public void initializeCoreSystemData() {
         log.info("Initializing core system data...");
-        
+
         // 1. Create all roles (method remains @Transactional)
         initializeRoles();
-        
+
         // 2. Create admin user (method remains @Transactional)
         Users admin = initializeAdminUser();
-        
+
         // 3. Create system user (method remains @Transactional)
         Users systemUser = initializeSystemUser();
-        
+
         // 4. Create company (method remains @Transactional)
         Company company = initializeCompany();
-        
+
         // 5. Create default location (method remains @Transactional)
         Location defaultLocation = initializeDefaultLocation(company);
-        
+
         // 6. Link admin user to roles (method remains @Transactional)
         initializeAdminUserRoles(admin);
-        
+
         // 7. Link system user to roles (method remains @Transactional)
         initializeSystemUserRoles(systemUser);
-        
+
         // 8. Link admin user to company (method remains @Transactional)
         initializeCompanyUser(admin, company);
-        
+
         // 9. Link admin user to default location (method remains @Transactional)
         initializeLocationUser(admin, defaultLocation);
-        
+
+        // 10. Initialize auto-order settings for 50 locations
+        initializeAutoOrderSettings(company.getId(), systemUser.getId());
+
+        // 11. Initialize auto-redistribute setting for the company
+        initializeAutoRedistributeSetting(company.getId());
+
+        // 12. Initialize integration settings for 50 locations
+        initializeLocationIntegrationSettings(company.getId());
+
         log.info("Core system data initialization completed");
     }
-    
+
     @Transactional
     public void initializeRoles() {
         log.info("Initializing roles...");
-        
+
         List<userRoles> requiredRoles = List.of(
-            userRoles.ROLE_USER,
-            userRoles.ROLE_STAFF,
-            userRoles.ROLE_MANAGER,
-            userRoles.ROLE_ADMIN,
-            userRoles.ROLE_SUPER_ADMIN,
-            userRoles.ROLE_SYSTEM_ADMIN
+                userRoles.ROLE_USER,
+                userRoles.ROLE_STAFF,
+                userRoles.ROLE_MANAGER,
+                userRoles.ROLE_ADMIN,
+                userRoles.ROLE_SUPER_ADMIN,
+                userRoles.ROLE_SYSTEM_ADMIN
         );
-        
+
         for (userRoles roleName : requiredRoles) {
             if (roleRepository.findByName(roleName) == null) {
                 Role role = new Role();
@@ -218,11 +246,11 @@ public class DataInitializerConfig implements CommandLineRunner {
             }
         }
     }
-    
+
     @Transactional
     public Users initializeAdminUser() {
         log.info("Initializing admin user...");
-        
+
         Optional<Users> adminOpt = userRepository.findByUsername("admin");
         if (adminOpt.isEmpty()) {
             Users admin = new Users();
@@ -242,7 +270,7 @@ public class DataInitializerConfig implements CommandLineRunner {
             return adminOpt.get();
         }
     }
-    
+
     @Transactional
     public Users initializeSystemUser() {
         log.info("Initializing system user...");
@@ -274,7 +302,7 @@ public class DataInitializerConfig implements CommandLineRunner {
         } catch (DataIntegrityViolationException e) {
             // Catch potential unique constraint violation (username)
             log.warn("DataIntegrityViolationException during system user creation (username: {}), likely race condition. Fetching existing.",
-                     SYSTEM_USERNAME, e);
+                    SYSTEM_USERNAME, e);
 
             // If save fails due to conflict, fetch it by username in a NEW transaction
             // Add retries just in case of visibility delays
@@ -285,7 +313,7 @@ public class DataInitializerConfig implements CommandLineRunner {
                         log.info("Retrying fetch for system user (username: {}) attempt {}", SYSTEM_USERNAME, i + 1);
                     }
                     Optional<Users> userAfterConflict = transactionTemplate.execute(status ->
-                        userRepository.findByUsername(SYSTEM_USERNAME)
+                            userRepository.findByUsername(SYSTEM_USERNAME)
                     );
                     if (userAfterConflict.isPresent()) {
                         log.info("Successfully fetched system user (username: {}) after conflict on attempt {}", SYSTEM_USERNAME, i + 1);
@@ -301,24 +329,24 @@ public class DataInitializerConfig implements CommandLineRunner {
             // If all retries fail, throw the exception
             throw new RuntimeException("Failed to fetch system user (username: " + SYSTEM_USERNAME + ") after data integrity violation and retries.", e);
         } catch (ObjectOptimisticLockingFailureException oolfe) {
-             // Keep handling optimistic lock just in case, though less likely now
-             log.warn("ObjectOptimisticLockingFailureException during system user creation (username: {}), unexpected but handling. Fetching existing.",
-                      SYSTEM_USERNAME, oolfe);
-             // Fetch by username in a new transaction
-             return transactionTemplate.execute(status ->
-                 userRepository.findByUsername(SYSTEM_USERNAME)
-                     .orElseThrow(() -> new RuntimeException("Failed to fetch system user (username: " + SYSTEM_USERNAME + ") after optimistic lock failure.", oolfe))
-             );
+            // Keep handling optimistic lock just in case, though less likely now
+            log.warn("ObjectOptimisticLockingFailureException during system user creation (username: {}), unexpected but handling. Fetching existing.",
+                    SYSTEM_USERNAME, oolfe);
+            // Fetch by username in a new transaction
+            return transactionTemplate.execute(status ->
+                    userRepository.findByUsername(SYSTEM_USERNAME)
+                            .orElseThrow(() -> new RuntimeException("Failed to fetch system user (username: " + SYSTEM_USERNAME + ") after optimistic lock failure.", oolfe))
+            );
         }
     }
-    
+
     @Transactional
     public Company initializeCompany() {
         log.info("Initializing company...");
-        
+
         Company company = null;
         List<Company> companies = companyRepository.findByName("Company A");
-        
+
         if (companies.isEmpty()) {
             company = new Company();
             company.setName("Company A");
@@ -340,17 +368,17 @@ public class DataInitializerConfig implements CommandLineRunner {
             company = companies.getFirst();
             log.info("Company already exists with ID: {}", company.getId());
         }
-        
+
         return company;
     }
-    
+
     @Transactional
     public Location initializeDefaultLocation(Company company) {
         log.info("Initializing default location for company ID: {}", company.getId());
-        
+
         Location location = null;
         List<Location> locations = locationRepository.findByNameAndCompanyId("Default Location", company.getId());
-        
+
         if (locations.isEmpty()) {
             location = new Location();
             location.setName("Default Location");
@@ -367,78 +395,78 @@ public class DataInitializerConfig implements CommandLineRunner {
             location = locations.get(0);
             log.info("Default location already exists with ID: {}", location.getId());
         }
-        
+
         return location;
     }
-    
+
     @Transactional
     public void initializeAdminUserRoles(Users admin) {
         log.info("Initializing roles for admin user...");
-        
+
         Role userRole = roleRepository.findByName(userRoles.ROLE_USER);
         Role adminRole = roleRepository.findByName(userRoles.ROLE_ADMIN);
         Role superAdminRole = roleRepository.findByName(userRoles.ROLE_SUPER_ADMIN);
-        
+
         Set<Role> currentRoles = admin.getRoles();
         if (currentRoles == null) {
             currentRoles = new HashSet<>();
             admin.setRoles(currentRoles);
         }
-        
+
         if (!currentRoles.contains(userRole)) {
             currentRoles.add(userRole);
             log.info("Added USER role to admin user");
         }
-        
+
         if (!currentRoles.contains(adminRole)) {
             currentRoles.add(adminRole);
             log.info("Added ADMIN role to admin user");
         }
-        
+
         if (!currentRoles.contains(superAdminRole)) {
             currentRoles.add(superAdminRole);
             log.info("Added SUPER_ADMIN role to admin user");
         }
-        
+
         userRepository.save(admin);
     }
-    
+
     @Transactional
     public void initializeSystemUserRoles(Users systemUser) {
         log.info("Initializing roles for system user...");
-        
+
         Role superAdminRole = roleRepository.findByName(userRoles.ROLE_SUPER_ADMIN);
-        
+
         Set<Role> currentRoles = systemUser.getRoles();
         if (currentRoles == null) {
             currentRoles = new HashSet<>();
             systemUser.setRoles(currentRoles);
         }
-        
+
         boolean updated = false;
         if (superAdminRole != null && !currentRoles.contains(superAdminRole)) {
             currentRoles.add(superAdminRole);
             log.info("Added SUPER_ADMIN role to system user");
             updated = true; // Mark as updated if a role was added
         } else if (superAdminRole == null) {
-             log.warn("SUPER_ADMIN role not found, cannot assign to system user.");
+            log.warn("SUPER_ADMIN role not found, cannot assign to system user.");
         }
 
         // Remove the explicit save call. Changes to the managed 'systemUser'
         // will be flushed automatically at transaction commit if 'updated' is true.
         // userRepository.save(systemUser); 
         if (!updated) {
-             log.info("System user roles already up-to-date.");
+            log.info("System user roles already up-to-date.");
         }
     }
-    
+
     @Transactional
     public void initializeCompanyUser(Users admin, Company company) {
         log.info("Linking admin user to company...");
-        
+
         // Check if the association already exists - using the correct method findByCompanyIdAndUserId
         boolean exists = companyUserRepository.findByCompanyIdAndUserId(company.getId(), admin.getId()).isPresent();
-        
+
         if (!exists) {
             CompanyUser companyUser = new CompanyUser();
             companyUser.setCompany(company);
@@ -449,14 +477,14 @@ public class DataInitializerConfig implements CommandLineRunner {
             log.info("Admin user already linked to company");
         }
     }
-    
+
     @Transactional
     public void initializeLocationUser(Users admin, Location location) {
         log.info("Linking admin user to default location...");
-        
+
         // Check if the association already exists
         boolean exists = locationUserRepository.findByLocationIdAndUserId(location.getId(), admin.getId()).isPresent();
-        
+
         if (!exists) {
             LocationUser locationUser = new LocationUser();
             locationUser.setLocation(location);
@@ -741,7 +769,7 @@ public class DataInitializerConfig implements CommandLineRunner {
         }
 
         log.info("Preparing {} inventory items for batch insert...", NUM_INVENTORY_ITEMS);
-        
+
         // Create all items at once for batch insert
         for (int i = 1; i <= NUM_INVENTORY_ITEMS; i++) {
             InventoryItem item = new InventoryItem();
@@ -795,19 +823,19 @@ public class DataInitializerConfig implements CommandLineRunner {
         log.info("Batch saving {} inventory items...", items.size());
         List<InventoryItem> savedItems = inventoryItemRepository.saveAll(items);
         log.info("Successfully saved {} inventory items.", savedItems.size());
-        
+
         // Create Purchase Options in batches
         log.info("Creating purchase options...");
         int batchSize = 100;
         for (int i = 0; i < savedItems.size(); i++) {
             InventoryItem savedItem = savedItems.get(i);
-            
+
             // Get UOMs compatible with the item's base UOM category
             List<UnitOfMeasure> compatibleOrderingUoms = savedItem.getInventoryUom() != null && savedItem.getInventoryUom().getCategory() != null
                     ? uomsByCategory.getOrDefault(savedItem.getInventoryUom().getCategory().getId(), uoms)
                     : uoms;
             if (compatibleOrderingUoms.isEmpty()) compatibleOrderingUoms = uoms; // Ensure list is not empty
-            
+
             // Create Purchase Options
             int numPOs = random.nextInt(1, 4);
             for (int j = 1; j <= numPOs; j++) {
@@ -827,16 +855,16 @@ public class DataInitializerConfig implements CommandLineRunner {
                 po.setMainPurchaseOption(j == 1);
                 allPurchaseOptions.add(po);
             }
-            
+
             // Save purchase options in batches
             if (i % batchSize == batchSize - 1 || i == savedItems.size() - 1) {
-                log.info("Batch saving {} purchase options (items {}-{})...", allPurchaseOptions.size(), Math.max(0, i-batchSize+1), i);
+                log.info("Batch saving {} purchase options (items {}-{})...", allPurchaseOptions.size(), Math.max(0, i - batchSize + 1), i);
                 purchaseOptionRepository.saveAll(allPurchaseOptions);
                 log.info("Successfully saved batch of purchase options.");
                 allPurchaseOptions.clear();  // Clear after saving to free memory
             }
         }
-        
+
         log.info("Completed creating {} Inventory Items with purchase options.", savedItems.size());
         return savedItems;
     }
@@ -1048,5 +1076,107 @@ public class DataInitializerConfig implements CommandLineRunner {
             return null;
         }
         return list.get(random.nextInt(list.size()));
+    }
+
+    @Transactional
+    public void initializeAutoOrderSettings(Long companyId, Long systemUserId) {
+        log.info("Initializing auto-order settings for 50 locations...");
+
+        // Get first 50 locations for the company
+        List<Location> locations = locationRepository.findByCompanyId(companyId)
+                .stream()
+                .limit(50)
+                .collect(Collectors.toList());
+
+        if (locations.isEmpty()) {
+            log.warn("No locations found for company ID: {}. Skipping auto-order settings initialization.", companyId);
+            return;
+        }
+
+        int count = 0;
+        for (Location location : locations) {
+            // Check if setting already exists
+            if (autoOrderSettingRepository.findByLocationId(location.getId()).isPresent()) {
+                log.debug("Auto-order setting already exists for location ID: {}. Updating it.", location.getId());
+            }
+
+            AutoOrderSetting setting = autoOrderSettingRepository.findByLocationId(location.getId())
+                    .orElse(new AutoOrderSetting(null, location, false, 300, null, null, null));
+
+            // Update the setting
+            setting.setEnabled(true);
+            setting.setFrequencySeconds(300); // 5 minutes
+            setting.setSystemUserId(systemUserId);
+            setting.setAutoOrderComment("Auto-generated order for inventory replenishment");
+
+            autoOrderSettingRepository.save(setting);
+            count++;
+        }
+
+        log.info("Initialized auto-order settings for {} locations", count);
+    }
+
+    @Transactional
+    public void initializeAutoRedistributeSetting(Long companyId) {
+        log.info("Initializing auto-redistribute setting for company ID: {}...", companyId);
+
+        Company company = companyRepository.findById(companyId)
+                .orElseThrow(() -> new RuntimeException("Company not found with ID: " + companyId));
+
+        // Check if setting already exists
+        AutoRedistributeSetting setting = autoRedistributeSettingRepository.findByCompanyId(companyId)
+                .orElse(new AutoRedistributeSetting());
+
+        // Set company if it's a new setting
+        if (setting.getCompany() == null) {
+            setting.setCompany(company);
+        }
+
+        // Update the setting
+        setting.setEnabled(true);
+        setting.setFrequencySeconds(300); // 5 minutes
+        setting.setAutoTransferComment("Auto-generated transfer for stock balancing");
+
+        autoRedistributeSettingRepository.save(setting);
+
+        log.info("Initialized auto-redistribute setting for company ID: {}", companyId);
+    }
+
+    @Transactional
+    public void initializeLocationIntegrationSettings(Long companyId) {
+        log.info("Initializing integration settings for 50 locations...");
+
+        // Get first 50 locations for the company
+        List<Location> locations = locationRepository.findByCompanyId(companyId)
+                .stream()
+                .limit(50)
+                .collect(Collectors.toList());
+
+        if (locations.isEmpty()) {
+            log.warn("No locations found for company ID: {}. Skipping integration settings initialization.", companyId);
+            return;
+        }
+
+        int count = 0;
+        for (Location location : locations) {
+            // Base URL for the POS API - update to match the new format
+            String posApiUrl = "http://localhost:8888/api/sales/location/" + location.getId();
+
+            // Check if setting already exists
+            LocationIntegrationSetting setting = locationIntegrationSettingRepository.findByLocationId(location.getId())
+                    .orElse(new LocationIntegrationSetting(null, location, null, 120, false, false,
+                            null, 0, null, 0, null));
+
+            // Update the setting with 120 second frequency (2 minutes) for easier testing
+            setting.setPosApiUrl(posApiUrl);
+            setting.setFrequentSyncSeconds(120); // 2 minutes for faster testing
+            setting.setFrequentSyncEnabled(true);
+            setting.setDailySyncEnabled(true);
+
+            locationIntegrationSettingRepository.save(setting);
+            count++;
+        }
+
+        log.info("Initialized integration settings for {} locations", count);
     }
 }

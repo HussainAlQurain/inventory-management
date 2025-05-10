@@ -36,10 +36,10 @@ public class PosIntegrationService {
 
     /**
      * 1) Frequent job:
-     *    runs every 30s.  We check if it’s time for each location
+     *    runs every 120s.  We check if it’s time for each location
      *    (based on lastFrequentSyncTime + frequentSyncSeconds).
      */
-    @Scheduled(fixedDelay = 30000) // 30 seconds
+    @Scheduled(fixedDelay = 120000) // 120 seconds
     public void frequentSyncTask() {
         List<LocationIntegrationSetting> settings = settingRepo.findAll();
         LocalDateTime now = LocalDateTime.now();
@@ -89,7 +89,7 @@ public class PosIntegrationService {
     }
 
     private void doFrequentSyncForLocation(LocationIntegrationSetting s) {
-        // We decide to fetch only "today’s" sales from POS
+        // We decide to fetch only "today's" sales from POS
         LocalDateTime startOfDay = LocalDate.now().atStartOfDay();
         LocalDateTime end = LocalDateTime.now();
 
@@ -97,27 +97,54 @@ public class PosIntegrationService {
         boolean morePages = true;
 
         while(morePages) {
+            // Format dates properly for URL
+            String startDateStr = startOfDay.toString(); // This formats as ISO 8601
+            String endDateStr = end.toString();
+            
             String url = String.format("%s?startDate=%s&endDate=%s&page=%d&size=50",
                     s.getPosApiUrl(),
-                    startOfDay, // or URLEncoder if needed
-                    end,
+                    startDateStr,
+                    endDateStr,
                     page
             );
-
-            PosSalesPagedResponse response = restTemplate.getForObject(url, PosSalesPagedResponse.class);
-            if (response == null || response.getSales() == null || response.getSales().isEmpty()) {
-                morePages = false;
-            } else {
-                for (PosSaleDTO saleDto : response.getSales()) {
-                    importSale(saleDto);
-                }
-                if (page >= response.getTotalPages() - 1) {
+            
+            System.out.println("Fetching sales from URL: " + url);
+            
+            try {
+                // Get raw response first for debugging
+                String rawResponse = restTemplate.getForObject(url, String.class);
+                System.out.println("Raw API response: " + rawResponse);
+                
+                // Now try to parse it
+                PosSalesPagedResponse response = restTemplate.getForObject(url, PosSalesPagedResponse.class);
+                if (response == null) {
+                    System.out.println("Response is null for location " + s.getLocation().getId());
                     morePages = false;
                 } else {
-                    page++;
+                    System.out.println("Response: totalPages=" + response.getTotalPages() + ", sales=" + (response.getContent() == null ? "null" : response.getContent().size()));
+                    
+                    if (response.getContent() == null || response.getContent().isEmpty()) {
+                        System.out.println("No sales found in response for location " + s.getLocation().getId());
+                        morePages = false;
+                    } else {
+                        System.out.println("Found " + response.getContent().size() + " sales for location " + s.getLocation().getId());
+                        for (PosSaleDTO saleDto : response.getContent()) {
+                            importSale(saleDto);
+                        }
+                        if (page >= response.getTotalPages() - 1) {
+                            morePages = false;
+                        } else {
+                            page++;
+                        }
+                    }
                 }
+            } catch (Exception ex) {
+                System.err.println("Error in doFrequentSyncForLocation: " + ex.getMessage());
+                ex.printStackTrace();
+                morePages = false;
             }
         }
+        
         // if all done => reset page
         s.setLastFrequentPageSynced(0);
         settingRepo.save(s);
@@ -133,26 +160,40 @@ public class PosIntegrationService {
         boolean morePages = true;
 
         while(morePages) {
+            // Format dates properly for URL
+            String startDateStr = start.toString();
+            String endDateStr = end.toString();
+            
             String url = String.format("%s?startDate=%s&endDate=%s&page=%d&size=50",
                     s.getPosApiUrl(),
-                    start,
-                    end,
+                    startDateStr,
+                    endDateStr,
                     page
             );
-            PosSalesPagedResponse response = restTemplate.getForObject(url, PosSalesPagedResponse.class);
-            if (response == null || response.getSales() == null || response.getSales().isEmpty()) {
-                morePages = false;
-            } else {
-                for (PosSaleDTO saleDto : response.getSales()) {
-                    importSale(saleDto);
-                }
-                if (page >= response.getTotalPages() - 1) {
+            
+            System.out.println("Daily sync - Fetching sales from URL: " + url);
+            
+            try {
+                PosSalesPagedResponse response = restTemplate.getForObject(url, PosSalesPagedResponse.class);
+                if (response == null || response.getContent() == null || response.getContent().isEmpty()) {
                     morePages = false;
                 } else {
-                    page++;
+                    for (PosSaleDTO saleDto : response.getContent()) {
+                        importSale(saleDto);
+                    }
+                    if (page >= response.getTotalPages() - 1) {
+                        morePages = false;
+                    } else {
+                        page++;
+                    }
                 }
+            } catch (Exception ex) {
+                System.err.println("Error in doDailySyncForLocation: " + ex.getMessage());
+                ex.printStackTrace();
+                morePages = false;
             }
         }
+        
         // reset page
         s.setLastDailyPageSynced(0);
         s.setLastDailySyncTime(LocalDateTime.now());

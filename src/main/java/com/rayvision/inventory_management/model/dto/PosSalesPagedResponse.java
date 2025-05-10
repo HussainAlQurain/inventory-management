@@ -10,5 +10,5 @@ public class PosSalesPagedResponse {
     private int totalPages;
     private int currentPage;
 
-    private List<PosSaleDTO> sales;
+    private List<PosSaleDTO> content;
 }

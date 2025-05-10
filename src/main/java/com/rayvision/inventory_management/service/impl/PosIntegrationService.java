@@ -108,39 +108,24 @@ public class PosIntegrationService {
                     page
             );
             
-            System.out.println("Fetching sales from URL: " + url);
-            
             try {
-                // Get raw response first for debugging
-                String rawResponse = restTemplate.getForObject(url, String.class);
-                System.out.println("Raw API response: " + rawResponse);
-                
-                // Now try to parse it
+                // Parse the response directly without logging raw data
                 PosSalesPagedResponse response = restTemplate.getForObject(url, PosSalesPagedResponse.class);
-                if (response == null) {
-                    System.out.println("Response is null for location " + s.getLocation().getId());
+                if (response == null || response.getContent() == null || response.getContent().isEmpty()) {
                     morePages = false;
                 } else {
-                    System.out.println("Response: totalPages=" + response.getTotalPages() + ", sales=" + (response.getContent() == null ? "null" : response.getContent().size()));
+                    for (PosSaleDTO saleDto : response.getContent()) {
+                        importSale(saleDto);
+                    }
                     
-                    if (response.getContent() == null || response.getContent().isEmpty()) {
-                        System.out.println("No sales found in response for location " + s.getLocation().getId());
+                    if (page >= response.getTotalPages() - 1) {
                         morePages = false;
                     } else {
-                        System.out.println("Found " + response.getContent().size() + " sales for location " + s.getLocation().getId());
-                        for (PosSaleDTO saleDto : response.getContent()) {
-                            importSale(saleDto);
-                        }
-                        if (page >= response.getTotalPages() - 1) {
-                            morePages = false;
-                        } else {
-                            page++;
-                        }
+                        page++;
                     }
                 }
             } catch (Exception ex) {
-                System.err.println("Error in doFrequentSyncForLocation: " + ex.getMessage());
-                ex.printStackTrace();
+                // Just stop trying with this location if there's an error
                 morePages = false;
             }
         }
@@ -171,8 +156,6 @@ public class PosIntegrationService {
                     page
             );
             
-            System.out.println("Daily sync - Fetching sales from URL: " + url);
-            
             try {
                 PosSalesPagedResponse response = restTemplate.getForObject(url, PosSalesPagedResponse.class);
                 if (response == null || response.getContent() == null || response.getContent().isEmpty()) {
@@ -188,8 +171,6 @@ public class PosIntegrationService {
                     }
                 }
             } catch (Exception ex) {
-                System.err.println("Error in doDailySyncForLocation: " + ex.getMessage());
-                ex.printStackTrace();
                 morePages = false;
             }
         }

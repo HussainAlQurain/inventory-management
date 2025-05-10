@@ -231,4 +231,30 @@ WHERE ( fl.company.id = :companyId OR tl.company.id = :companyId )
             @Param("searchTerm")  String searchTerm,
             Pageable pageable);
 
+
+    /** Incoming qty that **excludes** the lines of a specific draft. */
+    @Query("""
+    SELECT tl.inventoryItem.id, SUM(tl.quantity)
+    FROM   Transfer t
+    JOIN   t.lines tl
+    WHERE  t.toLocation.id = :locationId
+      AND  t.status       <> com.rayvision.inventory_management.enums.TransferStatus.DRAFT
+      AND  t.id           <> :draftId
+    GROUP  BY tl.inventoryItem.id
+    """)
+    List<Object[]> getIncomingQtyExcludingDraft(Long locationId, Long draftId);
+
+    /** Outgoing qty that **excludes** the lines of a specific draft. */
+    @Query("""
+    SELECT tl.inventoryItem.id, SUM(tl.quantity)
+    FROM   Transfer t
+    JOIN   t.lines tl
+    WHERE  t.fromLocation.id = :locationId
+      AND  t.status          <> com.rayvision.inventory_management.enums.TransferStatus.DRAFT
+      AND  t.id              <> :draftId
+    GROUP  BY tl.inventoryItem.id
+    """)
+    List<Object[]> getOutgoingQtyExcludingDraft(Long locationId, Long draftId);
+
+
 }

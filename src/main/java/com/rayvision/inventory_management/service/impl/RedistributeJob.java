@@ -152,30 +152,38 @@ public class RedistributeJob {
         log.info("Auto-redistribute finished for company {}", companyId);
     }
 
-    /* ──────────────────────────────────────────────────────────────
-       Draft cleanup
-       ────────────────────────────────────────────────────────────── */
-    private void cleanupDraftTransfers(long companyId,
+    /**
+     * Delete system-created draft transfers whose quantities are no longer
+     * required to keep the receiver location ≥ PAR (or MIN).
+     *
+     * @param companyId    company we’re cleaning for
+     * @param stillNeeded  routes (fromId,toId) that the current run confirmed
+     */
+    @Transactional(readOnly = true)          // session only for this block
+    public void cleanupDraftTransfers(long companyId,
                                        Map<Pair<Long,Long>,Boolean> stillNeeded) {
 
+        /* 1️⃣  Load all system-user drafts WITH their lines in one query */
         Users sysUser = userRepository.findById(systemUserResolver.getSystemUserId())
                 .orElseThrow(() -> new RuntimeException("System user not found"));
 
-        /* loop over every system-draft for this company … */
-        for (Transfer draft : transferRepo
-                .findAllByCompanyAndStatusAndCreatedByUser(companyId, TransferStatus.DRAFT, sysUser)) {
+        List<Transfer> drafts = transferRepo.findDraftsWithLines(
+                companyId, TransferStatus.DRAFT, sysUser);
+
+        /* 2️⃣  Evaluate each draft */
+        for (Transfer draft : drafts) {
 
             Pair<Long,Long> route = Pair.of(draft.getFromLocation().getId(),
                     draft.getToLocation().getId());
 
-            /* If the current run did create/extend this route, keep it */
+            /* If today’s run rebuilt / updated this route, keep it */
             if (stillNeeded.containsKey(route)) continue;
 
-            Long toLocId  = draft.getToLocation().getId();
-            Long fromLocId= draft.getFromLocation().getId();
-            Long draftId  = draft.getId();
+            Long toLocId   = draft.getToLocation().getId();
+            Long fromLocId = draft.getFromLocation().getId();
+            Long draftId   = draft.getId();
 
-            /* Pre-load incoming/outgoing **excluding this draft** */
+            /* 3️⃣  Incoming / outgoing quantities *excluding* this draft */
             Map<Long, Double> incMap = to1LevelMap(
                     transferRepo.getIncomingQtyExcludingDraft(toLocId, draftId));
             Map<Long, Double> outMap = to1LevelMap(
@@ -183,7 +191,7 @@ public class RedistributeJob {
 
             boolean safeToDelete = true;
 
-            /* For each line in the draft check that receiver stays ≥ target */
+            /* 4️⃣  Simulate deletion line-by-line */
             for (TransferLine line : draft.getLines()) {
 
                 Long itemId = line.getInventoryItem().getId();
@@ -191,25 +199,25 @@ public class RedistributeJob {
                         iilRepo.findByInventoryItemIdAndLocationId(itemId, toLocId)
                                 .orElse(null);
 
-                if (row == null) continue;       // item removed from assortment → safe
+                if (row == null) continue;          // item no longer in assortment
 
-                double onHand = nz(row.getOnHand());
-                double min    = nz(row.getMinOnHand());
-                double par    = nz(row.getParLevel());
-                double target = (par > 0) ? par : min;
+                double onHand  = nz(row.getOnHand());
+                double min     = nz(row.getMinOnHand());
+                double par     = nz(row.getParLevel());
+                double target  = (par > 0) ? par : min;
 
-                double futureAfterDeletion =
-                        onHand                                     // physical stock
-                                - outMap.getOrDefault(itemId, 0d)          // stuff still leaving
-                                + incMap.getOrDefault(itemId, 0d);         // stuff still arriving
-                /* we do NOT add the draft qty – we are simulating deletion! */
+                /* stock after deletion (draft qty removed) */
+                double future = onHand
+                        - outMap.getOrDefault(itemId, 0d)
+                        + incMap.getOrDefault(itemId, 0d);
 
-                if (futureAfterDeletion < target - 0.0001) {
+                if (future < target - 0.0001) {     // would dip below target
                     safeToDelete = false;
                     break;
                 }
             }
 
+            /* 5️⃣  Delete or keep */
             if (safeToDelete) {
                 transferService.deleteTransfer(draftId);
                 notificationService.createNotification(
@@ -220,13 +228,14 @@ public class RedistributeJob {
         }
     }
 
-    /* helper – 2-column list → map<itemId,qty> */
+    /* helper: convert 2-column (itemId, qty) list to map */
     private Map<Long,Double> to1LevelMap(List<Object[]> rows){
         Map<Long,Double> m = new HashMap<>();
-        for (Object[] r: rows)
-            m.merge((Long)r[0], (Double)r[1], Double::sum);
+        for (Object[] r : rows)
+            m.merge((Long) r[0], (Double) r[1], Double::sum);
         return m;
     }
+
 
 
     /* ──────────────────────────────────────────────────────────────

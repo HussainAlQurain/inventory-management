@@ -256,5 +256,17 @@ WHERE ( fl.company.id = :companyId OR tl.company.id = :companyId )
     """)
     List<Object[]> getOutgoingQtyExcludingDraft(Long locationId, Long draftId);
 
+    @Query("""
+    SELECT DISTINCT t
+    FROM   Transfer t
+    LEFT   JOIN FETCH t.lines l
+    WHERE ( t.fromLocation.company.id = :companyId
+         OR t.toLocation .company.id = :companyId )
+      AND  t.status        = :status
+      AND  t.createdByUser = :user
+    """)
+    List<Transfer> findDraftsWithLines(Long companyId,
+                                       com.rayvision.inventory_management.enums.TransferStatus status,
+                                       Users user);
 
 }

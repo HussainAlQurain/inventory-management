@@ -167,10 +167,16 @@ public class DataInitializerConfig implements CommandLineRunner, ApplicationCont
             // 3. Create Bulk Data
             List<Supplier> suppliers = createSuppliers(company1, categories);
             List<Location> locations = createLocations(company1); // Create locations after company
+            log.info("Created {} locations, proceeding with user creation", locations.size());
+            
             createUsers(company1, locations, rolesMap); // Create users after locations and roles
-            List<InventoryItem> inventoryItems = createInventoryItems(company1, categories, uoms, suppliers); // Pass uomsByCategory map
-            List<SubRecipe> subRecipes = createSubRecipes(company1, categories, uoms, inventoryItems, uomsByCategory); // Pass uomsByCategory map
-            createMenuItems(company1, categories, uoms, inventoryItems, subRecipes, uomsByCategory); // Pass uomsByCategory map
+            List<InventoryItem> inventoryItems = createInventoryItems(company1, categories, uoms, suppliers);
+            List<SubRecipe> subRecipes = createSubRecipes(company1, categories, uoms, inventoryItems, uomsByCategory);
+            createMenuItems(company1, categories, uoms, inventoryItems, subRecipes, uomsByCategory);
+
+            // Initialize integration settings after all locations are created
+            log.info("Initializing integration settings for all locations...");
+            initializeLocationIntegrationSettings(company1.getId());
 
             log.info("Data initialization completed successfully.");
 
@@ -640,6 +646,8 @@ public class DataInitializerConfig implements CommandLineRunner, ApplicationCont
                 .map(Location::getName)
                 .collect(Collectors.toSet());
 
+        log.info("Found {} existing locations for company {}", existingLocations.size(), company.getId());
+
         boolean defaultLocationExists = existingLocationNames.contains("Default Location");
 
         for (int i = 1; i <= NUM_LOCATIONS; i++) {
@@ -664,10 +672,12 @@ public class DataInitializerConfig implements CommandLineRunner, ApplicationCont
             location.setPhone(DEFAULT_PHONE);
             location.setCompany(company);
             locationsToSave.add(location);
+            log.info("Added location {} to save list", locationName);
         }
 
+        log.info("Attempting to save {} new locations", locationsToSave.size());
         List<Location> savedNewLocations = locationRepository.saveAll(locationsToSave);
-        log.info("Created {} new Locations.", savedNewLocations.size());
+        log.info("Successfully saved {} new locations", savedNewLocations.size());
 
         List<Location> allCompanyLocations = locationRepository.findByCompanyId(company.getId());
         log.info("Total locations for company {}: {}", company.getId(), allCompanyLocations.size());
@@ -1146,7 +1156,7 @@ public class DataInitializerConfig implements CommandLineRunner, ApplicationCont
     public void initializeLocationIntegrationSettings(Long companyId) {
         log.info("Initializing integration settings for 50 locations...");
 
-        // Get first 50 locations for the company
+        // Fetch fresh locations from the database
         List<Location> locations = locationRepository.findByCompanyId(companyId)
                 .stream()
                 .limit(50)
@@ -1162,7 +1172,7 @@ public class DataInitializerConfig implements CommandLineRunner, ApplicationCont
         int count = 0;
         for (Location location : locations) {
             try {
-                // Base URL for the POS API - update to match the new format
+                // Base URL for the POS API
                 String posApiUrl = "http://localhost:8888/api/sales/location/" + location.getId();
 
                 // Check if setting already exists
@@ -1175,27 +1185,35 @@ public class DataInitializerConfig implements CommandLineRunner, ApplicationCont
                 } else {
                     log.info("Creating new integration setting for location: {}", location.getName());
                     setting = new LocationIntegrationSetting();
-                    setting.setLocation(location);
+                    // Fetch a fresh reference to the location
+                    Location freshLocation = locationRepository.findById(location.getId())
+                            .orElseThrow(() -> new RuntimeException("Location not found: " + location.getId()));
+                    setting.setLocation(freshLocation);
                 }
 
-                // Update the setting with 30 second frequency for easier testing
+                // Update the setting
                 setting.setPosApiUrl(posApiUrl);
-                setting.setFrequentSyncSeconds(30); // 30 seconds for faster testing
+                setting.setFrequentSyncSeconds(30);
                 setting.setFrequentSyncEnabled(true);
                 setting.setDailySyncEnabled(true);
 
+                // Save and verify
                 LocationIntegrationSetting saved = locationIntegrationSettingRepository.save(setting);
                 if (saved != null && saved.getId() != null) {
                     count++;
-                    log.info("Successfully saved integration setting for location: {}", location.getName());
+                    log.info("Successfully saved integration setting for location: {} (ID: {})", location.getName(), location.getId());
                 } else {
-                    log.error("Failed to save integration setting for location: {}", location.getName());
+                    log.error("Failed to save integration setting for location: {} (ID: {})", location.getName(), location.getId());
                 }
             } catch (Exception e) {
-                log.error("Error initializing integration setting for location {}: {}", location.getName(), e.getMessage(), e);
+                log.error("Error initializing integration setting for location {} (ID: {}): {}", 
+                    location.getName(), location.getId(), e.getMessage(), e);
             }
         }
 
-        log.info("Initialized integration settings for {} out of {} locations", count, locations.size());
+        // Verify final count
+        long totalSettings = locationIntegrationSettingRepository.count();
+        log.info("Initialized integration settings for {} out of {} locations. Total settings in database: {}", 
+            count, locations.size(), totalSettings);
     }
 }

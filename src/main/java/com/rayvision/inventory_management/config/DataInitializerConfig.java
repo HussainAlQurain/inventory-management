@@ -1157,26 +1157,45 @@ public class DataInitializerConfig implements CommandLineRunner, ApplicationCont
             return;
         }
 
+        log.info("Found {} locations to initialize integration settings for", locations.size());
+
         int count = 0;
         for (Location location : locations) {
-            // Base URL for the POS API - update to match the new format
-            String posApiUrl = "http://localhost:8888/api/sales/location/" + location.getId();
+            try {
+                // Base URL for the POS API - update to match the new format
+                String posApiUrl = "http://localhost:8888/api/sales/location/" + location.getId();
 
-            // Check if setting already exists
-            LocationIntegrationSetting setting = locationIntegrationSettingRepository.findByLocationId(location.getId())
-                    .orElse(new LocationIntegrationSetting(null, location, posApiUrl, 30, true, false,
-                            null, 0, null, 0, null));
+                // Check if setting already exists
+                Optional<LocationIntegrationSetting> existingSetting = locationIntegrationSettingRepository.findByLocationId(location.getId());
+                
+                LocationIntegrationSetting setting;
+                if (existingSetting.isPresent()) {
+                    log.info("Updating existing integration setting for location: {}", location.getName());
+                    setting = existingSetting.get();
+                } else {
+                    log.info("Creating new integration setting for location: {}", location.getName());
+                    setting = new LocationIntegrationSetting();
+                    setting.setLocation(location);
+                }
 
-            // Update the setting with 120 second frequency (2 minutes) for easier testing
-            setting.setPosApiUrl(posApiUrl);
-            setting.setFrequentSyncSeconds(30); // 2 minutes for faster testing
-            setting.setFrequentSyncEnabled(true);
-            setting.setDailySyncEnabled(true);
+                // Update the setting with 30 second frequency for easier testing
+                setting.setPosApiUrl(posApiUrl);
+                setting.setFrequentSyncSeconds(30); // 30 seconds for faster testing
+                setting.setFrequentSyncEnabled(true);
+                setting.setDailySyncEnabled(true);
 
-            locationIntegrationSettingRepository.save(setting);
-            count++;
+                LocationIntegrationSetting saved = locationIntegrationSettingRepository.save(setting);
+                if (saved != null && saved.getId() != null) {
+                    count++;
+                    log.info("Successfully saved integration setting for location: {}", location.getName());
+                } else {
+                    log.error("Failed to save integration setting for location: {}", location.getName());
+                }
+            } catch (Exception e) {
+                log.error("Error initializing integration setting for location {}: {}", location.getName(), e.getMessage(), e);
+            }
         }
 
-        log.info("Initialized integration settings for {} locations", count);
+        log.info("Initialized integration settings for {} out of {} locations", count, locations.size());
     }
 }

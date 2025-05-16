@@ -1134,7 +1134,7 @@ public class DataInitializerConfig implements CommandLineRunner, ApplicationCont
 
         // Update the setting
         setting.setEnabled(true);
-        setting.setFrequencySeconds(300); // 5 minutes
+        setting.setFrequencySeconds(30); // 5 minutes
         setting.setAutoTransferComment("Auto-generated transfer for stock balancing");
 
         autoRedistributeSettingRepository.save(setting);
@@ -1164,12 +1164,12 @@ public class DataInitializerConfig implements CommandLineRunner, ApplicationCont
 
             // Check if setting already exists
             LocationIntegrationSetting setting = locationIntegrationSettingRepository.findByLocationId(location.getId())
-                    .orElse(new LocationIntegrationSetting(null, location, null, 120, false, false,
+                    .orElse(new LocationIntegrationSetting(null, location, posApiUrl, 30, true, false,
                             null, 0, null, 0, null));
 
             // Update the setting with 120 second frequency (2 minutes) for easier testing
             setting.setPosApiUrl(posApiUrl);
-            setting.setFrequentSyncSeconds(120); // 2 minutes for faster testing
+            setting.setFrequentSyncSeconds(30); // 2 minutes for faster testing
             setting.setFrequentSyncEnabled(true);
             setting.setDailySyncEnabled(true);
 
